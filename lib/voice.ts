@@ -9,7 +9,6 @@ if (Platform.OS !== 'web') {
 }
 
 // TODO: move to a backend proxy before App Store submission — API key must not ship in production client
-const RETELL_API_KEY = process.env.EXPO_PUBLIC_RETELL_API_KEY ?? 'key_faf037ed18bb6b372ac05929eb52'
 
 export const AGENTS = {
   en: process.env.EXPO_PUBLIC_RETELL_AGENT_EN ?? 'agent_88718b83329c3417f0b1dce5b5',
@@ -32,10 +31,12 @@ async function getClient() {
 }
 
 async function createWebCallToken(agentId: string): Promise<string> {
+  const apiKey = process.env.EXPO_PUBLIC_RETELL_API_KEY
+  if (!apiKey) throw new Error('EXPO_PUBLIC_RETELL_API_KEY not set — add to .env')
   const res = await fetch('https://api.retellai.com/v2/create-web-call', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${RETELL_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ agent_id: agentId }),

@@ -1,6 +1,7 @@
 const https = require('https')
 
-const API_KEY = 'key_faf037ed18bb6b372ac05929eb52'
+const API_KEY = process.env.RETELL_API_KEY
+if (!API_KEY) { console.error('Set RETELL_API_KEY env var before running this script'); process.exit(1) }
 
 // ── Prompts ───────────────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@ AI-first Balkans travel app. Expo SDK 56 + Expo Router. Runs on iOS, Android, an
 - RateHawk — hotel search (simulated; real creds pending)
 
 ## Retell voice agents (Balkanea workspace)
-- **API key:** key_faf037ed18bb6b372ac05929eb52
+- **API key:** stored in Vercel env / set locally as `EXPO_PUBLIC_RETELL_API_KEY` in .env
 - **English (Bea EN):** agent_88718b83329c3417f0b1dce5b5 | LLM: llm_430bff8cc2cd3159ff96c0ec8fd3
 - **Macedonian (Bea MK):** agent_4eff660016ae3f4aaa688f1742 | LLM: llm_365990f1ab000ebb38fdc34b7100
 - Voice is web-only for now (WebRTC via retell-client-js-sdk). Native needs react-native-webrtc.
