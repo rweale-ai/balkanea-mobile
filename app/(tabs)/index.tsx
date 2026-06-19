@@ -6,7 +6,10 @@ import {
 } from 'react-native'
 import { ChatBubble } from '../../components/planner/ChatBubble'
 import { TripCard } from '../../components/planner/TripCard'
+import { VoiceButton } from '../../components/VoiceButton'
 import { sendMessage } from '../../lib/claude'
+import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
+import type { CallStatus } from '../../lib/voice'
 import type { ChatMessage } from '../../lib/types'
 import { Colors, Spacing, Radius } from '../../constants/theme'
 
@@ -28,9 +31,34 @@ export default function PlannerScreen() {
   const [messages, setMessages]   = useState<ChatMessage[]>([WELCOME])
   const [input, setInput]         = useState('')
   const [loading, setLoading]     = useState(false)
+  const [callStatus, setCallStatus]     = useState<CallStatus>('idle')
+  const [agentTalking, setAgentTalking] = useState(false)
   const listRef                   = useRef<FlatList>(null)
 
   const scrollToEnd = () => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100)
+
+  const handleVoicePress = useCallback(async () => {
+    if (callStatus === 'active') {
+      setCallStatus('ending')
+      stopVoiceCall()
+      setAgentTalking(false)
+      return
+    }
+    await startVoiceCall('en', {
+      onStatusChange: setCallStatus,
+      onAgentTalking: setAgentTalking,
+      onError: (msg) => {
+        setCallStatus('idle')
+        setAgentTalking(false)
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: msg,
+          timestamp: new Date(),
+        }])
+      },
+    })
+  }, [callStatus])
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -90,8 +118,11 @@ export default function PlannerScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Balkanea</Text>
-          <Text style={styles.headerSub}>AI Travel Planner</Text>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>Balkanea</Text>
+            <Text style={styles.headerSub}>AI Travel Planner</Text>
+          </View>
+          <VoiceButton status={callStatus} agentTalking={agentTalking} onPress={handleVoicePress} />
         </View>
 
         {/* Messages */}
@@ -156,12 +187,18 @@ const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.background },
   flex:   { flex: 1 },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.surface,
+  },
+  headerText: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 22,
