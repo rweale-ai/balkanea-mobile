@@ -50,6 +50,16 @@ function nightsBetween(checkin: string, checkout: string): number {
   return Math.round((new Date(checkout).getTime() - new Date(checkin).getTime()) / 86400000)
 }
 
+export function findHotelByMention(text: string): Hotel | null {
+  const lower = text.toLowerCase()
+  for (const hotels of Object.values(MOCK_HOTELS)) {
+    for (const h of hotels) {
+      if (lower.includes(h.name.toLowerCase())) return h
+    }
+  }
+  return null
+}
+
 export function searchHotels(intent: HotelSearchIntent): Hotel[] {
   const key   = normaliseDest(intent.destination)
   const pool  = MOCK_HOTELS[key] ?? MOCK_HOTELS.default

@@ -7,6 +7,7 @@ import { Colors, Spacing, Radius } from '../../constants/theme'
 interface Props {
   plan: TripPlan
   hotels: Hotel[]
+  onSave?: (plan: TripPlan) => void
 }
 
 const ACTIVITY_ICONS: Record<string, string> = {
@@ -18,8 +19,13 @@ const ACTIVITY_ICONS: Record<string, string> = {
   transport:   '🚌',
 }
 
-export function TripCard({ plan, hotels }: Props) {
+export function TripCard({ plan, hotels, onSave }: Props) {
   const [expanded, setExpanded] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const handleSave = () => {
+    if (!saved) { onSave?.(plan); setSaved(true) }
+  }
   const nights = plan.hotelSearch
     ? Math.round((new Date(plan.hotelSearch.checkout).getTime() - new Date(plan.hotelSearch.checkin).getTime()) / 86400000)
     : plan.duration
@@ -35,6 +41,17 @@ export function TripCard({ plan, hotels }: Props) {
           <View style={styles.badge}><Text style={styles.badgeText}>€{plan.estimatedBudget.perPersonPerNight}/night</Text></View>
         </View>
         <Text style={styles.summary}>{plan.summary}</Text>
+
+        {onSave && (
+          <TouchableOpacity
+            style={[styles.saveBtn, saved && styles.saveBtnDone]}
+            onPress={handleSave}
+            activeOpacity={0.8}
+            disabled={saved}
+          >
+            <Text style={styles.saveBtnText}>{saved ? '✓ Saved to My Trips' : '+ Save to My Trips'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Day-by-day itinerary */}
@@ -123,6 +140,25 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
     lineHeight: 20,
+  },
+  saveBtn: {
+    marginTop: Spacing.sm,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  saveBtnDone: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   toggleBtn: {
     backgroundColor: Colors.primaryLight,

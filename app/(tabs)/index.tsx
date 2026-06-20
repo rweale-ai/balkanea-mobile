@@ -1,16 +1,22 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
   SafeAreaView,
 } from 'react-native'
+import { useFocusEffect } from 'expo-router'
 import { ChatBubble } from '../../components/planner/ChatBubble'
 import { TripCard } from '../../components/planner/TripCard'
 import { VoiceButton } from '../../components/VoiceButton'
+import { VoiceHUD } from '../../components/VoiceHUD'
 import { sendMessage } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
-import type { CallStatus } from '../../lib/voice'
-import type { ChatMessage } from '../../lib/types'
+import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
+import type { ChatMessage, TripPlan } from '../../lib/types'
+import { saveTrip } from '../../lib/trips-store'
+import { consumeExploreIntent } from '../../lib/explore-intent'
+import { LocaleSelector } from '../../components/LocaleSelector'
+import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import { Colors, Spacing, Radius } from '../../constants/theme'
 
 const WELCOME: ChatMessage = {
@@ -28,28 +34,54 @@ const QUICK_PROMPTS = [
 ]
 
 export default function PlannerScreen() {
-  const [messages, setMessages]   = useState<ChatMessage[]>([WELCOME])
-  const [input, setInput]         = useState('')
-  const [loading, setLoading]     = useState(false)
+  const [messages, setMessages]         = useState<ChatMessage[]>([WELCOME])
+  const [input, setInput]               = useState('')
+  const [loading, setLoading]           = useState(false)
   const [callStatus, setCallStatus]     = useState<CallStatus>('idle')
   const [agentTalking, setAgentTalking] = useState(false)
-  const listRef                   = useRef<FlatList>(null)
+  const [transcript, setTranscript]     = useState<TranscriptEntry[]>([])
+  const [lang, setLang]                 = useState<AgentLang>('en')
+  const [country, setCountry]           = useState<CountryCode>('us')
+  const [currency, setCurrency]         = useState<CurrencyCode>('USD')
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  const listRef                         = useRef<FlatList>(null)
+
+  // Keep a live ref to handleSend so useFocusEffect can call it without stale closures
+  const handleSendRef = useRef<(text: string) => void>(() => {})
 
   const scrollToEnd = () => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100)
 
+  // Consume an explore intent when this tab gains focus
+  useFocusEffect(useCallback(() => {
+    const intent = consumeExploreIntent()
+    if (intent) setPendingPrompt(intent)
+  }, []))
+
+  // Fire the pending prompt once loading is idle and handleSend is current
+  useEffect(() => {
+    if (pendingPrompt && !loading) {
+      const text = pendingPrompt
+      setPendingPrompt(null)
+      handleSendRef.current(text)
+    }
+  }, [pendingPrompt, loading])
+
   const handleVoicePress = useCallback(async () => {
-    if (callStatus === 'active') {
+    if (callStatus === 'active' || callStatus === 'connecting') {
       setCallStatus('ending')
       stopVoiceCall()
       setAgentTalking(false)
+      setTranscript([])
       return
     }
-    await startVoiceCall('en', {
+    await startVoiceCall(lang, {
       onStatusChange: setCallStatus,
       onAgentTalking: setAgentTalking,
+      onTranscriptUpdate: setTranscript,
       onError: (msg) => {
         setCallStatus('idle')
         setAgentTalking(false)
+        setTranscript([])
         setMessages(prev => [...prev, {
           id: Date.now().toString(),
           role: 'assistant',
@@ -58,7 +90,7 @@ export default function PlannerScreen() {
         }])
       },
     })
-  }, [callStatus])
+  }, [callStatus, lang])
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -91,7 +123,6 @@ export default function PlannerScreen() {
       ...prev,
       {
         ...assistantMsg,
-        // Attach hotels to the trip plan via a non-standard field for rendering
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(response.type === 'plan' ? { hotels: (response as any).hotels } : {}),
       },
@@ -100,11 +131,18 @@ export default function PlannerScreen() {
     scrollToEnd()
   }, [messages, loading])
 
+  // Keep ref in sync
+  useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
+
+  const handleSaveTrip = useCallback((plan: TripPlan) => {
+    saveTrip(plan)
+  }, [])
+
   const renderItem = ({ item }: { item: ChatMessage & { hotels?: any[] } }) => (
     <View>
       <ChatBubble message={item} />
       {item.tripPlan && item.hotels && (
-        <TripCard plan={item.tripPlan} hotels={item.hotels} />
+        <TripCard plan={item.tripPlan} hotels={item.hotels} onSave={handleSaveTrip} />
       )}
     </View>
   )
@@ -116,13 +154,40 @@ export default function PlannerScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Header */}
+        {/* Header — title + lang toggle */}
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>Balkanea</Text>
             <Text style={styles.headerSub}>AI Travel Planner</Text>
           </View>
-          <VoiceButton status={callStatus} agentTalking={agentTalking} onPress={handleVoicePress} />
+
+          <LocaleSelector
+            country={country}
+            currency={currency}
+            onCountryChange={setCountry}
+            onCurrencyChange={setCurrency}
+          />
+
+          <View style={styles.langToggle}>
+            {(['en', 'mk'] as AgentLang[]).map(l => (
+              <TouchableOpacity
+                key={l}
+                style={[styles.langBtn, lang === l && styles.langBtnActive]}
+                onPress={() => setLang(l)}
+                disabled={callStatus !== 'idle'}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.langText, lang === l && styles.langTextActive]}>
+                  {l.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Voice hero — large centered mic button */}
+        <View style={styles.voiceHero}>
+          <VoiceButton size={104} status={callStatus} agentTalking={agentTalking} onPress={handleVoicePress} />
         </View>
 
         {/* Messages */}
@@ -179,6 +244,14 @@ export default function PlannerScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Iron Man HUD — full-screen overlay during voice calls */}
+      <VoiceHUD
+        transcript={transcript}
+        agentTalking={agentTalking}
+        callStatus={callStatus}
+        onEndCall={handleVoicePress}
+      />
     </SafeAreaView>
   )
 }
@@ -197,8 +270,13 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
     backgroundColor: Colors.surface,
   },
-  headerText: {
-    flex: 1,
+  headerText: { flex: 1 },
+  voiceHero: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   headerTitle: {
     fontSize: 22,
@@ -209,6 +287,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
   },
+
+  langToggle: {
+    flexDirection: 'row',
+    gap: 4,
+    marginRight: Spacing.sm,
+  },
+  langBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  langBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  langText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  langTextActive: { color: '#fff' },
+
   listContent: {
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,

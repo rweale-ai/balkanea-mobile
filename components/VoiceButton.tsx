@@ -7,11 +7,15 @@ interface Props {
   status: CallStatus
   agentTalking: boolean
   onPress: () => void
+  size?: number
 }
 
-export function VoiceButton({ status, agentTalking, onPress }: Props) {
+const BASE = 52
+
+export function VoiceButton({ status, agentTalking, onPress, size = BASE }: Props) {
   const pulse = useRef(new Animated.Value(1)).current
   const ring  = useRef(new Animated.Value(0)).current
+  const scale = size / BASE
 
   useEffect(() => {
     if (status === 'active') {
@@ -46,35 +50,49 @@ export function VoiceButton({ status, agentTalking, onPress }: Props) {
     : isActive ? 'Listening…'
     : 'Talk to Bea'
 
+  const r = size / 2
+
   return (
     <View style={styles.wrapper}>
-      {/* Expanding ring when active */}
       {isActive && (
         <Animated.View
           style={[
             styles.ring,
-            { opacity: ringOpacity, transform: [{ scale: ringScale }] },
+            {
+              width: size,
+              height: size,
+              borderRadius: r,
+              opacity: ringOpacity,
+              transform: [{ scale: ringScale }],
+            },
           ]}
         />
       )}
 
       <Animated.View style={{ transform: [{ scale: pulse }] }}>
         <TouchableOpacity
-          style={[styles.btn, isActive && styles.btnActive, isConnecting && styles.btnConnecting]}
+          style={[
+            styles.btn,
+            { width: size, height: size, borderRadius: r },
+            isActive && styles.btnActive,
+            isConnecting && styles.btnConnecting,
+          ]}
           onPress={onPress}
           activeOpacity={0.85}
           disabled={isConnecting}
         >
-          <Text style={styles.icon}>{isActive ? '⏹' : '🎙️'}</Text>
+          <Text style={[styles.icon, { fontSize: Math.round(22 * scale) }]}>
+            {isActive ? '⏹' : '🎙️'}
+          </Text>
         </TouchableOpacity>
       </Animated.View>
 
-      <Text style={[styles.label, isActive && styles.labelActive]}>{label}</Text>
+      <Text style={[styles.label, isActive && styles.labelActive, { fontSize: Math.round(11 * scale) }]}>
+        {label}
+      </Text>
     </View>
   )
 }
-
-const BTN = 52
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -83,16 +101,10 @@ const styles = StyleSheet.create({
   },
   ring: {
     position: 'absolute',
-    width: BTN,
-    height: BTN,
-    borderRadius: BTN / 2,
     borderWidth: 2,
     borderColor: Colors.accent,
   },
   btn: {
-    width: BTN,
-    height: BTN,
-    borderRadius: BTN / 2,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -102,24 +114,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  btnActive: {
-    backgroundColor: Colors.accent,
-  },
-  btnConnecting: {
-    backgroundColor: Colors.textLight,
-  },
-  disabled: {
-    opacity: 0.35,
-  },
-  icon: {
-    fontSize: 22,
-  },
+  btnActive:     { backgroundColor: Colors.accent },
+  btnConnecting: { backgroundColor: Colors.textLight },
+  icon:          { },
   label: {
-    fontSize: 11,
     color: Colors.textSecondary,
     fontWeight: '500',
   },
-  labelActive: {
-    color: Colors.accent,
-  },
+  labelActive: { color: Colors.accent },
 })

@@ -3,9 +3,13 @@ import { Platform } from 'react-native'
 // Polyfill WebRTC globals on native so retell-client-js-sdk can use them.
 // registerGlobals() is a no-op on web (uses browser's native WebRTC).
 if (Platform.OS !== 'web') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { registerGlobals } = require('react-native-webrtc')
-  registerGlobals()
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { registerGlobals } = require('react-native-webrtc')
+    registerGlobals()
+  } catch {
+    // Native WebRTC not available in this runtime (e.g. Expo Go)
+  }
 }
 
 // TODO: move to a backend proxy before App Store submission — API key must not ship in production client
@@ -46,10 +50,16 @@ async function createWebCallToken(agentId: string): Promise<string> {
   return data.access_token
 }
 
+export interface TranscriptEntry {
+  role: 'agent' | 'user'
+  content: string
+}
+
 export interface VoiceCallHandlers {
   onStatusChange: (status: CallStatus) => void
   onAgentTalking: (talking: boolean) => void
   onError: (msg: string) => void
+  onTranscriptUpdate?: (transcript: TranscriptEntry[]) => void
 }
 
 export async function startVoiceCall(lang: AgentLang, handlers: VoiceCallHandlers): Promise<void> {
@@ -62,6 +72,9 @@ export async function startVoiceCall(lang: AgentLang, handlers: VoiceCallHandler
     c.on('call_ended', () => handlers.onStatusChange('idle'))
     c.on('agent_start_talking', () => handlers.onAgentTalking(true))
     c.on('agent_stop_talking', () => handlers.onAgentTalking(false))
+    c.on('update', (data: { transcript?: TranscriptEntry[] }) => {
+      if (data.transcript) handlers.onTranscriptUpdate?.(data.transcript)
+    })
     c.on('error', (err: unknown) => {
       console.error('Retell error', err)
       handlers.onStatusChange('idle')
