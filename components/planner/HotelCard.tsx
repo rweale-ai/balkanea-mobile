@@ -1,7 +1,8 @@
 import React from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import type { Hotel } from '../../lib/types'
-import { Colors, Spacing, Radius } from '../../constants/theme'
+import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 interface Props {
   hotel: Hotel
@@ -9,40 +10,61 @@ interface Props {
 }
 
 function Stars({ count }: { count: number }) {
-  return (
-    <Text style={{ color: Colors.star, fontSize: 12 }}>
-      {'★'.repeat(count)}{'☆'.repeat(Math.max(0, 5 - count))}
-    </Text>
-  )
+  const stars = []
+  for (let i = 0; i < 5; i++) {
+    stars.push(
+      <View
+        key={i}
+        style={[styles.starDot, i < count ? styles.starFilled : styles.starEmpty]}
+      />
+    )
+  }
+  return <View style={styles.starsRow}>{stars}</View>
 }
 
 export function HotelCard({ hotel, nights }: Props) {
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={1}>{hotel.name}</Text>
-          <Stars count={hotel.stars} />
-          <Text style={styles.address} numberOfLines={1}>{hotel.address}</Text>
-        </View>
-        <View style={styles.priceBox}>
-          <Text style={styles.price}>€{hotel.price_per_night}</Text>
-          <Text style={styles.perNight}>/night</Text>
-          <Text style={styles.total}>€{hotel.total_price} total</Text>
-        </View>
-      </View>
+      <LinearGradient
+        colors={Gradients.primaryLight}
+        style={styles.imagePlaceholder}
+      >
+        <Text style={styles.placeholderText}>{hotel.name.charAt(0)}</Text>
+      </LinearGradient>
 
-      <View style={styles.amenities}>
-        {hotel.amenities.slice(0, 4).map(a => (
-          <View key={a} style={styles.tag}>
-            <Text style={styles.tagText}>{a}</Text>
+      <View style={styles.body}>
+        <View style={styles.header}>
+          <View style={styles.info}>
+            <Text style={styles.name} numberOfLines={1}>{hotel.name}</Text>
+            <Stars count={hotel.stars} />
+            <Text style={styles.address} numberOfLines={1}>{hotel.address}</Text>
           </View>
-        ))}
-      </View>
+          <View style={styles.priceBox}>
+            <Text style={styles.price}>{'€'}{hotel.price_per_night}</Text>
+            <Text style={styles.perNight}>/night</Text>
+            <Text style={styles.total}>{'€'}{hotel.total_price} total</Text>
+          </View>
+        </View>
 
-      <TouchableOpacity style={styles.bookBtn} activeOpacity={0.8}>
-        <Text style={styles.bookText}>View Hotel</Text>
-      </TouchableOpacity>
+        <View style={styles.amenities}>
+          {hotel.amenities.slice(0, 4).map(a => (
+            <View key={a} style={styles.tag}>
+              <Text style={styles.tagText}>{a}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity activeOpacity={0.8}>
+          <LinearGradient
+            colors={Gradients.primaryFade}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.bookBtn}
+          >
+            <Text style={styles.bookText}>View Hotel</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   )
 }
@@ -51,10 +73,22 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
-    padding: Spacing.md,
     marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    overflow: 'hidden',
+    ...Shadows.md,
+  },
+  imagePlaceholder: {
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    ...Typography.hero,
+    color: Colors.primary,
+    opacity: 0.2,
+  },
+  body: {
+    padding: Spacing.md,
   },
   header: {
     flexDirection: 'row',
@@ -66,30 +100,43 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   name: {
-    fontSize: 15,
-    fontWeight: '600',
+    ...Typography.h3,
     color: Colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 3,
+    marginBottom: 4,
+  },
+  starDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  starFilled: {
+    backgroundColor: Colors.star,
+  },
+  starEmpty: {
+    backgroundColor: Colors.border,
   },
   address: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
   },
   priceBox: {
     alignItems: 'flex-end',
   },
   price: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.primary,
+    ...Typography.h2,
+    color: Colors.accent,
   },
   perNight: {
-    fontSize: 11,
+    ...Typography.caption,
     color: Colors.textSecondary,
   },
   total: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.textSecondary,
     marginTop: 2,
   },
@@ -102,23 +149,22 @@ const styles = StyleSheet.create({
   tag: {
     backgroundColor: Colors.primaryLight,
     borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   tagText: {
-    fontSize: 11,
+    ...Typography.caption,
     color: Colors.primary,
     fontWeight: '500',
+    fontSize: 11,
   },
   bookBtn: {
-    backgroundColor: Colors.primary,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
     alignItems: 'center',
   },
   bookText: {
     color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
+    ...Typography.button,
   },
 })

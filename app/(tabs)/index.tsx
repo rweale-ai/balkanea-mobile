@@ -1,9 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
-  SafeAreaView,
+  StyleSheet, KeyboardAvoidingView, Platform, Animated,
+  SafeAreaView, Image,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from 'expo-router'
 import { ChatBubble } from '../../components/planner/ChatBubble'
 import { TripCard } from '../../components/planner/TripCard'
@@ -17,12 +19,12 @@ import { saveTrip } from '../../lib/trips-store'
 import { consumeExploreIntent } from '../../lib/explore-intent'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
-import { Colors, Spacing, Radius } from '../../constants/theme'
+import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 const WELCOME: ChatMessage = {
   id:        'welcome',
   role:      'assistant',
-  content:   "Hi! I'm Bea, your Balkans travel expert 🌍\n\nTell me about your dream trip — where are you thinking, or would you like some inspiration?",
+  content:   "Hi! I'm Bea, your Balkans travel expert.\n\nTell me about your dream trip — where are you thinking, or would you like some inspiration?",
   timestamp: new Date(),
 }
 
@@ -32,6 +34,36 @@ const QUICK_PROMPTS = [
   'Budget-friendly 5-day trip',
   'Family holiday with beaches',
 ]
+
+function TypingIndicator() {
+  const dots = [useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current]
+
+  useEffect(() => {
+    dots.forEach((dot, i) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 200),
+          Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.delay((2 - i) * 200),
+        ])
+      ).start()
+    })
+  }, [])
+
+  return (
+    <View style={styles.typingRow}>
+      <View style={styles.typingBubble}>
+        {dots.map((dot, i) => (
+          <Animated.View
+            key={i}
+            style={[styles.typingDot, { opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }), transform: [{ scale: dot.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.2] }) }] }]}
+          />
+        ))}
+      </View>
+    </View>
+  )
+}
 
 export default function PlannerScreen() {
   const [messages, setMessages]         = useState<ChatMessage[]>([WELCOME])
@@ -44,20 +76,17 @@ export default function PlannerScreen() {
   const [country, setCountry]           = useState<CountryCode>('us')
   const [currency, setCurrency]         = useState<CurrencyCode>('USD')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  const [inputFocused, setInputFocused] = useState(false)
   const listRef                         = useRef<FlatList>(null)
-
-  // Keep a live ref to handleSend so useFocusEffect can call it without stale closures
   const handleSendRef = useRef<(text: string) => void>(() => {})
 
   const scrollToEnd = () => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100)
 
-  // Consume an explore intent when this tab gains focus
   useFocusEffect(useCallback(() => {
     const intent = consumeExploreIntent()
     if (intent) setPendingPrompt(intent)
   }, []))
 
-  // Fire the pending prompt once loading is idle and handleSend is current
   useEffect(() => {
     if (pendingPrompt && !loading) {
       const text = pendingPrompt
@@ -123,7 +152,6 @@ export default function PlannerScreen() {
       ...prev,
       {
         ...assistantMsg,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(response.type === 'plan' ? { hotels: (response as any).hotels } : {}),
       },
     ])
@@ -131,7 +159,6 @@ export default function PlannerScreen() {
     scrollToEnd()
   }, [messages, loading])
 
-  // Keep ref in sync
   useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
 
   const handleSaveTrip = useCallback((plan: TripPlan) => {
@@ -154,10 +181,13 @@ export default function PlannerScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Header — title + lang toggle */}
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Balkanea</Text>
+            <Image
+              source={require('../../assets/balkanea-logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.headerSub}>AI Travel Planner</Text>
           </View>
 
@@ -172,25 +202,22 @@ export default function PlannerScreen() {
             {(['en', 'mk'] as AgentLang[]).map(l => (
               <TouchableOpacity
                 key={l}
-                style={[styles.langBtn, lang === l && styles.langBtnActive]}
                 onPress={() => setLang(l)}
                 disabled={callStatus !== 'idle'}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.langText, lang === l && styles.langTextActive]}>
-                  {l.toUpperCase()}
-                </Text>
+                <View style={[styles.langBtn, lang === l && styles.langBtnActive]}>
+                  <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l.toUpperCase()}</Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Voice hero — large centered mic button */}
         <View style={styles.voiceHero}>
           <VoiceButton size={104} status={callStatus} agentTalking={agentTalking} onPress={handleVoicePress} />
         </View>
 
-        {/* Messages */}
         <FlatList
           ref={listRef}
           data={messages}
@@ -200,31 +227,28 @@ export default function PlannerScreen() {
           onLayout={scrollToEnd}
         />
 
-        {/* Loading indicator */}
-        {loading && (
-          <View style={styles.loadingRow}>
-            <View style={styles.loadingBubble}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.loadingText}>Bea is planning...</Text>
-            </View>
-          </View>
-        )}
+        {loading && <TypingIndicator />}
 
-        {/* Quick prompts — only on first message */}
         {messages.length === 1 && !loading && (
           <View style={styles.quickPrompts}>
             {QUICK_PROMPTS.map(p => (
-              <TouchableOpacity key={p} style={styles.quickBtn} onPress={() => handleSend(p)} activeOpacity={0.7}>
-                <Text style={styles.quickText}>{p}</Text>
+              <TouchableOpacity key={p} onPress={() => handleSend(p)} activeOpacity={0.7}>
+                <LinearGradient
+                  colors={Gradients.primaryFade}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.quickBtn}
+                >
+                  <Text style={styles.quickText}>{p}</Text>
+                </LinearGradient>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
-        {/* Input bar */}
         <View style={styles.inputRow}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, inputFocused && styles.inputFocused]}
             value={input}
             onChangeText={setInput}
             placeholder="Ask Bea anything about the Balkans..."
@@ -233,19 +257,24 @@ export default function PlannerScreen() {
             maxLength={500}
             returnKeyType="send"
             onSubmitEditing={() => handleSend(input)}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
           />
           <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
             onPress={() => handleSend(input)}
             disabled={!input.trim() || loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.sendIcon}>↑</Text>
+            <LinearGradient
+              colors={(!input.trim() || loading) ? [Colors.border, Colors.border] : Gradients.primaryFade}
+              style={styles.sendBtn}
+            >
+              <Ionicons name="arrow-up" size={18} color="#fff" />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      {/* Iron Man HUD — full-screen overlay during voice calls */}
       <VoiceHUD
         transcript={transcript}
         agentTalking={agentTalking}
@@ -257,45 +286,41 @@ export default function PlannerScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.background },
-  flex:   { flex: 1 },
+  safe: { flex: 1, backgroundColor: Colors.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: Spacing.sm + 2,
     backgroundColor: Colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
   },
   headerText: { flex: 1 },
-  voiceHero: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.primary,
+  headerLogo: {
+    width: 120,
+    height: 32,
   },
   headerSub: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.textSecondary,
   },
-
+  voiceHero: {
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    backgroundColor: Colors.surface,
+  },
   langToggle: {
     flexDirection: 'row',
     gap: 4,
     marginRight: Spacing.sm,
   },
   langBtn: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -306,33 +331,34 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   langText: {
+    ...Typography.overline,
     fontSize: 11,
-    fontWeight: '700',
     color: Colors.textSecondary,
   },
   langTextActive: { color: '#fff' },
-
   listContent: {
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  loadingRow: {
+  typingRow: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  loadingBubble: {
+  typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.assistantBubble,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 4,
     alignSelf: 'flex-start',
-    gap: 8,
+    gap: 6,
   },
-  loadingText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
   },
   quickPrompts: {
     paddingHorizontal: Spacing.md,
@@ -342,14 +368,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickBtn: {
-    backgroundColor: Colors.primaryLight,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    ...Shadows.sm,
   },
   quickText: {
-    fontSize: 13,
-    color: Colors.primary,
+    ...Typography.caption,
+    color: '#fff',
     fontWeight: '500',
   },
   inputRow: {
@@ -358,9 +384,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
     gap: 8,
+    ...Shadows.sm,
   },
   input: {
     flex: 1,
@@ -368,26 +393,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    fontSize: 15,
+    ...Typography.body,
     color: Colors.text,
     maxHeight: 100,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderColor: Colors.borderLight,
+  },
+  inputFocused: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.surface,
   },
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sendBtnDisabled: {
-    backgroundColor: Colors.border,
-  },
-  sendIcon: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
   },
 })

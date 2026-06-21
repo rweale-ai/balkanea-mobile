@@ -1,7 +1,7 @@
-// In-memory trip store. Trips persist for the session but are cleared on reload.
-// Replace with AsyncStorage / Supabase for durable persistence before shipping.
-
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { TripPlan } from './types'
+
+const STORAGE_KEY = 'balkanea_saved_trips'
 
 export interface SavedTrip {
   id: string
@@ -9,26 +9,66 @@ export interface SavedTrip {
   savedAt: Date
 }
 
-const trips: SavedTrip[] = []
+interface StoredTrip {
+  id: string
+  plan: TripPlan
+  savedAt: string
+}
+
+let cache: SavedTrip[] = []
 const listeners: Array<(trips: SavedTrip[]) => void> = []
 
 function notify() {
-  const snapshot = [...trips]
+  const snapshot = [...cache]
   listeners.forEach(l => l(snapshot))
 }
 
-export function saveTrip(plan: TripPlan): void {
-  trips.unshift({ id: Date.now().toString(), plan, savedAt: new Date() })
+;(async () => {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const stored: StoredTrip[] = JSON.parse(raw)
+      cache = stored.map(t => ({ ...t, savedAt: new Date(t.savedAt) }))
+    }
+  } catch (e) {
+    console.warn('Failed to load trips from storage:', e)
+  }
   notify()
+})()
+
+async function persist() {
+  try {
+    const stored: StoredTrip[] = cache.map(t => ({
+      ...t,
+      savedAt: t.savedAt.toISOString(),
+    }))
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+  } catch (e) {
+    console.warn('Failed to persist trips:', e)
+  }
+}
+
+export function saveTrip(plan: TripPlan): void {
+  cache.unshift({ id: Date.now().toString(), plan, savedAt: new Date() })
+  notify()
+  persist()
 }
 
 export function deleteTrip(id: string): void {
-  const idx = trips.findIndex(t => t.id === id)
-  if (idx !== -1) { trips.splice(idx, 1); notify() }
+  const idx = cache.findIndex(t => t.id === id)
+  if (idx !== -1) {
+    cache.splice(idx, 1)
+    notify()
+    persist()
+  }
 }
 
 export function getTrips(): SavedTrip[] {
-  return [...trips]
+  return [...cache]
+}
+
+export function getTrip(id: string): SavedTrip | undefined {
+  return cache.find(t => t.id === id)
 }
 
 export function subscribeToTrips(listener: (trips: SavedTrip[]) => void): () => void {

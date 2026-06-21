@@ -1,7 +1,8 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import type { ChatMessage } from '../../lib/types'
-import { Colors, Spacing, Radius } from '../../constants/theme'
+import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 interface Props {
   message: ChatMessage
@@ -13,15 +14,27 @@ export function ChatBubble({ message }: Props) {
   return (
     <View style={[styles.row, isUser ? styles.rowUser : styles.rowAssistant]}>
       {!isUser && (
-        <View style={styles.avatar}>
+        <LinearGradient
+          colors={Gradients.primaryFade}
+          style={styles.avatar}
+        >
           <Text style={styles.avatarText}>B</Text>
+        </LinearGradient>
+      )}
+      {isUser ? (
+        <LinearGradient
+          colors={Gradients.primaryFade}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.bubble, styles.bubbleUser]}
+        >
+          <Text style={[styles.text, styles.textUser]}>{message.content}</Text>
+        </LinearGradient>
+      ) : (
+        <View style={[styles.bubble, styles.bubbleAssistant]}>
+          <Text style={[styles.text, styles.textAssistant]}>{message.content}</Text>
         </View>
       )}
-      <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-        <Text style={[styles.text, isUser ? styles.textUser : styles.textAssistant]}>
-          {message.content}
-        </Text>
-      </View>
     </View>
   )
 }
@@ -40,19 +53,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
     marginBottom: 2,
+    ...Shadows.sm,
   },
   avatarText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 15,
   },
   bubble: {
     maxWidth: '75%',
@@ -61,16 +74,17 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   bubbleUser: {
-    backgroundColor: Colors.userBubble,
     borderBottomRightRadius: 4,
+    ...Shadows.sm,
   },
   bubbleAssistant: {
     backgroundColor: Colors.assistantBubble,
     borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   text: {
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.body,
   },
   textUser: {
     color: '#fff',

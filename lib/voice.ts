@@ -7,6 +7,9 @@ if (Platform.OS !== 'web') {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { registerGlobals } = require('react-native-webrtc')
     registerGlobals()
+    if (typeof globalThis.window === 'undefined') {
+      (globalThis as any).window = globalThis
+    }
   } catch {
     // Native WebRTC not available in this runtime (e.g. Expo Go)
   }
@@ -28,8 +31,12 @@ let client: InstanceType<typeof import('retell-client-js-sdk').RetellWebClient> 
 
 async function getClient() {
   if (!client) {
-    const { RetellWebClient } = await import('retell-client-js-sdk')
-    client = new RetellWebClient()
+    try {
+      const { RetellWebClient } = await import('retell-client-js-sdk')
+      client = new RetellWebClient()
+    } catch {
+      throw new Error('Voice is not available on this device. Please try the web version.')
+    }
   }
   return client
 }

@@ -1,0 +1,66 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 24px; }
+  h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 20px; }
+
+  .tab-bar { display: flex; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 8px 0 12px; box-shadow: 0 -1px 3px rgba(0,0,0,0.08); }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 4px; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab-label { font-size: 10px; font-weight: 600; }
+  .tab-active svg { fill: #0B6E4F; }
+  .tab-active .tab-label { color: #0B6E4F; }
+  .tab-inactive svg { fill: #9CA3AF; }
+  .tab-inactive .tab-label { color: #9CA3AF; }
+  .dot { width: 4px; height: 4px; border-radius: 2px; background: #0B6E4F; margin-top: 1px; }
+
+  .category-row { display: flex; gap: 8px; margin-top: 24px; overflow-x: auto; padding-bottom: 4px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .chip-active { background: linear-gradient(to right, #0B6E4F, #094D38); color: #fff; }
+  .chip-inactive { background: #fff; border: 1px solid #F3F4F6; color: #6B7280; }
+
+  .prompt-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .prompt { background: linear-gradient(to right, #0B6E4F, #094D38); border-radius: 999px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  h3 { font-size: 10px; font-weight: 700; color: #6B7280; letter-spacing: 1.5px; text-transform: uppercase; margin: 24px 0 10px; }
+</style>
+</head><body>
+<h2>Navigation & Controls</h2>
+
+<h3>Tab Bar</h3>
+<div class="tab-bar">
+  <div class="tab tab-active">
+    <svg viewBox="0 0 512 512"><path d="M407.7 224l-79-89.2a24 24 0 01-5.7-15.5V56a8 8 0 00-8-8h-16a8 8 0 00-8 8v36.4L260.6 57a24 24 0 00-35.8 0L41.3 268.8A8 8 0 0047.2 280H96v152a24 24 0 0024 24h80a16 16 0 0016-16v-80a8 8 0 018-8h64a8 8 0 018 8v80a16 16 0 0016 16h80a24 24 0 0024-24V280h48.8a8 8 0 005.9-13.2z"/></svg>
+    <span class="tab-label">Plan</span>
+    <div class="dot"></div>
+  </div>
+  <div class="tab tab-inactive">
+    <svg viewBox="0 0 512 512"><path d="M256 56C145.7 56 56 145.7 56 256s89.7 200 200 200 200-89.7 200-200S366.3 56 256 56zm0 368c-92.6 0-168-75.4-168-168S163.4 88 256 88s168 75.4 168 168-75.4 168-168 168zm-12-296v122.8l85.6 49.4 16-27.7-73.6-42.5V128z"/></svg>
+    <span class="tab-label">Explore</span>
+  </div>
+  <div class="tab tab-inactive">
+    <svg viewBox="0 0 512 512"><path d="M336 80H176a48 48 0 00-48 48v16H96a48 48 0 00-48 48v208a48 48 0 0048 48h320a48 48 0 0048-48V192a48 48 0 00-48-48h-32v-16a48 48 0 00-48-48zm-144 64h128v-16H192z"/></svg>
+    <span class="tab-label">My Trips</span>
+  </div>
+</div>
+
+<h3>Category Chips</h3>
+<div class="category-row">
+  <span class="chip chip-active">✦ All</span>
+  <span class="chip chip-inactive">🏖 Beach</span>
+  <span class="chip chip-inactive">⛰ Mountain</span>
+  <span class="chip chip-inactive">🏛 Culture</span>
+  <span class="chip chip-inactive">🧗 Adventure</span>
+  <span class="chip chip-inactive">🌿 Nature</span>
+</div>
+
+<h3>Quick Prompts</h3>
+<div class="prompt-row">
+  <span class="prompt">Plan a romantic week in the Balkans</span>
+  <span class="prompt">Best destinations for first-time visitors</span>
+  <span class="prompt">Budget-friendly 5-day trip</span>
+  <span class="prompt">Family holiday with beaches</span>
+</div>
+</body></html>

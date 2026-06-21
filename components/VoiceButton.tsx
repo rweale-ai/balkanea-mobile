@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react'
 import { TouchableOpacity, Animated, StyleSheet, View, Text } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Ionicons } from '@expo/vector-icons'
 import type { CallStatus } from '../lib/voice'
-import { Colors, Radius } from '../constants/theme'
+import { Colors, Radius, Shadows, Typography, Gradients } from '../constants/theme'
 
 interface Props {
   status: CallStatus
@@ -21,7 +23,7 @@ export function VoiceButton({ status, agentTalking, onPress, size = BASE }: Prop
     if (status === 'active') {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulse, { toValue: 1.15, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1.12, duration: 600, useNativeDriver: true }),
           Animated.timing(pulse, { toValue: 1,    duration: 600, useNativeDriver: true }),
         ])
       ).start()
@@ -45,12 +47,19 @@ export function VoiceButton({ status, agentTalking, onPress, size = BASE }: Prop
   const isActive     = status === 'active'
   const isConnecting = status === 'connecting'
 
-  const label = isConnecting ? 'Connecting…'
+  const label = isConnecting ? 'Connecting...'
     : isActive && agentTalking ? 'Bea is speaking'
-    : isActive ? 'Listening…'
+    : isActive ? 'Listening...'
     : 'Talk to Bea'
 
   const r = size / 2
+  const iconSize = Math.round(22 * scale)
+
+  const gradientColors = isActive
+    ? Gradients.accentFade
+    : isConnecting
+      ? [Colors.textLight, Colors.textSecondary] as const
+      : Gradients.primaryFade
 
   return (
     <View style={styles.wrapper}>
@@ -70,20 +79,24 @@ export function VoiceButton({ status, agentTalking, onPress, size = BASE }: Prop
       )}
 
       <Animated.View style={{ transform: [{ scale: pulse }] }}>
-        <TouchableOpacity
-          style={[
-            styles.btn,
-            { width: size, height: size, borderRadius: r },
-            isActive && styles.btnActive,
-            isConnecting && styles.btnConnecting,
-          ]}
-          onPress={onPress}
-          activeOpacity={0.85}
-          disabled={isConnecting}
-        >
-          <Text style={[styles.icon, { fontSize: Math.round(22 * scale) }]}>
-            {isActive ? '⏹' : '🎙️'}
-          </Text>
+        <TouchableOpacity onPress={onPress} activeOpacity={0.85} disabled={isConnecting}>
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.btn,
+              { width: size, height: size, borderRadius: r },
+              isActive && Shadows.glow,
+              !isActive && !isConnecting && Shadows.md,
+            ]}
+          >
+            <Ionicons
+              name={isActive ? 'stop' : 'mic'}
+              size={iconSize}
+              color="#fff"
+            />
+          </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
 
@@ -105,19 +118,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
   btn: {
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  btnActive:     { backgroundColor: Colors.accent },
-  btnConnecting: { backgroundColor: Colors.textLight },
-  icon:          { },
   label: {
+    ...Typography.caption,
     color: Colors.textSecondary,
     fontWeight: '500',
   },

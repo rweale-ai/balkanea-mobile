@@ -1,147 +1,199 @@
 import React, { useState, useMemo } from 'react'
-import {
-  View, Text, FlatList, Image, TouchableOpacity,
-  ScrollView, StyleSheet, SafeAreaView, Dimensions,
-} from 'react-native'
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native'
 import { useRouter } from 'expo-router'
-import { DESTINATIONS } from '../../lib/destinations'
+import { LinearGradient } from 'expo-linear-gradient'
+import { DestinationCard } from '../../components/explore/DestinationCard'
+import { SearchBar } from '../../components/explore/SearchBar'
+import { CATEGORIES, filterDestinations } from '../../lib/destinations'
+import type { DestinationCategory, Destination } from '../../lib/destinations'
 import { setExploreIntent } from '../../lib/explore-intent'
-import { Colors, Spacing, Radius } from '../../constants/theme'
-
-const { width: W } = Dimensions.get('window')
-
-const COUNTRIES = ['All', 'Croatia', 'Montenegro', 'North Macedonia', 'Bosnia & Herzegovina', 'Serbia']
-const DEST_LIST = Object.values(DESTINATIONS)
+import { Colors, Spacing, Radius, Typography, Gradients } from '../../constants/theme'
 
 export default function ExploreScreen() {
-  const [filter, setFilter] = useState('All')
+  const [category, setCategory] = useState<DestinationCategory | 'all'>('all')
+  const [search, setSearch] = useState('')
   const router = useRouter()
 
-  const items = useMemo(
-    () => filter === 'All' ? DEST_LIST : DEST_LIST.filter(d => d.country === filter),
-    [filter]
-  )
+  const destinations = useMemo(() => filterDestinations(category, search), [category, search])
 
-  const handlePlan = (destName: string) => {
-    setExploreIntent(`Plan a trip to ${destName}`)
+  const featured = destinations[0]
+  const grid = destinations.slice(1)
+
+  const handlePress = (dest: Destination) => {
+    setExploreIntent(`I'm interested in visiting ${dest.name}, ${dest.country}. Tell me more!`)
     router.navigate('/')
   }
 
+  const pairs: Destination[][] = []
+  for (let i = 0; i < grid.length; i += 2) {
+    pairs.push(grid.slice(i, i + 2))
+  }
+
+  const renderGridPair = ({ item }: { item: Destination[] }) => (
+    <View style={styles.gridRow}>
+      {item.map(dest => (
+        <DestinationCard
+          key={dest.id}
+          destination={dest}
+          variant="grid"
+          onPress={() => handlePress(dest)}
+        />
+      ))}
+      {item.length === 1 && <View style={styles.gridSpacer} />}
+    </View>
+  )
+
   return (
-    <SafeAreaView style={s.safe}>
-      <View style={s.header}>
-        <Text style={s.title}>Explore Balkans</Text>
-        <Text style={s.sub}>Tap a destination to start planning</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.headerSection}>
+        <Text style={styles.title}>Explore</Text>
+        <Text style={styles.subtitle}>Discover the Balkans</Text>
       </View>
+
+      <SearchBar value={search} onChangeText={setSearch} />
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={s.filterScroll}
-        contentContainerStyle={s.filterContent}
+        contentContainerStyle={styles.chipRow}
+        style={styles.chipScroll}
       >
-        {COUNTRIES.map(c => (
-          <TouchableOpacity
-            key={c}
-            style={[s.chip, filter === c && s.chipActive]}
-            onPress={() => setFilter(c)}
-            activeOpacity={0.7}
-          >
-            <Text style={[s.chipText, filter === c && s.chipTextActive]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
+        {CATEGORIES.map(cat => {
+          const active = category === cat.id
+          return (
+            <TouchableOpacity
+              key={cat.id}
+              onPress={() => setCategory(cat.id)}
+              activeOpacity={0.7}
+            >
+              {active ? (
+                <LinearGradient
+                  colors={Gradients.primaryFade}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.chip}
+                >
+                  <Text style={styles.chipIcon}>{cat.icon}</Text>
+                  <Text style={[styles.chipLabel, styles.chipLabelActive]}>{cat.label}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={[styles.chip, styles.chipInactive]}>
+                  <Text style={styles.chipIcon}>{cat.icon}</Text>
+                  <Text style={styles.chipLabel}>{cat.label}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )
+        })}
       </ScrollView>
 
-      <FlatList
-        data={items}
-        keyExtractor={d => d.id}
-        numColumns={2}
-        contentContainerStyle={s.grid}
-        columnWrapperStyle={s.row}
-        ItemSeparatorComponent={() => <View style={s.rowGap} />}
-        renderItem={({ item: d }) => (
-          <TouchableOpacity style={s.card} activeOpacity={0.88} onPress={() => handlePlan(d.name)}>
-            <Image source={{ uri: d.imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            <View style={[StyleSheet.absoluteFill, s.cardScrim]} />
-            <View style={s.cardBody}>
-              <Text style={s.cardCountry}>{d.country.toUpperCase()}</Text>
-              <Text style={s.cardName}>{d.name}</Text>
-              <Text style={s.cardTagline} numberOfLines={1}>{d.tagline}</Text>
-              <View style={s.planPill}>
-                <Text style={s.planPillText}>Plan trip →</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+      {destinations.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🔍</Text>
+          <Text style={styles.emptyTitle}>No destinations found</Text>
+          <Text style={styles.emptyText}>Try a different search or category</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={pairs}
+          keyExtractor={(_, i) => i.toString()}
+          renderItem={renderGridPair}
+          ListHeaderComponent={
+            featured ? (
+              <DestinationCard
+                destination={featured}
+                variant="hero"
+                onPress={() => handlePress(featured)}
+              />
+            ) : null
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   )
 }
 
-const CARD_H = Math.floor((W - Spacing.md * 2 - 12) / 2 * 1.25)
-
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-
-  header: {
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  headerSection: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.primary },
-  sub:   { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-
-  filterScroll: { backgroundColor: Colors.surface, maxHeight: 52 },
-  filterContent: {
+  title: {
+    ...Typography.hero,
+    color: Colors.text,
+  },
+  subtitle: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  chipScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.md,
+  },
+  chipRow: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
     gap: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: Radius.full,
-    backgroundColor: Colors.background,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  chipInactive: {
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderLight,
   },
-  chipActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText:       { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
-  chipTextActive: { color: '#fff' },
-
-  grid:   { padding: Spacing.md },
-  row:    { gap: 12 },
-  rowGap: { height: 12 },
-
-  card: {
+  chipIcon: {
+    fontSize: 14,
+  },
+  chipLabel: {
+    ...Typography.bodyMedium,
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  chipLabelActive: {
+    color: '#fff',
+  },
+  listContent: {
+    paddingBottom: Spacing.xxl,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  gridSpacer: {
     flex: 1,
-    height: CARD_H,
-    borderRadius: Radius.md,
-    overflow: 'hidden',
-    backgroundColor: Colors.border,
   },
-  cardScrim: { backgroundColor: 'rgba(0,0,0,0.35)' },
-  cardBody: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.52)',
-    gap: 3,
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: Spacing.xxxl,
   },
-  cardCountry:  { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '700', letterSpacing: 1.5 },
-  cardName:     { fontSize: 17, color: '#fff', fontWeight: '800' },
-  cardTagline:  { fontSize: 10, color: 'rgba(255,255,255,0.75)', fontStyle: 'italic', marginBottom: 4 },
-  planPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: Spacing.md,
   },
-  planPillText: { fontSize: 11, color: '#fff', fontWeight: '600' },
+  emptyTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+    marginBottom: Spacing.xs,
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+  },
 })

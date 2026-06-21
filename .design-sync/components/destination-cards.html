@@ -1,0 +1,77 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 16px; }
+  h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 16px; }
+  h3 { font-size: 10px; font-weight: 700; color: #6B7280; letter-spacing: 1.5px; text-transform: uppercase; margin: 16px 0 10px; }
+
+  .card { border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-overlay { position: absolute; inset: 0; }
+  .card-content { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; }
+
+  .overline { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.8); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+  .card-name { font-weight: 700; color: #fff; }
+  .card-tagline { font-size: 14px; color: rgba(255,255,255,0.85); margin-top: 2px; }
+
+  .bottom-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .rating { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; color: #fff; }
+  .rating .star { color: #F59E0B; font-size: 12px; }
+  .rating .count { font-size: 11px; color: rgba(255,255,255,0.7); }
+  .plan-pill { background: rgba(255,255,255,0.2); border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #fff; }
+
+  .hero { height: 220px; margin-bottom: 12px; }
+  .hero .card-name { font-size: 28px; font-weight: 800; line-height: 34px; }
+
+  .grid { display: flex; gap: 8px; }
+  .grid .card { flex: 1; height: 180px; }
+  .grid .card-name { font-size: 18px; }
+</style>
+</head><body>
+<h2>Destination Cards</h2>
+
+<h3>Hero Variant</h3>
+<div class="card hero">
+  <img src="https://picsum.photos/seed/ohrid-lake/800/500" alt="">
+  <div class="card-overlay" style="background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.65))"></div>
+  <div class="card-content">
+    <div class="overline">North Macedonia</div>
+    <div class="card-name">Ohrid</div>
+    <div class="card-tagline">The Jerusalem of the Balkans</div>
+    <div class="bottom-row">
+      <div class="rating"><span class="star">★</span> 4.8 <span class="count">(1,240)</span></div>
+      <div class="plan-pill">Plan trip →</div>
+    </div>
+  </div>
+</div>
+
+<h3>Grid Variant</h3>
+<div class="grid">
+  <div class="card">
+    <img src="https://picsum.photos/seed/dubrovnik-walls/400/400" alt="">
+    <div class="card-overlay" style="background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.6))"></div>
+    <div class="card-content">
+      <div class="overline">Croatia</div>
+      <div class="card-name">Dubrovnik</div>
+      <div class="bottom-row">
+        <div class="rating"><span class="star">★</span> 4.9</div>
+        <div class="plan-pill">Plan trip →</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <img src="https://picsum.photos/seed/kotor-bay-medieval/400/400" alt="">
+    <div class="card-overlay" style="background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.6))"></div>
+    <div class="card-content">
+      <div class="overline">Montenegro</div>
+      <div class="card-name">Kotor</div>
+      <div class="bottom-row">
+        <div class="rating"><span class="star">★</span> 4.7</div>
+        <div class="plan-pill">Plan trip →</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

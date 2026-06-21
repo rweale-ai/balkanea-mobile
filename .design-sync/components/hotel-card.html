@@ -1,0 +1,92 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 16px; }
+  h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 16px; }
+
+  .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 3px 8px rgba(0,0,0,0.12); margin-bottom: 12px; }
+  .image-placeholder { height: 80px; background: linear-gradient(to bottom, #E8F5F0, #F0FAF6); display: flex; align-items: center; justify-content: center; }
+  .image-placeholder span { font-size: 32px; font-weight: 800; color: #0B6E4F; opacity: 0.2; }
+  .body { padding: 16px; }
+  .header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .info { flex: 1; margin-right: 16px; }
+  .name { font-size: 17px; font-weight: 600; color: #1A1A2E; margin-bottom: 4px; }
+  .stars { display: flex; gap: 3px; margin-bottom: 4px; }
+  .star-dot { width: 8px; height: 8px; border-radius: 4px; }
+  .star-filled { background: #F59E0B; }
+  .star-empty { background: #E5E7EB; }
+  .address { font-size: 13px; color: #6B7280; }
+  .price-box { text-align: right; }
+  .price { font-size: 20px; font-weight: 700; color: #F4A024; }
+  .per-night { font-size: 13px; color: #6B7280; }
+  .total { font-size: 13px; color: #6B7280; margin-top: 2px; }
+  .amenities { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+  .tag { background: #E8F5F0; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 500; color: #0B6E4F; }
+  .book-btn { display: block; text-align: center; background: linear-gradient(to right, #0B6E4F, #094D38); border-radius: 12px; padding: 10px; font-size: 15px; font-weight: 600; color: #fff; text-decoration: none; }
+</style>
+</head><body>
+<h2>Hotel Card</h2>
+
+<div class="card">
+  <div class="image-placeholder"><span>H</span></div>
+  <div class="body">
+    <div class="header">
+      <div class="info">
+        <div class="name">Hotel & Casino & Spa Cattaro</div>
+        <div class="stars">
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-empty"></div>
+        </div>
+        <div class="address">Old Town, Kotor</div>
+      </div>
+      <div class="price-box">
+        <div class="price">€120</div>
+        <div class="per-night">/night</div>
+        <div class="total">€600 total</div>
+      </div>
+    </div>
+    <div class="amenities">
+      <span class="tag">WiFi</span>
+      <span class="tag">Pool</span>
+      <span class="tag">Spa</span>
+      <span class="tag">Restaurant</span>
+    </div>
+    <a class="book-btn" href="#">View Hotel</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="image-placeholder"><span>V</span></div>
+  <div class="body">
+    <div class="header">
+      <div class="info">
+        <div class="name">Vardar Hotel</div>
+        <div class="stars">
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-filled"></div>
+          <div class="star-dot star-empty"></div>
+          <div class="star-dot star-empty"></div>
+        </div>
+        <div class="address">Stari Grad, Kotor</div>
+      </div>
+      <div class="price-box">
+        <div class="price">€75</div>
+        <div class="per-night">/night</div>
+        <div class="total">€375 total</div>
+      </div>
+    </div>
+    <div class="amenities">
+      <span class="tag">WiFi</span>
+      <span class="tag">Breakfast</span>
+      <span class="tag">Sea View</span>
+    </div>
+    <a class="book-btn" href="#">View Hotel</a>
+  </div>
+</div>
+</body></html>

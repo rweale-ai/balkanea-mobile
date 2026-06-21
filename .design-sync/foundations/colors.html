@@ -1,0 +1,60 @@
+<!-- @dsCard group="Foundations" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 20px; }
+  h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 16px; }
+  h3 { font-size: 13px; font-weight: 700; color: #6B7280; letter-spacing: 1.5px; text-transform: uppercase; margin: 20px 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .swatch { width: 72px; text-align: center; }
+  .swatch .box { width: 72px; height: 52px; border-radius: 12px; margin-bottom: 4px; border: 1px solid rgba(0,0,0,0.06); }
+  .swatch .label { font-size: 10px; font-weight: 600; color: #1A1A2E; }
+  .swatch .hex { font-size: 9px; color: #6B7280; }
+  .gradient-row { display: flex; gap: 8px; margin-top: 8px; }
+  .grad { flex: 1; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: #fff; }
+</style>
+</head><body>
+<h2>Color Palette</h2>
+
+<h3>Brand</h3>
+<div class="row">
+  <div class="swatch"><div class="box" style="background:#0B6E4F"></div><div class="label">Primary</div><div class="hex">#0B6E4F</div></div>
+  <div class="swatch"><div class="box" style="background:#094D38"></div><div class="label">Primary Dark</div><div class="hex">#094D38</div></div>
+  <div class="swatch"><div class="box" style="background:#0A5E45"></div><div class="label">Primary Med</div><div class="hex">#0A5E45</div></div>
+  <div class="swatch"><div class="box" style="background:#E8F5F0"></div><div class="label">Primary Light</div><div class="hex">#E8F5F0</div></div>
+</div>
+
+<h3>Accent</h3>
+<div class="row">
+  <div class="swatch"><div class="box" style="background:#F4A024"></div><div class="label">Accent</div><div class="hex">#F4A024</div></div>
+  <div class="swatch"><div class="box" style="background:#E8901A"></div><div class="label">Accent Dark</div><div class="hex">#E8901A</div></div>
+  <div class="swatch"><div class="box" style="background:#FFF3E0"></div><div class="label">Accent Light</div><div class="hex">#FFF3E0</div></div>
+</div>
+
+<h3>Neutrals</h3>
+<div class="row">
+  <div class="swatch"><div class="box" style="background:#1A1A2E"></div><div class="label">Text</div><div class="hex">#1A1A2E</div></div>
+  <div class="swatch"><div class="box" style="background:#6B7280"></div><div class="label">Text Sec.</div><div class="hex">#6B7280</div></div>
+  <div class="swatch"><div class="box" style="background:#9CA3AF"></div><div class="label">Text Light</div><div class="hex">#9CA3AF</div></div>
+  <div class="swatch"><div class="box" style="background:#E5E7EB"></div><div class="label">Border</div><div class="hex">#E5E7EB</div></div>
+  <div class="swatch"><div class="box" style="background:#F8F9FA"></div><div class="label">Background</div><div class="hex">#F8F9FA</div></div>
+</div>
+
+<h3>Status</h3>
+<div class="row">
+  <div class="swatch"><div class="box" style="background:#10B981"></div><div class="label">Success</div><div class="hex">#10B981</div></div>
+  <div class="swatch"><div class="box" style="background:#EF4444"></div><div class="label">Error</div><div class="hex">#EF4444</div></div>
+  <div class="swatch"><div class="box" style="background:#F59E0B"></div><div class="label">Star</div><div class="hex">#F59E0B</div></div>
+</div>
+
+<h3>Gradients</h3>
+<div class="gradient-row">
+  <div class="grad" style="background:linear-gradient(135deg,#0B6E4F,#094D38)">Primary Fade</div>
+  <div class="grad" style="background:linear-gradient(135deg,#F4A024,#E8901A)">Accent Fade</div>
+</div>
+<div class="gradient-row">
+  <div class="grad" style="background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.6));color:#fff">Card Overlay</div>
+  <div class="grad" style="background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.65))">Hero Overlay</div>
+</div>
+</body></html>

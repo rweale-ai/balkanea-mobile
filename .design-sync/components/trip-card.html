@@ -1,0 +1,84 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 16px; }
+  h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 16px; }
+
+  .card { border-radius: 20px; overflow: hidden; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+  .header { background: linear-gradient(135deg, #0B6E4F, #094D38); padding: 16px 16px 24px; }
+  .title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .badge { background: rgba(255,255,255,0.2); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #fff; }
+  .summary { font-size: 14px; color: rgba(255,255,255,0.9); line-height: 20px; }
+  .save-btn { display: inline-block; margin-top: 8px; background: linear-gradient(to right, #F4A024, #E8901A); border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #fff; }
+
+  .toggle { background: #E8F5F0; padding: 10px; text-align: center; font-size: 14px; font-weight: 500; color: #0B6E4F; }
+
+  .day { background: #F8F9FA; border-radius: 12px; padding: 16px; margin: 8px 16px; border-left: 3px solid; }
+  .day-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .day-desc { font-size: 13px; color: #6B7280; margin-bottom: 8px; }
+  .activity { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .activity-icon { width: 32px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .activity-name { font-size: 13px; font-weight: 500; color: #1A1A2E; }
+  .activity-desc { font-size: 12px; color: #6B7280; }
+
+  .tips { background: #FFF3E0; border-left: 3px solid #F4A024; border-radius: 12px; padding: 16px; margin: 8px 16px 16px; }
+  .tips-title { font-size: 14px; font-weight: 600; color: #1A1A2E; margin-bottom: 8px; }
+  .tip { font-size: 13px; color: #1A1A2E; margin-bottom: 4px; }
+</style>
+</head><body>
+<h2>Trip Card</h2>
+<div class="card">
+  <div class="header">
+    <div class="title">5-Day Romantic Kotor Escape</div>
+    <div class="badges">
+      <span class="badge">5 days</span>
+      <span class="badge">Kotor</span>
+      <span class="badge">€85/night</span>
+    </div>
+    <div class="summary">A romantic journey through Montenegro's stunning Bay of Kotor, blending medieval charm with coastal beauty.</div>
+    <div class="save-btn">+ Save to My Trips</div>
+  </div>
+
+  <div class="toggle">▼ View day-by-day itinerary</div>
+
+  <div class="day" style="border-left-color: #0B6E4F">
+    <div class="day-label" style="color: #0B6E4F">Day 1 — Arrival in Kotor</div>
+    <div class="day-desc">Settle in and explore the old town at your own pace</div>
+    <div class="activity">
+      <div class="activity-icon" style="background: rgba(11,110,79,0.08)">🏛️</div>
+      <div>
+        <div class="activity-name">Old Town Walking Tour · 2 hours</div>
+        <div class="activity-desc">Discover medieval architecture and hidden squares</div>
+      </div>
+    </div>
+    <div class="activity">
+      <div class="activity-icon" style="background: rgba(11,110,79,0.08)">🍽️</div>
+      <div>
+        <div class="activity-name">Dinner at Galion · 2 hours</div>
+        <div class="activity-desc">Waterfront seafood with views of the bay</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="day" style="border-left-color: #F4A024">
+    <div class="day-label" style="color: #F4A024">Day 2 — Fortress & Bay</div>
+    <div class="day-desc">Hike the fortress walls then cruise the bay</div>
+    <div class="activity">
+      <div class="activity-icon" style="background: rgba(244,160,36,0.08)">🧗</div>
+      <div>
+        <div class="activity-name">San Giovanni Fortress · 3 hours</div>
+        <div class="activity-desc">1,350 steps to panoramic bay views</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <div class="tips-title">Travel Tips</div>
+    <div class="tip">• Bring comfortable walking shoes for the cobblestones</div>
+    <div class="tip">• Book fortress visits early morning to avoid midday heat</div>
+  </div>
+</div>
+</body></html>

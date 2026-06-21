@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import type { TripPlan, Hotel } from '../../lib/types'
 import { HotelCard } from './HotelCard'
-import { Colors, Spacing, Radius } from '../../constants/theme'
+import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 interface Props {
   plan: TripPlan
@@ -19,6 +20,16 @@ const ACTIVITY_ICONS: Record<string, string> = {
   transport:   '🚌',
 }
 
+const DAY_COLORS = [
+  Colors.primary,
+  Colors.accent,
+  '#6366F1',
+  '#EC4899',
+  '#14B8A6',
+  '#8B5CF6',
+  '#F97316',
+]
+
 export function TripCard({ plan, hotels, onSave }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -32,42 +43,60 @@ export function TripCard({ plan, hotels, onSave }: Props) {
 
   return (
     <View style={styles.wrapper}>
-      {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={Gradients.primaryFade}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
         <Text style={styles.title}>{plan.title}</Text>
         <View style={styles.meta}>
           <View style={styles.badge}><Text style={styles.badgeText}>{plan.duration} days</Text></View>
           <View style={styles.badge}><Text style={styles.badgeText}>{plan.destination}</Text></View>
-          <View style={styles.badge}><Text style={styles.badgeText}>€{plan.estimatedBudget.perPersonPerNight}/night</Text></View>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{'€'}{plan.estimatedBudget.perPersonPerNight}/night</Text>
+          </View>
         </View>
         <Text style={styles.summary}>{plan.summary}</Text>
 
         {onSave && (
           <TouchableOpacity
-            style={[styles.saveBtn, saved && styles.saveBtnDone]}
             onPress={handleSave}
             activeOpacity={0.8}
             disabled={saved}
           >
-            <Text style={styles.saveBtnText}>{saved ? '✓ Saved to My Trips' : '+ Save to My Trips'}</Text>
+            <LinearGradient
+              colors={saved ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] : Gradients.accentFade}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.saveBtn, saved && styles.saveBtnDone]}
+            >
+              <Text style={styles.saveBtnText}>{saved ? '✓ Saved to My Trips' : '+ Save to My Trips'}</Text>
+            </LinearGradient>
           </TouchableOpacity>
         )}
-      </View>
+      </LinearGradient>
 
-      {/* Day-by-day itinerary */}
-      <TouchableOpacity style={styles.toggleBtn} onPress={() => setExpanded(!expanded)}>
+      <TouchableOpacity style={styles.toggleBtn} onPress={() => setExpanded(!expanded)} activeOpacity={0.7}>
         <Text style={styles.toggleText}>{expanded ? '▲ Hide itinerary' : '▼ View day-by-day itinerary'}</Text>
       </TouchableOpacity>
 
       {expanded && (
         <View style={styles.itinerary}>
-          {plan.days.map(day => (
-            <View key={day.day} style={styles.dayCard}>
-              <Text style={styles.dayLabel}>Day {day.day} — {day.title}</Text>
+          {plan.days.map((day, idx) => (
+            <View
+              key={day.day}
+              style={[styles.dayCard, { borderLeftColor: DAY_COLORS[idx % DAY_COLORS.length] }]}
+            >
+              <Text style={[styles.dayLabel, { color: DAY_COLORS[idx % DAY_COLORS.length] }]}>
+                Day {day.day} — {day.title}
+              </Text>
               <Text style={styles.dayDesc}>{day.description}</Text>
               {day.activities.map((a, i) => (
                 <View key={i} style={styles.activity}>
-                  <Text style={styles.activityIcon}>{ACTIVITY_ICONS[a.type] ?? '📍'}</Text>
+                  <View style={[styles.activityIconWrap, { backgroundColor: `${DAY_COLORS[idx % DAY_COLORS.length]}15` }]}>
+                    <Text style={styles.activityIcon}>{ACTIVITY_ICONS[a.type] ?? '📍'}</Text>
+                  </View>
                   <View style={styles.activityInfo}>
                     <Text style={styles.activityName}>{a.name}{a.duration ? ` · ${a.duration}` : ''}</Text>
                     <Text style={styles.activityDesc}>{a.description}</Text>
@@ -79,20 +108,18 @@ export function TripCard({ plan, hotels, onSave }: Props) {
         </View>
       )}
 
-      {/* Tips */}
       {plan.tips.length > 0 && (
         <View style={styles.tips}>
-          <Text style={styles.tipsTitle}>✈️ Travel Tips</Text>
+          <Text style={styles.tipsTitle}>Travel Tips</Text>
           {plan.tips.map((tip, i) => (
             <Text key={i} style={styles.tipText}>• {tip}</Text>
           ))}
         </View>
       )}
 
-      {/* Hotels */}
       {hotels.length > 0 && (
         <View style={styles.hotels}>
-          <Text style={styles.hotelsTitle}>🏨 Suggested Hotels</Text>
+          <Text style={styles.hotelsTitle}>Suggested Hotels</Text>
           {hotels.map(h => (
             <HotelCard key={h.hotel_id} hotel={h} nights={nights} />
           ))}
@@ -106,16 +133,17 @@ const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
+    ...Shadows.md,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
   },
   header: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    paddingBottom: Spacing.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Typography.h2,
     color: '#fff',
     marginBottom: Spacing.sm,
   },
@@ -129,117 +157,122 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: Radius.full,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   badgeText: {
+    ...Typography.caption,
     color: '#fff',
-    fontSize: 12,
     fontWeight: '600',
+    fontSize: 12,
   },
   summary: {
+    ...Typography.body,
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
-    lineHeight: 20,
   },
   saveBtn: {
     marginTop: Spacing.sm,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: Radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   saveBtnDone: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
   saveBtnText: {
+    ...Typography.caption,
     color: '#fff',
-    fontSize: 12,
     fontWeight: '600',
   },
   toggleBtn: {
     backgroundColor: Colors.primaryLight,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     alignItems: 'center',
-    marginBottom: Spacing.sm,
   },
   toggleText: {
+    ...Typography.bodyMedium,
     color: Colors.primary,
-    fontWeight: '600',
     fontSize: 14,
   },
   itinerary: {
-    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    paddingTop: Spacing.sm,
   },
   dayCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
   },
   dayLabel: {
+    ...Typography.h3,
     fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primary,
     marginBottom: 4,
   },
   dayDesc: {
-    fontSize: 13,
+    ...Typography.caption,
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
   },
   activity: {
     flexDirection: 'row',
     marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  activityIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   activityIcon: {
-    fontSize: 16,
-    marginRight: 8,
-    marginTop: 1,
+    fontSize: 14,
   },
   activityInfo: {
     flex: 1,
   },
   activityName: {
+    ...Typography.bodyMedium,
     fontSize: 13,
-    fontWeight: '600',
     color: Colors.text,
   },
   activityDesc: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.textSecondary,
-    lineHeight: 18,
+    fontSize: 12,
   },
   tips: {
-    backgroundColor: '#FFF8E7',
+    backgroundColor: Colors.accentLight,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.accent,
+    margin: Spacing.md,
+    marginTop: 0,
     borderRadius: Radius.md,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
   },
   tipsTitle: {
+    ...Typography.h3,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
   tipText: {
-    fontSize: 13,
+    ...Typography.body,
     color: Colors.text,
-    lineHeight: 20,
+    fontSize: 13,
     marginBottom: 4,
   },
   hotels: {
-    marginTop: Spacing.sm,
+    padding: Spacing.md,
+    paddingTop: 0,
   },
   hotelsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.text,
     marginBottom: Spacing.sm,
   },

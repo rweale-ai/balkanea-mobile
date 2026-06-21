@@ -1,0 +1,68 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 24px; }
+  h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 20px; }
+  .variants { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+  .variant { text-align: center; }
+  .variant-label { font-size: 10px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+
+  .voice-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .voice-btn { width: 104px; height: 104px; border-radius: 52px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .voice-btn-idle { background: linear-gradient(135deg, #0B6E4F, #094D38); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+  .voice-btn-active { background: linear-gradient(135deg, #F4A024, #E8901A); box-shadow: 0 0 12px rgba(11,110,79,0.3); }
+  .voice-btn-connecting { background: linear-gradient(135deg, #9CA3AF, #6B7280); }
+  .voice-btn svg { fill: #fff; width: 28px; height: 28px; }
+
+  .voice-label { font-size: 13px; font-weight: 500; color: #6B7280; }
+  .voice-label-active { color: #F4A024; }
+
+  .btn-small { width: 52px; height: 52px; border-radius: 26px; }
+  .btn-small svg { width: 20px; height: 20px; }
+</style>
+</head><body>
+<h2>Voice Button</h2>
+<div class="variants">
+  <div class="variant">
+    <div class="variant-label">Idle (Large)</div>
+    <div class="voice-wrap">
+      <div class="voice-btn voice-btn-idle">
+        <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 7h2v-3.07c3.39-.49 6-3.4 6-6.93h-2c0 3.03-2.47 5.5-5.5 5.5S6 14.03 6 11H4c0 3.53 2.61 6.44 6 6.93V21z"/></svg>
+      </div>
+      <span class="voice-label">Talk to Bea</span>
+    </div>
+  </div>
+
+  <div class="variant">
+    <div class="variant-label">Active (Large)</div>
+    <div class="voice-wrap">
+      <div class="voice-btn voice-btn-active">
+        <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+      </div>
+      <span class="voice-label voice-label-active">Listening...</span>
+    </div>
+  </div>
+
+  <div class="variant">
+    <div class="variant-label">Connecting</div>
+    <div class="voice-wrap">
+      <div class="voice-btn voice-btn-connecting">
+        <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 7h2v-3.07c3.39-.49 6-3.4 6-6.93h-2c0 3.03-2.47 5.5-5.5 5.5S6 14.03 6 11H4c0 3.53 2.61 6.44 6 6.93V21z"/></svg>
+      </div>
+      <span class="voice-label">Connecting...</span>
+    </div>
+  </div>
+
+  <div class="variant">
+    <div class="variant-label">Idle (Small)</div>
+    <div class="voice-wrap">
+      <div class="voice-btn btn-small voice-btn-idle">
+        <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 7h2v-3.07c3.39-.49 6-3.4 6-6.93h-2c0 3.03-2.47 5.5-5.5 5.5S6 14.03 6 11H4c0 3.53 2.61 6.44 6 6.93V21z"/></svg>
+      </div>
+      <span class="voice-label">Talk to Bea</span>
+    </div>
+  </div>
+</div>
+</body></html>
