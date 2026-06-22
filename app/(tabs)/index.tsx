@@ -191,6 +191,8 @@ export default function PlannerScreen() {
             <Text style={styles.headerSub}>AI Travel Planner</Text>
           </View>
 
+          <VoiceButton size={44} status={callStatus} agentTalking={agentTalking} onPress={handleVoicePress} />
+
           <LocaleSelector
             country={country}
             currency={currency}
@@ -212,10 +214,6 @@ export default function PlannerScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        <View style={styles.voiceHero}>
-          <VoiceButton size={104} status={callStatus} agentTalking={agentTalking} onPress={handleVoicePress} />
         </View>
 
         <FlatList
@@ -308,11 +306,6 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textSecondary,
   },
-  voiceHero: {
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-    backgroundColor: Colors.surface,
-  },
   langToggle: {
     flexDirection: 'row',
     gap: 4,
@@ -363,15 +356,13 @@ const styles = StyleSheet.create({
   quickPrompts: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   quickBtn: {
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    ...Shadows.sm,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
   },
   quickText: {
     ...Typography.caption,
