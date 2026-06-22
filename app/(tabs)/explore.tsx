@@ -136,11 +136,13 @@ const styles = StyleSheet.create({
   },
   chipScroll: {
     flexGrow: 0,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
+    maxHeight: 48,
   },
   chipRow: {
     paddingHorizontal: Spacing.md,
     gap: 8,
+    alignItems: 'center',
   },
   chip: {
     flexDirection: 'row',
@@ -173,6 +175,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   gridSpacer: {
     flex: 1,

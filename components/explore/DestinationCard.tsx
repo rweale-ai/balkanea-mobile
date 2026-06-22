@@ -57,15 +57,15 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.lg,
     overflow: 'hidden',
+    backgroundColor: Colors.primaryDark,
     ...Shadows.md,
   },
   heroCard: {
     marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   gridCard: {
     flex: 1,
-    marginBottom: Spacing.sm,
   },
   content: {
     flex: 1,
