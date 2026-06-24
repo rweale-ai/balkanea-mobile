@@ -1,13 +1,13 @@
 import type { TextStyle, ViewStyle } from 'react-native'
 
 export const Colors = {
-  primary:       '#0B6E4F',
-  primaryDark:   '#094D38',
-  primaryMedium: '#0A5E45',
-  primaryLight:  '#E8F5F0',
-  accent:        '#F4A024',
-  accentDark:    '#E8901A',
-  accentLight:   '#FFF3E0',
+  primary:       '#ED8323',
+  primaryDark:   '#E57757',
+  primaryMedium: '#e87a2f',
+  primaryLight:  '#FFF4E8',
+  accent:        '#00332A',
+  accentDark:    '#001a15',
+  accentLight:   '#E6F0EF',
   background:    '#F8F9FA',
   surface:       '#FFFFFF',
   text:          '#1A1A2E',
@@ -18,7 +18,7 @@ export const Colors = {
   success:       '#10B981',
   error:         '#EF4444',
   star:          '#F59E0B',
-  userBubble:    '#0B6E4F',
+  userBubble:    '#ED8323',
   assistantBubble: '#F3F4F6',
   overlay:       'rgba(0,0,0,0.4)',
   glass:         'rgba(255,255,255,0.85)',
@@ -80,8 +80,8 @@ export const Gradients = {
   cardOverlay:  ['transparent', 'rgba(0,0,0,0.6)'] as const,
   heroOverlay:  ['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.65)'] as const,
   primaryFade:  [Colors.primary, Colors.primaryDark] as const,
-  primaryLight: [Colors.primaryLight, '#F0FAF6'] as const,
-  warmGlow:     ['rgba(244,160,36,0.0)', 'rgba(244,160,36,0.08)'] as const,
+  primaryLight: [Colors.primaryLight, '#FFF8F2'] as const,
+  warmGlow:     ['rgba(237,131,35,0.0)', 'rgba(237,131,35,0.08)'] as const,
   accentFade:   [Colors.accent, Colors.accentDark] as const,
 }
 

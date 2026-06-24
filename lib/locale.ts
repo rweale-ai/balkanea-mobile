@@ -5,6 +5,7 @@ export interface Country {
   code: CountryCode
   name: string
   flag: string
+  flagUrl: string
 }
 
 export interface Currency {
@@ -13,18 +14,20 @@ export interface Currency {
   name: string
 }
 
+const FLAG_CDN = 'https://flagcdn.com/w80'
+
 export const COUNTRIES: Country[] = [
-  { code: 'us', name: 'United States', flag: '🇺🇸' },
-  { code: 'gb', name: 'United Kingdom', flag: '🇬🇧' },
-  { code: 'mk', name: 'North Macedonia', flag: '🇲🇰' },
-  { code: 'hr', name: 'Croatia', flag: '🇭🇷' },
-  { code: 'me', name: 'Montenegro', flag: '🇲🇪' },
-  { code: 'ba', name: 'Bosnia & Herzegovina', flag: '🇧🇦' },
-  { code: 'rs', name: 'Serbia', flag: '🇷🇸' },
-  { code: 'al', name: 'Albania', flag: '🇦🇱' },
-  { code: 'gr', name: 'Greece', flag: '🇬🇷' },
-  { code: 'si', name: 'Slovenia', flag: '🇸🇮' },
-  { code: 'bg', name: 'Bulgaria', flag: '🇧🇬' },
+  { code: 'us', name: 'United States', flag: '🇺🇸', flagUrl: `${FLAG_CDN}/us.png` },
+  { code: 'gb', name: 'United Kingdom', flag: '🇬🇧', flagUrl: `${FLAG_CDN}/gb.png` },
+  { code: 'mk', name: 'North Macedonia', flag: '🇲🇰', flagUrl: `${FLAG_CDN}/mk.png` },
+  { code: 'hr', name: 'Croatia', flag: '🇭🇷', flagUrl: `${FLAG_CDN}/hr.png` },
+  { code: 'me', name: 'Montenegro', flag: '🇲🇪', flagUrl: `${FLAG_CDN}/me.png` },
+  { code: 'ba', name: 'Bosnia & Herzegovina', flag: '🇧🇦', flagUrl: `${FLAG_CDN}/ba.png` },
+  { code: 'rs', name: 'Serbia', flag: '🇷🇸', flagUrl: `${FLAG_CDN}/rs.png` },
+  { code: 'al', name: 'Albania', flag: '🇦🇱', flagUrl: `${FLAG_CDN}/al.png` },
+  { code: 'gr', name: 'Greece', flag: '🇬🇷', flagUrl: `${FLAG_CDN}/gr.png` },
+  { code: 'si', name: 'Slovenia', flag: '🇸🇮', flagUrl: `${FLAG_CDN}/si.png` },
+  { code: 'bg', name: 'Bulgaria', flag: '🇧🇬', flagUrl: `${FLAG_CDN}/bg.png` },
 ]
 
 export const CURRENCIES: Currency[] = [

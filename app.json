@@ -11,8 +11,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.marraglobal.balkanea",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Balkanea uses your microphone to let you plan trips by voice with Bea."
-      }
+        "NSMicrophoneUsageDescription": "Balkanea uses your microphone to let you plan trips by voice with Bea.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bitcode": false
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +25,19 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.marraglobal.balkanea",
-      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "INTERNET"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,6 +46,13 @@
       "expo-router",
       "expo-status-bar",
       "@config-plugins/react-native-webrtc"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d3e5d449-e88f-49a0-a517-32412c16b100"
+      }
+    },
+    "owner": "rweale"
   }
 }

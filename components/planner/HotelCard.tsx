@@ -1,48 +1,65 @@
 import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { Ionicons } from '@expo/vector-icons'
 import type { Hotel } from '../../lib/types'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 interface Props {
   hotel: Hotel
   nights: number
+  onPress?: () => void
 }
 
 function Stars({ count }: { count: number }) {
   const stars = []
   for (let i = 0; i < 5; i++) {
     stars.push(
-      <View
+      <Ionicons
         key={i}
-        style={[styles.starDot, i < count ? styles.starFilled : styles.starEmpty]}
+        name={i < count ? 'star' : 'star-outline'}
+        size={12}
+        color={i < count ? Colors.star : Colors.border}
       />
     )
   }
   return <View style={styles.starsRow}>{stars}</View>
 }
 
-export function HotelCard({ hotel, nights }: Props) {
+export function HotelCard({ hotel, nights, onPress }: Props) {
+  const hasImage = hotel.images && hotel.images.length > 0
+
   return (
-    <View style={styles.card}>
-      <LinearGradient
-        colors={Gradients.primaryLight}
-        style={styles.imagePlaceholder}
-      >
-        <Text style={styles.placeholderText}>{hotel.name.charAt(0)}</Text>
-      </LinearGradient>
+    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
+      {hasImage ? (
+        <Image source={{ uri: hotel.images[0] }} style={styles.image} resizeMode="cover" />
+      ) : (
+        <LinearGradient colors={Gradients.primaryLight} style={styles.image}>
+          <Text style={styles.placeholderText}>{hotel.name.charAt(0)}</Text>
+        </LinearGradient>
+      )}
 
       <View style={styles.body}>
         <View style={styles.header}>
           <View style={styles.info}>
             <Text style={styles.name} numberOfLines={1}>{hotel.name}</Text>
-            <Stars count={hotel.stars} />
-            <Text style={styles.address} numberOfLines={1}>{hotel.address}</Text>
+            <View style={styles.ratingRow}>
+              <Stars count={hotel.stars} />
+              {hotel.guest_rating > 0 && (
+                <View style={styles.guestRating}>
+                  <Text style={styles.guestRatingText}>{hotel.guest_rating.toFixed(1)}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.address} numberOfLines={1}>
+              {hotel.address}
+              {hotel.distance_to_center > 0 && ` · ${hotel.distance_to_center} km to centre`}
+            </Text>
           </View>
           <View style={styles.priceBox}>
-            <Text style={styles.price}>{'€'}{hotel.price_per_night}</Text>
+            <Text style={styles.price}>€{hotel.price_per_night}</Text>
             <Text style={styles.perNight}>/night</Text>
-            <Text style={styles.total}>{'€'}{hotel.total_price} total</Text>
+            <Text style={styles.total}>€{hotel.total_price} total</Text>
           </View>
         </View>
 
@@ -54,18 +71,23 @@ export function HotelCard({ hotel, nights }: Props) {
           ))}
         </View>
 
-        <TouchableOpacity activeOpacity={0.8}>
+        <View style={styles.policyRow}>
+          <Ionicons name="shield-checkmark-outline" size={12} color={Colors.success} />
+          <Text style={styles.policyText} numberOfLines={1}>{hotel.cancellation_policy}</Text>
+        </View>
+
+        <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
           <LinearGradient
             colors={Gradients.primaryFade}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.bookBtn}
           >
-            <Text style={styles.bookText}>View Hotel</Text>
+            <Text style={styles.bookText}>View Rooms & Book</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 
@@ -77,8 +99,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadows.md,
   },
-  imagePlaceholder: {
-    height: 80,
+  image: {
+    height: 120,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -104,21 +127,27 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: 4,
   },
-  starsRow: {
+  ratingRow: {
     flexDirection: 'row',
-    gap: 3,
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
   },
-  starDot: {
-    width: 8,
-    height: 8,
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  guestRating: {
+    backgroundColor: Colors.primary,
     borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
   },
-  starFilled: {
-    backgroundColor: Colors.star,
-  },
-  starEmpty: {
-    backgroundColor: Colors.border,
+  guestRatingText: {
+    ...Typography.caption,
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 11,
   },
   address: {
     ...Typography.caption,
@@ -144,7 +173,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 4,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   tag: {
     backgroundColor: Colors.primaryLight,
@@ -156,6 +185,17 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.primary,
     fontWeight: '500',
+    fontSize: 11,
+  },
+  policyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: Spacing.sm,
+  },
+  policyText: {
+    ...Typography.caption,
+    color: Colors.success,
     fontSize: 11,
   },
   bookBtn: {

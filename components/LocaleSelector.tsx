@@ -1,19 +1,16 @@
 import React, { useState } from 'react'
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet,
-  Dimensions, Platform, ScrollView,
+  Dimensions, Platform, ScrollView, Image,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import {
-  COUNTRIES, CURRENCIES, DEFAULT_CURRENCY,
+  COUNTRIES, CURRENCIES,
   type CountryCode, type CurrencyCode,
 } from '../lib/locale'
-import { Colors, Spacing, Radius, Typography, Shadows } from '../constants/theme'
+import { Colors, Spacing, Radius, Typography } from '../constants/theme'
 
 const { height: SCREEN_H } = Dimensions.get('window')
-
-const NAVY = '#003580'
-const NAVY_DARK = '#002a66'
-const NAVY_LIGHT = '#EFF6FF'
 
 interface Props {
   country: CountryCode
@@ -23,84 +20,110 @@ interface Props {
 }
 
 export function LocaleSelector({ country, currency, onCountryChange, onCurrencyChange }: Props) {
-  const [open, setOpen] = useState(false)
-  const flag = COUNTRIES.find(c => c.code === country)?.flag ?? '🌐'
+  const [countryOpen, setCountryOpen] = useState(false)
+  const [currencyOpen, setCurrencyOpen] = useState(false)
 
-  const handleCountry = (code: CountryCode) => {
-    onCountryChange(code)
-    onCurrencyChange(DEFAULT_CURRENCY[code])
-  }
+  const countryData = COUNTRIES.find(c => c.code === country)
+  const currSymbol = CURRENCIES.find(c => c.code === currency)?.symbol ?? '$'
 
   return (
     <>
-      <TouchableOpacity style={styles.trigger} onPress={() => setOpen(true)} activeOpacity={0.8}>
-        <Text style={styles.triggerCurrency}>{currency}</Text>
-        <View style={styles.flagCircle}>
-          <Text style={styles.triggerFlag}>{flag}</Text>
-        </View>
-      </TouchableOpacity>
+      <View style={styles.row}>
+        {/* Country / language button — shows flag */}
+        <TouchableOpacity style={styles.btn} onPress={() => setCountryOpen(true)} activeOpacity={0.7}>
+          {countryData ? (
+            <Image source={{ uri: countryData.flagUrl }} style={styles.btnFlagImg} />
+          ) : (
+            <Ionicons name="globe-outline" size={20} color={Colors.text} />
+          )}
+        </TouchableOpacity>
 
-      <Modal
-        visible={open}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setOpen(false)}
-      >
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setOpen(false)} />
+        {/* Currency button — shows symbol */}
+        <TouchableOpacity style={styles.btn} onPress={() => setCurrencyOpen(true)} activeOpacity={0.7}>
+          <Text style={styles.btnSymbol}>{currSymbol}</Text>
+        </TouchableOpacity>
+      </View>
 
+      {/* Country modal */}
+      <Modal visible={countryOpen} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setCountryOpen(false)}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setCountryOpen(false)} />
         <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <Text style={styles.sheetTitle}>Country & Currency</Text>
-
+          <View style={styles.handleBar}><View style={styles.handle} /></View>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Language</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setCountryOpen(false)}>
+              <Ionicons name="close" size={22} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
-            <Text style={styles.sectionLabel}>COUNTRY</Text>
-            {COUNTRIES.map(c => (
-              <TouchableOpacity
-                key={c.code}
-                style={[styles.option, country === c.code && styles.optionSelected]}
-                onPress={() => handleCountry(c.code)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.optionFlag}>{c.flag}</Text>
-                <Text style={[styles.optionLabel, country === c.code && styles.optionLabelActive]}>
-                  {c.name}
-                </Text>
-                <View style={[styles.radio, country === c.code && styles.radioFilled]}>
-                  {country === c.code && <View style={styles.radioDot} />}
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            <Text style={[styles.sectionLabel, { marginTop: Spacing.md }]}>CURRENCY</Text>
-            {CURRENCIES.map(c => (
-              <TouchableOpacity
-                key={c.code}
-                style={[styles.option, currency === c.code && styles.optionSelected]}
-                onPress={() => onCurrencyChange(c.code)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.symbolBox}>
-                  <Text style={styles.symbol}>{c.symbol}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.optionLabel, currency === c.code && styles.optionLabelActive]}>
-                    {c.code}
-                  </Text>
-                  <Text style={styles.optionSub}>{c.name}</Text>
-                </View>
-                <View style={[styles.radio, currency === c.code && styles.radioFilled]}>
-                  {currency === c.code && <View style={styles.radioDot} />}
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            <View style={{ height: Spacing.md }} />
+            <View style={styles.grid}>
+              {COUNTRIES.map(c => {
+                const selected = country === c.code
+                return (
+                  <TouchableOpacity
+                    key={c.code}
+                    style={[styles.gridItem, selected && styles.gridItemSelected]}
+                    onPress={() => { onCountryChange(c.code); setCountryOpen(false) }}
+                    activeOpacity={0.7}
+                  >
+                    <Image source={{ uri: c.flagUrl }} style={styles.gridFlagImg} />
+                    <Text style={[styles.gridLabel, selected && styles.gridLabelSelected]} numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    {selected && (
+                      <View style={styles.checkBadge}>
+                        <Ionicons name="checkmark" size={12} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <View style={{ height: Spacing.xl }} />
           </ScrollView>
+        </View>
+      </Modal>
 
-          <TouchableOpacity style={styles.doneBtn} activeOpacity={0.85} onPress={() => setOpen(false)}>
-            <Text style={styles.doneBtnText}>Done</Text>
-          </TouchableOpacity>
+      {/* Currency modal */}
+      <Modal visible={currencyOpen} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setCurrencyOpen(false)}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setCurrencyOpen(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.handleBar}><View style={styles.handle} /></View>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Currency</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setCurrencyOpen(false)}>
+              <Ionicons name="close" size={22} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
+            <View style={styles.currencyList}>
+              {CURRENCIES.map(c => {
+                const selected = currency === c.code
+                return (
+                  <TouchableOpacity
+                    key={c.code}
+                    style={[styles.currencyRow, selected && styles.currencyRowSelected]}
+                    onPress={() => { onCurrencyChange(c.code); setCurrencyOpen(false) }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.currencyCircle, selected && styles.currencyCircleSelected]}>
+                      <Text style={[styles.currencyCircleText, selected && styles.currencyCircleTextSelected]}>{c.symbol}</Text>
+                    </View>
+                    <View style={styles.currencyInfo}>
+                      <Text style={[styles.currencyCode, selected && styles.currencyCodeSelected]}>{c.code}</Text>
+                      <Text style={styles.currencyName}>{c.name}</Text>
+                    </View>
+                    {selected && (
+                      <View style={styles.checkCircle}>
+                        <Ionicons name="checkmark" size={14} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <View style={{ height: Spacing.xl }} />
+          </ScrollView>
         </View>
       </Modal>
     </>
@@ -110,36 +133,30 @@ export function LocaleSelector({ country, currency, onCountryChange, onCurrencyC
 const SHEET_RADIUS = 20
 
 const styles = StyleSheet.create({
-  trigger: {
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: NAVY,
-    borderRadius: Radius.full,
-    paddingLeft: 14,
-    paddingRight: 5,
-    paddingVertical: 5,
-    marginRight: 8,
-    ...Shadows.sm,
+    gap: 6,
   },
-  triggerCurrency: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  flagCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: NAVY_DARK,
+
+  btn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  triggerFlag: {
-    fontSize: 20,
-    lineHeight: 24,
+  btnFlagImg: {
+    width: 26,
+    height: 18,
+    borderRadius: 2,
+  },
+  btnSymbol: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
   },
 
   backdrop: {
@@ -150,109 +167,162 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
-    paddingHorizontal: Spacing.md,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     maxHeight: SCREEN_H * 0.75,
+  },
+  handleBar: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
   },
   handle: {
     width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
   },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.text,
-    textAlign: 'center',
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    marginBottom: Spacing.md,
+    borderBottomColor: Colors.borderLight,
   },
+  sheetTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   scrollArea: {
     flexGrow: 0,
   },
 
-  sectionLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+  // Country grid
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    gap: 8,
+  },
+  gridItem: {
+    width: '31%',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm + 4,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.background,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  gridItemSelected: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
+  },
+  gridFlagImg: {
+    width: 36,
+    height: 24,
+    borderRadius: 3,
+    marginBottom: 4,
+  },
+  gridLabel: {
+    ...Typography.caption,
     color: Colors.textSecondary,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    marginLeft: 4,
+    fontWeight: '500',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  gridLabelSelected: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  checkBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  option: {
+  // Currency list
+  currencyList: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+  },
+  currencyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: Radius.md,
-    marginBottom: 6,
-    backgroundColor: '#F9FAFB',
-  },
-  optionSelected: {
-    backgroundColor: NAVY_LIGHT,
+    marginBottom: 4,
+    backgroundColor: Colors.background,
     borderWidth: 1.5,
-    borderColor: NAVY,
+    borderColor: 'transparent',
   },
-  optionFlag: { fontSize: 24 },
-  optionLabel: {
+  currencyRowSelected: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
+  },
+  currencyCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencyCircleSelected: {
+    backgroundColor: Colors.primary,
+  },
+  currencyCircleText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  currencyCircleTextSelected: {
+    color: '#fff',
+  },
+  currencyInfo: {
     flex: 1,
+  },
+  currencyCode: {
+    ...Typography.bodyMedium,
     fontSize: 15,
-    fontWeight: '500',
     color: Colors.text,
   },
-  optionLabelActive: { color: NAVY, fontWeight: '700' },
-  optionSub: {
-    fontSize: 12,
+  currencyCodeSelected: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  currencyName: {
+    ...Typography.caption,
     color: Colors.textSecondary,
+    fontSize: 12,
     marginTop: 1,
   },
-
-  symbolBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: NAVY,
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  symbol: { fontSize: 16, color: '#fff', fontWeight: '700' },
-
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioFilled: { borderColor: NAVY },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: NAVY,
-  },
-
-  doneBtn: {
-    marginTop: Spacing.sm,
-    backgroundColor: NAVY,
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  doneBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
   },
 })

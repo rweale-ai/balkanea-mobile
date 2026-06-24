@@ -46,8 +46,8 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>Explore</Text>
-        <Text style={styles.subtitle}>Discover the Balkans</Text>
+        <Text style={styles.title}>Where to next?</Text>
+        <Text style={styles.subtitle}>Popular destinations from the Balkans</Text>
       </View>
 
       <SearchBar value={search} onChangeText={setSearch} />

@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native'
 import { findDestination, type Destination } from '../lib/destinations'
-import { findHotelByMention } from '../lib/hotels'
 import type { Hotel } from '../lib/types'
 import type { CallStatus, TranscriptEntry } from '../lib/voice'
 
@@ -260,11 +259,6 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
       crossfadeTo(det.imageUrl)
     }
 
-    const h = findHotelByMention(text)
-    if (h && h.hotel_id !== lastHotelId.current) {
-      lastHotelId.current = h.hotel_id
-      slideInHotel(h)
-    }
   }, [transcript, crossfadeTo, slideInHotel])
 
   // Displayed transcript text — last agent utterance, trimmed to 220 chars

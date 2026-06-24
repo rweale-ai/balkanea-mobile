@@ -1,76 +1,143 @@
-// Simulated RateHawk hotel data — same shape as the real API response.
-// Swap to real RateHawk calls by replacing searchHotels() once sandbox access arrives.
-// Destination keys match balkanea-lead-webhook/lib/ratehawk.js for consistency.
+import type { Hotel, HotelSearchParams, RoomType } from './types'
 
-import type { Hotel, HotelSearchIntent } from './types'
+const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
 
-const MOCK_HOTELS: Record<string, Hotel[]> = {
-  ohrid: [
-    { hotel_id: 'oh-001', name: 'Hotel Tino Ohrid', stars: 4, address: 'Kej Makedonija 1, Ohrid', price_per_night: 95, total_price: 0, currency: 'EUR', amenities: ['Pool', 'Lake view', 'Free WiFi', 'Breakfast included'], booking_url: 'https://balkanea.com/hotel/tino-ohrid', image_url: undefined },
-    { hotel_id: 'oh-002', name: 'Villa Lucija', stars: 3, address: 'Kaneo 12, Ohrid', price_per_night: 62, total_price: 0, currency: 'EUR', amenities: ['Free WiFi', 'City centre', 'Air conditioning'], booking_url: 'https://balkanea.com/hotel/villa-lucija', image_url: undefined },
-    { hotel_id: 'oh-003', name: 'Sunrise Beach Hotel', stars: 3, address: 'Lakatnik bb, Ohrid', price_per_night: 74, total_price: 0, currency: 'EUR', amenities: ['Beach access', 'Free WiFi', 'Parking'], booking_url: 'https://balkanea.com/hotel/sunrise-beach', image_url: undefined },
-  ],
-  dubrovnik: [
-    { hotel_id: 'db-001', name: 'Hotel Excelsior Dubrovnik', stars: 5, address: 'Frana Supila 12, Dubrovnik', price_per_night: 320, total_price: 0, currency: 'EUR', amenities: ['Sea view', 'Pool', 'Spa', 'Free WiFi'], booking_url: 'https://balkanea.com/hotel/excelsior-dubrovnik', image_url: undefined },
-    { hotel_id: 'db-002', name: 'Villa Orsula', stars: 4, address: 'Frana Supila 14, Dubrovnik', price_per_night: 185, total_price: 0, currency: 'EUR', amenities: ['Sea view', 'Free WiFi', 'Breakfast included'], booking_url: 'https://balkanea.com/hotel/villa-orsula', image_url: undefined },
-    { hotel_id: 'db-003', name: 'Hotel Stari Grad', stars: 3, address: 'Od Sigurate 4, Dubrovnik', price_per_night: 128, total_price: 0, currency: 'EUR', amenities: ['Old Town', 'Free WiFi', 'Air conditioning'], booking_url: 'https://balkanea.com/hotel/stari-grad', image_url: undefined },
-  ],
-  kotor: [
-    { hotel_id: 'kt-001', name: 'Palazzo Drusko', stars: 4, address: 'Stari Grad, Kotor', price_per_night: 145, total_price: 0, currency: 'EUR', amenities: ['Old Town', 'Bay view', 'Free WiFi', 'Breakfast included'], booking_url: 'https://balkanea.com/hotel/palazzo-drusko', image_url: undefined },
-    { hotel_id: 'kt-002', name: 'Hotel Vardar', stars: 3, address: 'Stari Grad 476, Kotor', price_per_night: 88, total_price: 0, currency: 'EUR', amenities: ['Old Town', 'Free WiFi', 'Air conditioning'], booking_url: 'https://balkanea.com/hotel/vardar-kotor', image_url: undefined },
-    { hotel_id: 'kt-003', name: 'Hotel Monte Cristo', stars: 4, address: 'Dobrota, Kotor', price_per_night: 112, total_price: 0, currency: 'EUR', amenities: ['Bay view', 'Pool', 'Free WiFi', 'Parking'], booking_url: 'https://balkanea.com/hotel/monte-cristo', image_url: undefined },
-  ],
-  budva: [
-    { hotel_id: 'bd-001', name: 'Avala Resort', stars: 5, address: 'Mediteranska 2, Budva', price_per_night: 195, total_price: 0, currency: 'EUR', amenities: ['Pool', 'Spa', 'Beach access', 'Sea view'], booking_url: 'https://balkanea.com/hotel/avala-resort', image_url: undefined },
-    { hotel_id: 'bd-002', name: 'Hotel Budva', stars: 4, address: 'Mediteranska 4, Budva', price_per_night: 118, total_price: 0, currency: 'EUR', amenities: ['Beach access', 'Pool', 'Free WiFi', 'Sea view'], booking_url: 'https://balkanea.com/hotel/hotel-budva', image_url: undefined },
-  ],
-  sarajevo: [
-    { hotel_id: 'sj-001', name: 'Hotel Europe Sarajevo', stars: 5, address: 'Vladislava Skarica 5, Sarajevo', price_per_night: 145, total_price: 0, currency: 'EUR', amenities: ['City centre', 'Spa', 'Free WiFi', 'Breakfast included'], booking_url: 'https://balkanea.com/hotel/europe-sarajevo', image_url: undefined },
-    { hotel_id: 'sj-002', name: 'Hotel Michele', stars: 4, address: 'Ivana Cankar 6, Sarajevo', price_per_night: 98, total_price: 0, currency: 'EUR', amenities: ['City centre', 'Free WiFi', 'Air conditioning'], booking_url: 'https://balkanea.com/hotel/michele-sarajevo', image_url: undefined },
-  ],
-  belgrade: [
-    { hotel_id: 'bg-001', name: 'Metropol Palace', stars: 5, address: 'Bulevar Kralja Aleksandra 69, Belgrade', price_per_night: 178, total_price: 0, currency: 'EUR', amenities: ['City centre', 'Pool', 'Spa', 'Free WiFi'], booking_url: 'https://balkanea.com/hotel/metropol-palace', image_url: undefined },
-    { hotel_id: 'bg-002', name: 'Hotel Moskva', stars: 4, address: 'Balkanska 1, Belgrade', price_per_night: 115, total_price: 0, currency: 'EUR', amenities: ['City centre', 'Free WiFi', 'Breakfast included'], booking_url: 'https://balkanea.com/hotel/hotel-moskva', image_url: undefined },
-  ],
-  default: [
-    { hotel_id: 'df-001', name: 'Grand Balkan Hotel', stars: 4, address: 'City Centre', price_per_night: 110, total_price: 0, currency: 'EUR', amenities: ['Free WiFi', 'Breakfast included', 'Air conditioning'], booking_url: 'https://balkanea.com', image_url: undefined },
-    { hotel_id: 'df-002', name: 'Boutique Hotel Adriatic', stars: 3, address: 'Old Town', price_per_night: 75, total_price: 0, currency: 'EUR', amenities: ['Free WiFi', 'City centre', 'Parking'], booking_url: 'https://balkanea.com', image_url: undefined },
-  ],
+const ROOM_TEMPLATES: RoomType[] = [
+  { room_id: 'std', name: 'Standard Double Room', max_guests: 2, price_per_night: 0, total_price: 0, meal_plan: 'Room only', cancellation: 'Free cancellation until 48h before check-in', beds: '1 double bed' },
+  { room_id: 'sup', name: 'Superior Room', max_guests: 3, price_per_night: 0, total_price: 0, meal_plan: 'Breakfast included', cancellation: 'Free cancellation until 72h before check-in', beds: '1 king bed' },
+  { room_id: 'dlx', name: 'Deluxe Suite', max_guests: 4, price_per_night: 0, total_price: 0, meal_plan: 'Half board', cancellation: 'Non-refundable', beds: '1 king bed + sofa bed' },
+]
+
+const AMENITY_POOLS = [
+  ['Free WiFi', 'Pool', 'Spa', 'Restaurant', 'Fitness centre', 'Room service'],
+  ['Free WiFi', 'Beach access', 'Pool', 'Air conditioning', 'Parking', 'Bar'],
+  ['Free WiFi', 'City centre', 'Breakfast included', 'Air conditioning', 'Concierge'],
+  ['Free WiFi', 'Sea view', 'Pool', 'Spa', 'All-inclusive available', 'Kids club'],
+  ['Free WiFi', 'Mountain view', 'Restaurant', 'Parking', 'Terrace', 'Garden'],
+]
+
+const HOTEL_NAMES_BY_TIER: Record<string, string[]> = {
+  luxury: ['Grand Palace Hotel', 'The Royal Residence', 'Bellevue Luxury Suites', 'Imperial Hotel & Spa', 'Crystal Bay Resort'],
+  mid: ['Hotel Panorama', 'City Centre Inn', 'Sunset Beach Hotel', 'Mediterranean Hotel', 'Park View Hotel'],
+  budget: ['Hostel Central', 'Budget Stay Inn', 'Economy Rooms', 'Backpacker Lodge', 'Simple Suites'],
 }
 
-function normaliseDest(dest: string): string {
-  const d = dest.toLowerCase().trim()
-  for (const key of Object.keys(MOCK_HOTELS)) {
-    if (d.includes(key) || key.includes(d)) return key
+function seededRandom(seed: number): () => number {
+  let s = seed
+  return () => {
+    s = (s * 16807) % 2147483647
+    return (s - 1) / 2147483646
   }
-  return 'default'
 }
 
 function nightsBetween(checkin: string, checkout: string): number {
-  return Math.round((new Date(checkout).getTime() - new Date(checkin).getTime()) / 86400000)
+  return Math.max(1, Math.round((new Date(checkout).getTime() - new Date(checkin).getTime()) / 86400000))
 }
 
-export function findHotelByMention(text: string): Hotel | null {
-  const lower = text.toLowerCase()
-  for (const hotels of Object.values(MOCK_HOTELS)) {
-    for (const h of hotels) {
-      if (lower.includes(h.name.toLowerCase())) return h
-    }
-  }
-  return null
-}
+function generateHotels(params: HotelSearchParams): Hotel[] {
+  const seed = params.destination.length * 1000 + (params.regionId ?? 0)
+  const rand = seededRandom(seed)
+  const nights = nightsBetween(params.checkin, params.checkout)
+  const hotels: Hotel[] = []
 
-export function searchHotels(intent: HotelSearchIntent): Hotel[] {
-  const key   = normaliseDest(intent.destination)
-  const pool  = MOCK_HOTELS[key] ?? MOCK_HOTELS.default
-  const nights = nightsBetween(intent.checkin, intent.checkout)
+  const tiers = ['luxury', 'luxury', 'mid', 'mid', 'mid', 'mid', 'budget', 'budget'] as const
+  const count = 8
 
-  return pool
-    .filter(h => !intent.maxPricePerNight || h.price_per_night <= intent.maxPricePerNight)
-    .map(h => ({
-      ...h,
-      total_price: h.price_per_night * nights,
-      currency: intent.currency ?? 'EUR',
+  for (let i = 0; i < count; i++) {
+    const tier = tiers[i]
+    const basePrice = tier === 'luxury' ? 150 + Math.floor(rand() * 200)
+      : tier === 'mid' ? 60 + Math.floor(rand() * 90)
+      : 25 + Math.floor(rand() * 35)
+
+    const stars = tier === 'luxury' ? 5 : tier === 'mid' ? (3 + Math.floor(rand() * 2)) : (2 + Math.floor(rand() * 2))
+    const guestRating = tier === 'luxury' ? 8.5 + rand() * 1.5
+      : tier === 'mid' ? 7.0 + rand() * 2
+      : 6.0 + rand() * 2
+
+    const namePool = HOTEL_NAMES_BY_TIER[tier]
+    const name = namePool[i % namePool.length]
+    const amenities = AMENITY_POOLS[i % AMENITY_POOLS.length]
+    const distance = tier === 'budget' ? 1.5 + rand() * 3 : 0.2 + rand() * 2
+
+    const rooms: RoomType[] = ROOM_TEMPLATES.map((rt, ri) => ({
+      ...rt,
+      room_id: `${params.destination.slice(0, 3)}-${i}-${rt.room_id}`,
+      price_per_night: basePrice + ri * Math.floor(basePrice * 0.3),
+      total_price: (basePrice + ri * Math.floor(basePrice * 0.3)) * nights,
     }))
-    .slice(0, 3)
+
+    hotels.push({
+      hotel_id: `rh-${params.destination.slice(0, 3)}-${i.toString().padStart(3, '0')}`,
+      name: `${name} ${params.destination}`,
+      stars,
+      guest_rating: Math.round(guestRating * 10) / 10,
+      address: `${Math.floor(rand() * 200) + 1} ${params.destination} Avenue`,
+      distance_to_center: Math.round(distance * 10) / 10,
+      price_per_night: basePrice,
+      total_price: basePrice * nights,
+      currency: params.currency || 'EUR',
+      amenities,
+      images: [
+        `https://picsum.photos/seed/${params.destination}-${i}-1/800/600`,
+        `https://picsum.photos/seed/${params.destination}-${i}-2/800/600`,
+        `https://picsum.photos/seed/${params.destination}-${i}-3/800/600`,
+      ],
+      room_types: rooms,
+      cancellation_policy: stars >= 4 ? 'Free cancellation until 48h before check-in' : 'Non-refundable',
+      meal_plan: stars >= 4 ? 'Breakfast included' : 'Room only',
+      latitude: 40 + rand() * 5,
+      longitude: 20 + rand() * 10,
+    })
+  }
+
+  return hotels
+    .filter(h => !params.maxPricePerNight || h.price_per_night <= params.maxPricePerNight)
+    .filter(h => !params.minStars || h.stars >= params.minStars)
+    .sort((a, b) => a.price_per_night - b.price_per_night)
+}
+
+export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destination: params.destination,
+        checkin: params.checkin,
+        checkout: params.checkout,
+        guests: params.adults + params.children,
+        max_price_per_night: params.maxPricePerNight,
+      }),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success && data.results && data.results.length > 0) {
+        return data.results.map((h: any) => ({
+          ...h,
+          guest_rating: h.guest_rating ?? 8.0,
+          distance_to_center: h.distance_to_center ?? 1.0,
+          images: h.images ?? [`https://picsum.photos/seed/${h.hotel_id}/800/600`],
+          room_types: h.room_types ?? ROOM_TEMPLATES.map((rt, i) => ({
+            ...rt,
+            room_id: `${h.hotel_id}-${rt.room_id}`,
+            price_per_night: h.price_per_night + i * 20,
+            total_price: (h.price_per_night + i * 20) * nightsBetween(params.checkin, params.checkout),
+          })),
+          cancellation_policy: h.cancellation_policy ?? 'Contact hotel for cancellation policy',
+          meal_plan: h.meal_plan ?? 'Room only',
+          latitude: h.latitude ?? 0,
+          longitude: h.longitude ?? 0,
+        }))
+      }
+    }
+  } catch (e) {
+    console.log('Backend search unavailable, using simulated data')
+  }
+
+  return generateHotels(params)
+}
+
+export function searchHotelsSync(params: HotelSearchParams): Hotel[] {
+  return generateHotels(params)
 }

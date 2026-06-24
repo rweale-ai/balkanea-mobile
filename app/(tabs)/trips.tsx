@@ -1,62 +1,77 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, Image,
-  StyleSheet, SafeAreaView, Alert,
+  StyleSheet, SafeAreaView, Alert, SectionList,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { getTrips, deleteTrip, subscribeToTrips, type SavedTrip } from '../../lib/trips-store'
-import { DESTINATIONS } from '../../lib/destinations'
+import {
+  getBookings, getUpcomingBookings, getPastBookings,
+  cancelBooking, subscribeToBookings,
+} from '../../lib/bookings-store'
+import type { Booking } from '../../lib/types'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
-const DAY_ACCENT_COLORS = [Colors.primary, Colors.accent, '#6366F1', '#EC4899', '#14B8A6']
-
-function findDestImage(destination: string): string | null {
-  const lower = destination.toLowerCase()
-  for (const d of Object.values(DESTINATIONS)) {
-    if (d.name.toLowerCase() === lower || d.aliases.some(a => lower.includes(a))) {
-      return d.imageUrl
-    }
-  }
-  return null
+function formatDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function TripsScreen() {
-  const [trips, setTrips] = useState<SavedTrip[]>(getTrips())
+function nightCount(checkin: string, checkout: string): number {
+  const a = new Date(checkin + 'T00:00:00')
+  const b = new Date(checkout + 'T00:00:00')
+  return Math.max(1, Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24)))
+}
+
+export default function DashboardScreen() {
+  const [upcoming, setUpcoming] = useState<Booking[]>(getUpcomingBookings())
+  const [past, setPast] = useState<Booking[]>(getPastBookings())
   const router = useRouter()
 
-  useEffect(() => subscribeToTrips(setTrips), [])
+  useEffect(() => {
+    const unsub = subscribeToBookings(() => {
+      setUpcoming(getUpcomingBookings())
+      setPast(getPastBookings())
+    })
+    return unsub
+  }, [])
 
-  const handleDelete = useCallback((id: string, title: string) => {
+  const handleCancel = useCallback((booking: Booking) => {
     Alert.alert(
-      'Remove trip?',
-      `Remove "${title}" from My Trips?`,
+      'Cancel booking?',
+      `Cancel your reservation at "${booking.hotel.name}"?`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => deleteTrip(id) },
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel Booking',
+          style: 'destructive',
+          onPress: () => cancelBooking(booking.id),
+        },
       ]
     )
   }, [])
 
   const handlePress = useCallback((id: string) => {
-    router.push(`/trip-detail?id=${id}`)
+    router.push(`/booking-detail?id=${id}`)
   }, [router])
 
-  if (trips.length === 0) {
+  const isEmpty = upcoming.length === 0 && past.length === 0
+
+  if (isEmpty) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.headerSection}>
-          <Text style={styles.title}>My Trips</Text>
-          <Text style={styles.subtitle}>Your saved itineraries</Text>
+          <Text style={styles.title}>Dashboard</Text>
+          <Text style={styles.subtitle}>Your bookings</Text>
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyVisual}>
             <Ionicons name="compass-outline" size={72} color={Colors.primaryLight} />
           </View>
-          <Text style={styles.emptyTitle}>Start Your First Adventure</Text>
+          <Text style={styles.emptyTitle}>No bookings yet</Text>
           <Text style={styles.emptyText}>
-            Chat with Bea in the Plan tab to create a personalised itinerary, then save it here.
+            Chat with Bea to find your perfect hotel
           </Text>
           <TouchableOpacity onPress={() => router.navigate('/')} activeOpacity={0.8}>
             <LinearGradient
@@ -65,8 +80,8 @@ export default function TripsScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.ctaBtn}
             >
-              <Ionicons name="airplane" size={16} color="#fff" />
-              <Text style={styles.ctaText}>Plan a Trip</Text>
+              <Ionicons name="search" size={16} color="#fff" />
+              <Text style={styles.ctaText}>Find a Hotel</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -74,39 +89,56 @@ export default function TripsScreen() {
     )
   }
 
+  const sections: { title: string; data: Booking[] }[] = []
+  if (upcoming.length > 0) sections.push({ title: 'Upcoming', data: upcoming })
+  if (past.length > 0) sections.push({ title: 'Past', data: past })
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>My Trips</Text>
-        <Text style={styles.subtitle}>
-          {trips.length} saved {trips.length === 1 ? 'itinerary' : 'itineraries'}
-        </Text>
+        <Text style={styles.title}>Dashboard</Text>
+        <Text style={styles.subtitle}>Your bookings</Text>
       </View>
-      <FlatList
-        data={trips}
-        keyExtractor={t => t.id}
+      <SectionList
+        sections={sections}
+        keyExtractor={b => b.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item: t }) => (
-          <TripRow trip={t} onDelete={handleDelete} onPress={handlePress} />
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        )}
+        renderItem={({ item }) => (
+          <BookingCard
+            booking={item}
+            onPress={handlePress}
+            onCancel={handleCancel}
+          />
         )}
       />
     </SafeAreaView>
   )
 }
 
-function TripRow({ trip, onDelete, onPress }: {
-  trip: SavedTrip
-  onDelete: (id: string, title: string) => void
+function BookingCard({
+  booking,
+  onPress,
+  onCancel,
+}: {
+  booking: Booking
   onPress: (id: string) => void
+  onCancel: (booking: Booking) => void
 }) {
-  const { plan } = trip
-  const imageUrl = findDestImage(plan.destination)
-  const tierLabel = plan.estimatedBudget.tier === 'budget' ? 'Budget'
-    : plan.estimatedBudget.tier === 'mid' ? 'Mid-range' : 'Luxury'
-  const savedDate = trip.savedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const imageUrl = booking.hotel.images?.[0] ?? null
+  const nights = nightCount(booking.checkin, booking.checkout)
+  const isConfirmed = booking.status === 'confirmed'
+  const isCancelled = booking.status === 'cancelled'
 
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => onPress(trip.id)}>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.85}
+      onPress={() => onPress(booking.id)}
+    >
       <View style={styles.imageSection}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -114,47 +146,66 @@ function TripRow({ trip, onDelete, onPress }: {
           <LinearGradient colors={Gradients.primaryFade} style={StyleSheet.absoluteFill} />
         )}
         <LinearGradient colors={Gradients.heroOverlay} style={StyleSheet.absoluteFill} />
-        <View style={styles.imageTitleWrap}>
-          <Text style={styles.imageTitle} numberOfLines={2}>{plan.title}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => onDelete(trip.id, plan.title)}
-          style={styles.delBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <View style={styles.delCircle}>
-            <Ionicons name="trash-outline" size={16} color="#fff" />
+
+        <View style={styles.imageBadgeRow}>
+          <View style={[
+            styles.statusBadge,
+            isConfirmed && styles.statusConfirmed,
+            isCancelled && styles.statusCancelled,
+            !isConfirmed && !isCancelled && styles.statusPending,
+          ]}>
+            <Ionicons
+              name={isConfirmed ? 'checkmark-circle' : isCancelled ? 'close-circle' : 'time'}
+              size={12}
+              color="#fff"
+            />
+            <Text style={styles.statusText}>
+              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            </Text>
           </View>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.cardBody}>
-        <Text style={styles.summary} numberOfLines={2}>{plan.summary}</Text>
-
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}><Text style={styles.badgeText}>{plan.destination}</Text></View>
-          <View style={styles.badge}><Text style={styles.badgeText}>{plan.duration} days</Text></View>
-          <View style={styles.badge}><Text style={styles.badgeText}>{tierLabel}</Text></View>
         </View>
 
-        <View style={styles.dayRow}>
-          {plan.days.slice(0, 3).map((d, i) => (
-            <View key={d.day} style={[styles.dayChip, { borderLeftColor: DAY_ACCENT_COLORS[i % DAY_ACCENT_COLORS.length] }]}>
-              <Text style={styles.dayNum}>Day {d.day}</Text>
-              <Text style={styles.dayTitle} numberOfLines={1}>{d.title}</Text>
-            </View>
-          ))}
-          {plan.days.length > 3 && (
-            <View style={[styles.dayChip, styles.dayChipMore]}>
-              <Text style={styles.dayMore}>+{plan.days.length - 3} more</Text>
+        <View style={styles.imageTitleWrap}>
+          <Text style={styles.imageTitle} numberOfLines={2}>{booking.hotel.name}</Text>
+          {booking.hotel.stars > 0 && (
+            <View style={styles.starsRow}>
+              {Array.from({ length: booking.hotel.stars }).map((_, i) => (
+                <Ionicons key={i} name="star" size={12} color={Colors.star} />
+              ))}
             </View>
           )}
         </View>
+      </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.price}>{'€'}{plan.estimatedBudget.perPersonPerNight} / person / night</Text>
-          <Text style={styles.date}>Saved {savedDate}</Text>
+      <View style={styles.cardBody}>
+        <View style={styles.dateRow}>
+          <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
+          <Text style={styles.dateText}>
+            {formatDate(booking.checkin)} - {formatDate(booking.checkout)} ({nights} {nights === 1 ? 'night' : 'nights'})
+          </Text>
         </View>
+
+        <View style={styles.badgeRow}>
+          <View style={styles.confirmBadge}>
+            <Text style={styles.confirmText}>{booking.confirmation_code}</Text>
+          </View>
+          <Text style={styles.price}>
+            {booking.currency === 'EUR' ? '€' : booking.currency} {booking.total_price.toLocaleString()}
+          </Text>
+        </View>
+
+        {isConfirmed && (
+          <View style={styles.footerRow}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => onCancel(booking)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-outline" size={14} color={Colors.error} />
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   )
@@ -177,6 +228,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  // Empty state
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -219,20 +271,59 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
+  // List
   list: {
     padding: Spacing.md,
-    gap: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  sectionTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
   },
 
+  // Card
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     overflow: 'hidden',
+    marginBottom: Spacing.md,
     ...Shadows.md,
   },
   imageSection: {
     height: 140,
     justifyContent: 'flex-end',
+  },
+  imageBadgeRow: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusConfirmed: {
+    backgroundColor: Colors.success,
+  },
+  statusCancelled: {
+    backgroundColor: Colors.error,
+  },
+  statusPending: {
+    backgroundColor: Colors.accent,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
   },
   imageTitleWrap: {
     paddingHorizontal: Spacing.md,
@@ -243,97 +334,68 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
   },
-  delBtn: {
-    position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
-  },
-  delCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 2,
   },
 
+  // Card body
   cardBody: {
     padding: Spacing.md,
     gap: Spacing.sm,
   },
-  summary: {
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dateText: {
     ...Typography.body,
-    color: Colors.textSecondary,
     fontSize: 13,
+    color: Colors.textSecondary,
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  badge: {
+  confirmBadge: {
     backgroundColor: Colors.primaryLight,
     borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  badgeText: {
+  confirmText: {
     ...Typography.caption,
     color: Colors.primary,
     fontWeight: '600',
-    fontSize: 11,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  dayChip: {
-    backgroundColor: Colors.background,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderLeftWidth: 3,
-    flex: 1,
-    minWidth: 80,
-    maxWidth: '32%',
-  },
-  dayChipMore: {
-    borderLeftWidth: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayNum: {
-    ...Typography.overline,
-    color: Colors.primary,
-    fontSize: 9,
-  },
-  dayTitle: {
-    ...Typography.bodyMedium,
-    fontSize: 11,
-    color: Colors.text,
-    marginTop: 2,
-  },
-  dayMore: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    fontSize: 11,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Spacing.xs,
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   price: {
-    ...Typography.bodyMedium,
+    ...Typography.h3,
     color: Colors.primary,
-    fontSize: 13,
   },
-  date: {
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: Spacing.xs,
+  },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.error,
+  },
+  cancelText: {
     ...Typography.caption,
-    color: Colors.textLight,
-    fontSize: 11,
+    color: Colors.error,
+    fontWeight: '600',
+    fontSize: 12,
   },
 })

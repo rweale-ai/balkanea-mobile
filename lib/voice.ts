@@ -1,17 +1,19 @@
 import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 
-// Polyfill WebRTC globals on native so retell-client-js-sdk can use them.
-// registerGlobals() is a no-op on web (uses browser's native WebRTC).
-if (Platform.OS !== 'web') {
+const isExpoGo = Constants.appOwnership === 'expo'
+
+if (Platform.OS !== 'web' && !isExpoGo) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { registerGlobals } = require('react-native-webrtc')
-    registerGlobals()
+    const webrtc = require('react-native-webrtc')
+    if (webrtc && typeof webrtc.registerGlobals === 'function') {
+      webrtc.registerGlobals()
+    }
     if (typeof globalThis.window === 'undefined') {
       (globalThis as any).window = globalThis
     }
-  } catch {
-    // Native WebRTC not available in this runtime (e.g. Expo Go)
+  } catch (e) {
+    console.log('WebRTC not available — voice disabled on native')
   }
 }
 

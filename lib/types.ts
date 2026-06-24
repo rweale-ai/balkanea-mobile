@@ -1,79 +1,108 @@
-// ── Core trip planning types ──────────────────────────────────────────────────
-// Claude returns a TripPlan when it has enough information.
-// Until then it returns a Message asking follow-up questions.
-
 export type MessageRole = 'user' | 'assistant'
 
 export interface ChatMessage {
   id: string
   role: MessageRole
   content: string
-  tripPlan?: TripPlan      // present when assistant returns a complete plan
+  hotels?: Hotel[]
   timestamp: Date
 }
 
-// ── Trip plan (structured AI output) ─────────────────────────────────────────
-
-export interface TripPlan {
-  title: string            // e.g. "5-Day Romantic Balkans Escape"
-  summary: string          // 1-2 sentence overview
-  destination: string      // primary destination name
-  duration: number         // total days
-  estimatedBudget: {
-    perPersonPerNight: number
-    currency: string
-    tier: 'budget' | 'mid' | 'luxury'
-  }
-  days: DayPlan[]
-  hotelSearch: HotelSearchIntent
-  tips: string[]           // 2-3 practical travel tips
-}
-
-export interface DayPlan {
-  day: number
-  title: string            // e.g. "Arrival & Old Town"
-  description: string
-  activities: Activity[]
-  meals: string[]          // brief suggestions
-}
-
-export interface Activity {
-  name: string
-  description: string
-  duration?: string        // e.g. "2 hours"
-  type: 'sightseeing' | 'food' | 'adventure' | 'relaxation' | 'culture' | 'transport'
-}
-
-// ── Hotel search intent (drives simulated / real RateHawk call) ──────────────
-
-export interface HotelSearchIntent {
+export interface HotelSearchParams {
   destination: string
-  checkin: string          // ISO YYYY-MM-DD
-  checkout: string         // ISO YYYY-MM-DD
-  guests: number
+  regionId?: number
+  checkin: string
+  checkout: string
+  adults: number
+  children: number
+  rooms: number
   maxPricePerNight?: number
+  minStars?: number
   currency: string
-  vibe?: 'romantic' | 'family' | 'adventure' | 'luxury' | 'budget'
 }
-
-// ── Hotel result (simulated RateHawk shape — matches real API) ───────────────
 
 export interface Hotel {
   hotel_id: string
   name: string
   stars: number
+  guest_rating: number
   address: string
+  distance_to_center: number
   price_per_night: number
   total_price: number
   currency: string
   amenities: string[]
-  booking_url: string
-  image_url?: string
+  images: string[]
+  room_types: RoomType[]
+  cancellation_policy: string
+  meal_plan: string
+  latitude: number
+  longitude: number
 }
 
-// ── AI response from Supabase Edge Function ───────────────────────────────────
+export interface RoomType {
+  room_id: string
+  name: string
+  max_guests: number
+  price_per_night: number
+  total_price: number
+  meal_plan: string
+  cancellation: string
+  beds: string
+}
+
+export interface Booking {
+  id: string
+  hotel: Hotel
+  room: RoomType
+  checkin: string
+  checkout: string
+  guests: { adults: number; children: number }
+  rooms: number
+  total_price: number
+  currency: string
+  status: 'confirmed' | 'cancelled' | 'pending'
+  booked_at: string
+  confirmation_code: string
+  guest_name: string
+  guest_email: string
+  guest_phone: string
+}
+
+export interface Destination {
+  id: string
+  name: string
+  country: string
+  imageUrl: string
+  tagline: string
+  categories: DestinationCategory[]
+  rating: number
+  reviewCount: number
+  highlights: string[]
+  bestTimeToVisit: string
+  regionId: number
+}
+
+export type DestinationCategory =
+  | 'beach'
+  | 'mountain'
+  | 'culture'
+  | 'adventure'
+  | 'nightlife'
+  | 'nature'
+  | 'history'
+  | 'food'
+
+export interface EscalationRequest {
+  reason: string
+  customerName: string
+  customerPhone: string
+  conversationSummary: string
+  preferredCallback?: string
+}
 
 export type PlannerResponse =
   | { type: 'message'; content: string }
-  | { type: 'plan'; content: string; plan: TripPlan; hotels: Hotel[] }
+  | { type: 'hotels'; content: string; hotels: Hotel[]; searchParams: HotelSearchParams }
+  | { type: 'escalation'; content: string }
   | { type: 'error'; content: string }

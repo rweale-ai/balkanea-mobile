@@ -1,0 +1,342 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390, initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @keyframes fadeInUp {
+    0% { opacity: 0; transform: translateY(30px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    width: 390px;
+    height: 844px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(11,110,79,0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(244,160,36,0.08) 0%, transparent 50%),
+      linear-gradient(175deg, #0B6E4F 0%, #094D38 35%, #072F24 70%, #051E17 100%);
+  }
+
+  .pattern {
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    background-image:
+      radial-gradient(circle at 20% 30%, #fff 1px, transparent 1px),
+      radial-gradient(circle at 80% 60%, #fff 1px, transparent 1px),
+      radial-gradient(circle at 50% 80%, #fff 0.5px, transparent 0.5px);
+    background-size: 60px 60px, 80px 80px, 40px 40px;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 0 40px;
+  }
+
+  .logo-mark {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 16px;
+    animation: fadeInUp 0.8s ease-out both;
+    position: relative;
+  }
+
+  /* Simplified logo mark using CSS shapes */
+  .logo-mark .shape-left {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    background: #fff;
+    border-radius: 12px 12px 12px 22px;
+    top: 16px;
+    left: 4px;
+  }
+  .logo-mark .shape-curve {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    top: 28px;
+    left: 38px;
+  }
+  .logo-mark .shape-curve::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 0 10px 0 0;
+    top: 0;
+    left: 0;
+  }
+  .logo-mark .shape-circle-sm {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    top: 10px;
+    right: 10px;
+  }
+  .logo-mark .shape-circle-lg {
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    background: #fff;
+    border-radius: 50%;
+    bottom: 2px;
+    right: 4px;
+  }
+
+  .logo-text {
+    font-size: 42px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+    animation: fadeInUp 0.8s ease-out 0.15s both;
+  }
+
+  .tagline {
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 64px;
+    animation: fadeInUp 0.8s ease-out 0.3s both;
+  }
+
+  .cta-area {
+    animation: fadeInUp 0.8s ease-out 0.5s both;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .cta-btn {
+    width: 100%;
+    padding: 18px 32px;
+    background: #fff;
+    border-radius: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .cta-btn:hover { transform: scale(0.98); }
+  .cta-btn-text {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0B6E4F;
+    letter-spacing: -0.2px;
+  }
+
+  .cta-secondary {
+    width: 100%;
+    padding: 18px 32px;
+    background: rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 16px;
+    text-align: center;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .cta-secondary-text {
+    font-size: 17px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .mic-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    animation: fadeIn 1s ease-out 0.8s both;
+  }
+  .mic-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: #F4A024;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .mic-text {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 500;
+  }
+
+  .bottom-bar {
+    position: absolute;
+    bottom: 48px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    animation: fadeIn 1s ease-out 1s both;
+  }
+  .bottom-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.5px;
+  }
+
+  /* Status bar mockup */
+  .status-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 54px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 24px 8px;
+    z-index: 10;
+  }
+  .status-time {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .status-icons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .status-icon {
+    width: 16px;
+    height: 10px;
+    border: 1.5px solid #fff;
+    border-radius: 2px;
+    position: relative;
+  }
+  .status-icon::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 2px;
+    width: 2px;
+    height: 6px;
+    background: #fff;
+    border-radius: 1px;
+  }
+  .status-icon-inner {
+    width: 60%;
+    height: 100%;
+    background: #fff;
+    border-radius: 1px;
+  }
+
+  /* iPhone home indicator */
+  .home-indicator {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 134px;
+    height: 5px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
+  }
+
+  /* Decorative elements */
+  .deco-ring {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 50%;
+    top: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .deco-ring-2 {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border: 1px solid rgba(255,255,255,0.025);
+    border-radius: 50%;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="pattern"></div>
+<div class="deco-ring"></div>
+<div class="deco-ring-2"></div>
+
+<div class="status-bar">
+  <div class="status-time">9:41</div>
+  <div class="status-icons">
+    <div class="status-icon"><div class="status-icon-inner"></div></div>
+  </div>
+</div>
+
+<div class="content">
+  <div class="logo-mark">
+    <div class="shape-left"></div>
+    <div class="shape-circle-sm"></div>
+    <div class="shape-circle-lg"></div>
+  </div>
+
+  <div class="logo-text">Balkanea</div>
+  <div class="tagline">Discover the Balkans</div>
+
+  <div class="cta-area">
+    <div class="cta-btn">
+      <div class="cta-btn-text">Start Planning</div>
+    </div>
+    <div class="cta-secondary">
+      <div class="cta-secondary-text">Talk to Bea</div>
+    </div>
+    <div class="mic-hint">
+      <div class="mic-dot"></div>
+      <div class="mic-text">Voice-powered AI travel planner</div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-text">By continuing, you agree to our Terms & Privacy Policy</div>
+</div>
+
+<div class="home-indicator"></div>
+
+</body>
+</html>

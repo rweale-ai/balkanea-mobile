@@ -18,10 +18,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Plan',
+          title: 'Search',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
-              <Ionicons name={focused ? 'airplane' : 'airplane-outline'} size={22} color={color} />
+              <Ionicons name={focused ? 'search' : 'search-outline'} size={22} color={color} />
               {focused && <View style={styles.dot} />}
             </View>
           ),
@@ -42,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trips"
         options={{
-          title: 'My Trips',
+          title: 'Dashboard',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} size={22} color={color} />

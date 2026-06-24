@@ -2,7 +2,7 @@ import React, { useRef } from 'react'
 import { View, Text, StyleSheet, Image, Animated, TouchableWithoutFeedback } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import type { Destination } from '../../lib/destinations'
+import type { Destination } from '../../lib/types'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 interface Props {
@@ -43,7 +43,7 @@ export function DestinationCard({ destination, variant, onPress }: Props) {
               <Text style={styles.reviews}>({destination.reviewCount.toLocaleString()})</Text>
             </View>
             <View style={styles.explorePill}>
-              <Text style={styles.exploreText}>Plan trip</Text>
+              <Text style={styles.exploreText}>Find hotels</Text>
               <Ionicons name="arrow-forward" size={12} color="#fff" />
             </View>
           </View>
