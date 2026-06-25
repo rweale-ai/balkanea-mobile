@@ -8,8 +8,8 @@ AI-first outbound hotel booking app for Balkan locals travelling internationally
 ## Stack
 - Expo SDK 56 + Expo Router (file-based, `app/` directory)
 - React Native 0.85 + react-native-web for web target
-- Claude haiku-4-5 — Bea text travel advisor
-- Retell AI — Bea voice travel advisor
+- Claude haiku-4-5 — Nea text travel advisor
+- Retell AI — Nea voice travel advisor
 - RateHawk — hotel search (simulated until sandbox creds activate; backend at balkanea-lead-webhook)
 - Salesforce CRM — lead/booking sync via balkanea-lead-webhook backend
 - AsyncStorage — booking persistence (local, pre-Supabase)
@@ -23,30 +23,30 @@ AI-first outbound hotel booking app for Balkan locals travelling internationally
 
 ## Retell voice agents (Balkanea workspace)
 - **API key:** stored in Vercel env / set locally as `EXPO_PUBLIC_RETELL_API_KEY` in .env
-- **English (Bea EN):** agent_88718b83329c3417f0b1dce5b5 | LLM: llm_430bff8cc2cd3159ff96c0ec8fd3
-- **Macedonian (Bea MK):** agent_4eff660016ae3f4aaa688f1742 | LLM: llm_365990f1ab000ebb38fdc34b7100
+- **English (Nea EN):** agent_88718b83329c3417f0b1dce5b5 | LLM: llm_430bff8cc2cd3159ff96c0ec8fd3
+- **Macedonian (Nea MK):** agent_4eff660016ae3f4aaa688f1742 | LLM: llm_365990f1ab000ebb38fdc34b7100
 - Voice works on web (WebRTC). Native has polyfill + graceful error handling.
 
 ## Current state (June 2026)
-- **Search tab:** Bea chat UI with hotel search. Natural language or voice — Bea finds hotels, shows results as cards, allows booking.
+- **Search tab:** Nea chat UI with hotel search. Natural language or voice — Nea finds hotels, shows results as cards, allows booking.
 - **Explore tab:** 15 outbound destinations (Greece, Turkey, Italy, Croatia, Montenegro, Egypt, France, Spain, Czech Republic, North Macedonia). Category filtering, search, hero card + grid.
 - **Dashboard tab:** Booking management — upcoming/past bookings, confirmation codes, cancellation.
 - **Hotel Detail:** Full hotel info, room selection, book button.
 - **Booking Flow:** Guest details form → simulated payment → booking confirmation → Salesforce sync.
-- **Agent Escalation:** In Bea chat, escalation triggers agent contact options.
+- **Agent Escalation:** In Nea chat, escalation triggers agent contact options.
 - **Voice:** VoiceButton + VoiceHUD, web-only (WebRTC). Native has graceful fallback.
 - **Locale:** 11 countries, 9 currencies, scrollable selector modal.
 - **Salesforce:** Leads + bookings sync to balkaneacrm-dev-ed via balkanea-lead-webhook backend.
 
 ## Key files
-- `app/(tabs)/index.tsx` — search/chat screen (Bea text + voice + hotel results)
+- `app/(tabs)/index.tsx` — search/chat screen (Nea text + voice + hotel results)
 - `app/(tabs)/explore.tsx` — destination discovery (outbound-focused)
 - `app/(tabs)/trips.tsx` — dashboard (bookings list)
 - `app/(tabs)/_layout.tsx` — tab config
 - `app/hotel-detail.tsx` — hotel detail with room selection
 - `app/booking.tsx` — booking form + simulated payment
 - `app/booking-confirmed.tsx` — booking confirmation screen
-- `lib/claude.ts` — Claude API client + demo simulation (Bea advisor)
+- `lib/claude.ts` — Claude API client + demo simulation (Nea advisor)
 - `lib/voice.ts` — Retell web client wrapper (startVoiceCall / stopVoiceCall)
 - `lib/hotels.ts` — RateHawk-shaped hotel search (simulated + backend API call)
 - `lib/types.ts` — Hotel, Booking, Destination, ChatMessage, HotelSearchParams types
@@ -89,3 +89,10 @@ AI-first outbound hotel booking app for Balkan locals travelling internationally
 - Macedonian localization (full UI translation)
 - Push notifications (Expo Notifications)
 - App Store submission
+
+## Design references
+- New screens are specced in `design/Balkanea — Build Brief.md`, with a working visual/behavior reference in `design/Balkanea Prototype.dc.html` (open in a browser). Original SOW: `design/uploads/design-brief.md`.
+- Design tokens are canonical in `constants/theme.ts` — never hardcode colors, spacing, radii, or type sizes.
+- All copy via `useLang()` / `t.*` — no hardcoded strings. MK (Cyrillic, default) + EN both required.
+- Prototype caveats for real RN: imagery = placeholder gradients (wire real photos), icons = inline SVG (use Ionicons), keyboard = simulated (use native `KeyboardAvoidingView`). Chat behavior: typing raises the keyboard, sending dismisses it to free reading space, tapping the input raises it again.
+- Don't add screens/sections/content not in the brief — ask first.

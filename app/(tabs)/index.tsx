@@ -1,8 +1,11 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, {
+  useState, useRef, useCallback, useEffect, useLayoutEffect,
+} from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, Animated,
-  SafeAreaView, Linking, Alert, Keyboard, ScrollView, Image,
+  SafeAreaView, Linking, Alert, Keyboard, ScrollView,
+  useWindowDimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -11,7 +14,7 @@ import { VoiceHUD } from '../../components/VoiceHUD'
 import { sendMessage } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
-import type { ChatMessage, Hotel, HotelSearchParams } from '../../lib/types'
+import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent } from '../../lib/explore-intent'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
@@ -22,15 +25,17 @@ import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 const BALKANEA_PHONE = '+38923100200'
+// How far the just-sent user message sits from the top of the chat viewport
+const ANCHOR_OFFSET = 14
 
-type ChatItem = ChatMessage & {
-  searchParams?: HotelSearchParams
-  escalation?: boolean
-  hotels?: Hotel[]
+// ── Nea avatar icon ────────────────────────────────────────────────
+function NeaIcon({ size = 17 }: { size?: number }) {
+  return (
+    <Ionicons name="sparkles" size={size} color="#fff" />
+  )
 }
 
 // ── Typing dots ────────────────────────────────────────────────────
-
 function TypingDots() {
   const dots = [
     useRef(new Animated.Value(0)).current,
@@ -48,11 +53,14 @@ function TypingDots() {
     })
   }, [])
   return (
-    <View style={styles.dotsRow}>
-      <View style={styles.dotsBubble}>
+    <View style={s.dotsRow}>
+      <LinearGradient colors={Gradients.primaryFade} style={s.dotsAvatar}>
+        <NeaIcon size={14} />
+      </LinearGradient>
+      <View style={s.dotsBubble}>
         {dots.map((d, i) => (
-          <Animated.View key={i} style={[styles.dot, {
-            opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] }),
+          <Animated.View key={i} style={[s.dot, {
+            opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
             transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
           }]} />
         ))}
@@ -61,93 +69,230 @@ function TypingDots() {
   )
 }
 
-// ── Hotel carousel ─────────────────────────────────────────────────
-
-function HotelCarousel({ hotels, onPress }: { hotels: Hotel[]; onPress: (h: Hotel) => void }) {
+// ── Streaming caret ────────────────────────────────────────────────
+function Caret() {
+  const opacity = useRef(new Animated.Value(1)).current
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ])).start()
+  }, [])
   return (
-    <View style={styles.carouselWrap}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselScroll} decelerationRate="fast" snapToInterval={232}>
-        {hotels.slice(0, 6).map(h => (
-          <TouchableOpacity key={h.hotel_id} style={styles.hCard} activeOpacity={0.85} onPress={() => onPress(h)}>
-            <Image source={{ uri: h.images?.[0] ?? `https://picsum.photos/seed/${h.hotel_id}/400/300` }} style={styles.hCardImg} />
-            <View style={styles.hCardBody}>
-              <Text style={styles.hCardName} numberOfLines={1}>{h.name}</Text>
-              <View style={styles.hCardMeta}>
-                <View style={styles.starsRow}>
-                  {Array.from({ length: h.stars }).map((_, i) => <Ionicons key={i} name="star" size={9} color={Colors.star} />)}
-                </View>
-                {h.guest_rating > 0 && <View style={styles.ratingPill}><Text style={styles.ratingText}>{h.guest_rating.toFixed(1)}</Text></View>}
-              </View>
-              <View style={styles.hCardPriceRow}>
-                <Text style={styles.hCardPrice}>€{h.price_per_night}</Text>
-                <Text style={styles.hCardPerNight}>/night</Text>
-                <View style={styles.hCardGo}><Ionicons name="arrow-forward" size={11} color={Colors.primary} /></View>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
+    <Animated.View style={[s.caret, { opacity }]} />
   )
 }
 
-// ── Escalation buttons ─────────────────────────────────────────────
+// ── Inline hotel card (prototype horizontal thumbnail style) ───────
+function InlineHotelCard({
+  hotel, currency, onPress,
+}: {
+  hotel: Hotel
+  currency: CurrencyCode
+  onPress: () => void
+}) {
+  const price = currency === 'EUR'
+    ? `€${hotel.price_per_night}`
+    : `${Math.round(hotel.price_per_night * 61.5).toLocaleString('en-US')} ден`
 
+  return (
+    <TouchableOpacity style={s.hotelCard} activeOpacity={0.85} onPress={onPress}>
+      {/* Thumbnail */}
+      <LinearGradient
+        colors={['#8fc6e6', '#27567a'] as const}
+        style={s.hotelThumb}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={s.hotelCity} numberOfLines={1}>{hotel.address.split(',')[0]?.toUpperCase()}</Text>
+      </LinearGradient>
+
+      {/* Details */}
+      <View style={s.hotelBody}>
+        <Text style={s.hotelName} numberOfLines={1}>{hotel.name}</Text>
+        <View style={s.hotelMeta}>
+          <Ionicons name="star" size={10} color={Colors.star} />
+          <Text style={s.hotelRating}>{hotel.guest_rating > 0 ? hotel.guest_rating.toFixed(1) : '—'}</Text>
+          {hotel.guest_rating > 0 && (
+            <Text style={s.hotelReviews}> · {hotel.stars}★</Text>
+          )}
+        </View>
+        <Text style={s.hotelBlurb} numberOfLines={2}>
+          {hotel.amenities.slice(0, 3).join(' · ')}
+        </Text>
+        <Text style={s.hotelPrice}>
+          {price} <Text style={s.hotelPerNight}>/ night</Text>
+        </Text>
+      </View>
+    </TouchableOpacity>
+  )
+}
+
+// ── Escalation inline ──────────────────────────────────────────────
 function EscalationInline() {
   const { t } = useLang()
   return (
-    <View style={styles.escRow}>
-      <TouchableOpacity style={styles.escBtn} activeOpacity={0.8} onPress={() => Linking.openURL(`tel:${BALKANEA_PHONE}`)}>
-        <LinearGradient colors={Gradients.primaryFade} style={styles.escBtnFill}>
+    <View style={s.escRow}>
+      <TouchableOpacity
+        style={s.escBtnPrimary}
+        activeOpacity={0.8}
+        onPress={() => Linking.openURL(`tel:${BALKANEA_PHONE}`)}
+      >
+        <LinearGradient colors={Gradients.primaryFade} style={s.escBtnFill}>
           <Ionicons name="call-outline" size={13} color="#fff" />
-          <Text style={styles.escBtnLight}>{t.actions.callAgent}</Text>
+          <Text style={s.escBtnLightText}>{t.actions.callAgent}</Text>
         </LinearGradient>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.escBtnOut} activeOpacity={0.8} onPress={() => Alert.alert(t.actions.callbackRequested, t.actions.callbackMessage, [{ text: t.actions.ok }])}>
+      <TouchableOpacity
+        style={s.escBtnOut}
+        activeOpacity={0.8}
+        onPress={() => Alert.alert(
+          t.actions.callbackRequested,
+          t.actions.callbackMessage,
+          [{ text: t.actions.ok }],
+        )}
+      >
         <Ionicons name="time-outline" size={13} color={Colors.primary} />
-        <Text style={styles.escBtnDark}>{t.actions.callback}</Text>
+        <Text style={s.escBtnDarkText}>{t.actions.callback}</Text>
       </TouchableOpacity>
     </View>
   )
 }
 
-// ── Bubble ──────────────────────────────────────────────────────────
+// ── Message bubble (user + assistant with blocks) ──────────────────
+function MessageBubble({
+  message,
+  currency,
+  onHotelPress,
+}: {
+  message: ChatMessage
+  currency: CurrencyCode
+  onHotelPress: (h: Hotel, params?: HotelSearchParams) => void
+}) {
+  const { t } = useLang()
+  const router = useRouter()
+  const isUser = message.role === 'user'
 
-function Bubble({ item, onHotelPress }: { item: ChatItem; onHotelPress: (h: Hotel) => void }) {
-  const isUser = item.role === 'user'
-  return (
-    <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
-      {!isUser && (
-        <LinearGradient colors={Gradients.primaryFade} style={styles.bubbleAvatar}>
-          <Text style={styles.bubbleAvatarText}>B</Text>
+  if (isUser) {
+    return (
+      <View style={s.rowUser}>
+        <LinearGradient
+          colors={Gradients.primaryFade}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.bubbleUser}
+        >
+          <Text style={s.textUser}>{message.content}</Text>
         </LinearGradient>
-      )}
-      <View style={[styles.bubbleCol, isUser && styles.bubbleColUser]}>
-        {isUser ? (
-          <LinearGradient colors={Gradients.primaryFade} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.bubble, styles.bubbleUser]}>
-            <Text style={styles.textUser}>{item.content}</Text>
-          </LinearGradient>
-        ) : (
-          <View style={[styles.bubble, styles.bubbleBot]}>
-            <Text style={styles.textBot}>{item.content}</Text>
-          </View>
-        )}
-        {item.hotels && item.hotels.length > 0 && (
-          <HotelCarousel hotels={item.hotels} onPress={onHotelPress} />
-        )}
-        {item.escalation && <EscalationInline />}
+      </View>
+    )
+  }
+
+  // Assistant message — render blocks if present, else plain content
+  const blocks: ChatBlock[] = message.blocks ?? [{ type: 'text', content: message.content }]
+
+  return (
+    <View style={s.rowAssistant}>
+      <LinearGradient colors={Gradients.primaryFade} style={s.neaAvatar}>
+        <NeaIcon size={14} />
+      </LinearGradient>
+      <View style={s.assistantCol}>
+        {blocks.map((block, i) => {
+          if (block.type === 'text') {
+            return (
+              <View key={i}>
+                <Text style={s.textAssistant}>
+                  {block.content}
+                  {message.streaming && i === blocks.length - 1 && <Caret />}
+                </Text>
+              </View>
+            )
+          }
+
+          if (block.type === 'hotel-list') {
+            const total = block.totalCount ?? block.hotels.length
+            const label = t.chat.viewAll.replace('{{count}}', String(total))
+            return (
+              <View key={i} style={s.hotelBlock}>
+                {block.hotels.slice(0, 3).map(h => (
+                  <InlineHotelCard
+                    key={h.hotel_id}
+                    hotel={h}
+                    currency={currency}
+                    onPress={() => onHotelPress(h, block.searchParams)}
+                  />
+                ))}
+                {total > 3 && (
+                  <TouchableOpacity
+                    style={s.viewAllPill}
+                    activeOpacity={0.7}
+                    onPress={() => router.push({
+                      pathname: '/results',
+                      params: {
+                        destination: block.searchParams?.destination ?? '',
+                        checkin: block.searchParams?.checkin ?? '',
+                        checkout: block.searchParams?.checkout ?? '',
+                        adults: String(block.searchParams?.adults ?? 2),
+                        children: String(block.searchParams?.children ?? 0),
+                        rooms: String(block.searchParams?.rooms ?? 1),
+                        currency: block.searchParams?.currency ?? 'EUR',
+                      },
+                    })}
+                  >
+                    <Text style={s.viewAllText}>{label} →</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
+          }
+
+          if (block.type === 'escalation') {
+            return <EscalationInline key={i} />
+          }
+
+          return null
+        })}
+      </View>
+    </View>
+  )
+}
+
+// ── Empty state ────────────────────────────────────────────────────
+function EmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
+  const { t } = useLang()
+  const suggestions = [t.chat.introSample1, t.chat.introSample2, t.chat.introSample3]
+
+  return (
+    <View style={s.empty}>
+      <LinearGradient colors={Gradients.primaryFade} style={s.emptyIcon}>
+        <Ionicons name="sparkles" size={38} color="#fff" />
+      </LinearGradient>
+      <Text style={s.emptyTitle}>{t.chat.greeting}</Text>
+      <Text style={s.emptySub}>{t.chat.greetingSub}</Text>
+      <View style={s.suggestions}>
+        {suggestions.map(sug => (
+          <TouchableOpacity
+            key={sug}
+            style={s.suggestionBtn}
+            activeOpacity={0.7}
+            onPress={() => onSuggest(sug)}
+          >
+            <Text style={s.suggestionText}>{sug}</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   )
 }
 
 // ── Main screen ────────────────────────────────────────────────────
-
 export default function SearchScreen() {
   const router = useRouter()
   const { t, setLang: setAppLang } = useLang()
-  const [userName, setUserName] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatItem[]>([])
+  const { height: windowHeight } = useWindowDimensions()
+
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [callStatus, setCallStatus] = useState<CallStatus>('idle')
@@ -155,36 +300,24 @@ export default function SearchScreen() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
   const [country, setCountry] = useState<CountryCode>('mk')
   const [currency, setCurrency] = useState<CurrencyCode>('EUR')
-  const lang: AgentLang = country === 'mk' ? 'mk' : 'en'
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  // Extra bottom space injected after send so the user message can reach the top
+  const [anchorSpacerHeight, setAnchorSpacerHeight] = useState(0)
+  // Index of the user message we want anchored at the top
+  const anchorIndexRef = useRef<number | null>(null)
+  const lang: AgentLang = country === 'mk' ? 'mk' : 'en'
+
   const listRef = useRef<FlatList>(null)
   const inputRef = useRef<TextInput>(null)
   const handleSendRef = useRef<(text: string) => void>(() => {})
 
-  const [showIntro, setShowIntro] = useState(false)
-  const hasMessages = messages.length > 0
-
-  const scrollToEnd = () => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120)
-
   useEffect(() => {
-    getUser().then(u => {
-      if (u?.user_metadata?.full_name) {
-        const first = u.user_metadata.full_name.split(' ')[0]
-        setUserName(first)
-      }
-    })
-    AsyncStorage.getItem('balkanea_intro_seen').then(v => {
-      if (v !== 'true') setShowIntro(true)
-    })
+    AsyncStorage.getItem('balkanea_intro_seen')
   }, [])
 
   useFocusEffect(useCallback(() => {
     const intent = consumeExploreIntent()
     if (intent) setPendingPrompt(intent)
-    const t1 = setTimeout(() => inputRef.current?.focus(), 100)
-    const t2 = setTimeout(() => inputRef.current?.focus(), 400)
-    const t3 = setTimeout(() => inputRef.current?.focus(), 800)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, []))
 
   useEffect(() => {
@@ -194,6 +327,100 @@ export default function SearchScreen() {
       handleSendRef.current(text)
     }
   }, [pendingPrompt, loading])
+
+  // ── Scroll anchoring ──────────────────────────────────────────────
+  // After the user message renders, scroll so it sits ANCHOR_OFFSET from the top.
+  // We use scrollToIndex with viewPosition:0 (item at top of viewport).
+  // The dynamic spacer (anchorSpacerHeight) ensures there is enough scroll room
+  // even for a short Nea reply.
+  const anchorToIndex = useCallback((index: number) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0,    // top of viewport
+        viewOffset: -ANCHOR_OFFSET,
+      })
+    })
+  }, [])
+
+  const handleSend = useCallback(async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || loading) return
+
+    Keyboard.dismiss()
+
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date(),
+    }
+
+    // Append user message and anchor it to the top of the viewport
+    setMessages(prev => {
+      const next = [...prev, userMsg]
+      anchorIndexRef.current = next.length - 1
+      setAnchorSpacerHeight(windowHeight)
+      return next
+    })
+    setInput('')
+    setLoading(true)
+
+    requestAnimationFrame(() => {
+      if (anchorIndexRef.current !== null) anchorToIndex(anchorIndexRef.current)
+    })
+
+    // Create the assistant placeholder immediately with streaming: true
+    // so the caret appears while the first tokens load (~850ms API latency)
+    const assistantId = (Date.now() + 1).toString()
+    const placeholder: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      timestamp: new Date(),
+    }
+    setMessages(prev => [...prev, placeholder])
+
+    // onToken: append each arriving token to the placeholder message in place.
+    // We use a functional update so there's no stale closure over content.
+    const onToken = (token: string) => {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId ? { ...m, content: m.content + token } : m
+      ))
+    }
+
+    const allMessages = [...messages, userMsg]
+    const response = await sendMessage(allMessages, onToken)
+
+    // Stream closed — build blocks and mark streaming done
+    const blocks: ChatBlock[] = []
+    if (response.type === 'hotels') {
+      blocks.push({ type: 'text', content: response.content })
+      blocks.push({
+        type: 'hotel-list',
+        hotels: response.hotels,
+        searchParams: response.searchParams,
+        totalCount: response.hotels.length,
+      })
+    } else if (response.type === 'escalation') {
+      blocks.push({ type: 'text', content: response.content })
+      blocks.push({ type: 'escalation' })
+    } else {
+      blocks.push({ type: 'text', content: response.content })
+    }
+
+    setMessages(prev => prev.map(m =>
+      m.id === assistantId
+        ? { ...m, content: response.content, blocks, streaming: false }
+        : m
+    ))
+    setLoading(false)
+    setAnchorSpacerHeight(0)
+  }, [messages, loading, windowHeight, anchorToIndex])
+
+  useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
 
   const handleVoicePress = useCallback(async () => {
     if (callStatus === 'active' || callStatus === 'connecting') {
@@ -214,46 +441,15 @@ export default function SearchScreen() {
         const translated = msg.includes('not available') ? t.chat.voiceNotAvailable
           : msg.includes('failed') ? t.chat.voiceFailed
           : t.chat.voiceError
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: translated, timestamp: new Date() }])
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: translated,
+          timestamp: new Date(),
+        }])
       },
     })
   }, [callStatus, lang, t])
-
-  const handleSend = useCallback(async (text: string) => {
-    const trimmed = text.trim()
-    if (!trimmed || loading) return
-
-    if (showIntro) {
-      AsyncStorage.setItem('balkanea_intro_seen', 'true')
-      setShowIntro(false)
-    }
-
-    const userMsg: ChatItem = { id: Date.now().toString(), role: 'user', content: trimmed, timestamp: new Date() }
-    const allMessages = [...messages, userMsg]
-    setMessages(allMessages)
-    setInput('')
-    setLoading(true)
-    scrollToEnd()
-
-    const response = await sendMessage(allMessages)
-    const hasVisual = response.type === 'hotels' || response.type === 'escalation'
-    if (hasVisual) Keyboard.dismiss()
-
-    setMessages(prev => [...prev, {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: response.content,
-      timestamp: new Date(),
-      hotels: response.type === 'hotels' ? response.hotels : undefined,
-      searchParams: response.type === 'hotels' ? response.searchParams : undefined,
-      escalation: response.type === 'escalation',
-    }])
-    setLoading(false)
-    scrollToEnd()
-    if (!hasVisual) setTimeout(() => inputRef.current?.focus(), 150)
-  }, [messages, loading])
-
-  useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
 
   const handleHotelPress = useCallback((hotel: Hotel, params?: HotelSearchParams) => {
     router.push({
@@ -271,126 +467,159 @@ export default function SearchScreen() {
     })
   }, [currency, router])
 
-  const renderItem = useCallback(({ item }: { item: ChatItem }) => (
-    <Bubble item={item} onHotelPress={(h) => handleHotelPress(h, item.searchParams)} />
-  ), [handleHotelPress])
+  // List items: messages + optional loading indicator as final item
+  type ListItem = { key: string } & (
+    | { kind: 'message'; message: ChatMessage }
+    | { kind: 'typing' }
+    | { kind: 'spacer'; height: number }
+  )
+
+  const listData: ListItem[] = [
+    ...messages.map(m => ({ key: m.id, kind: 'message' as const, message: m })),
+    ...(loading ? [{ key: '__typing', kind: 'typing' as const }] : []),
+    ...(anchorSpacerHeight > 0 ? [{ key: '__spacer', kind: 'spacer' as const, height: anchorSpacerHeight }] : []),
+  ]
+
+  const renderItem = useCallback(({ item }: { item: ListItem }) => {
+    if (item.kind === 'typing') return <TypingDots />
+    if (item.kind === 'spacer') return <View style={{ height: item.height }} />
+    return (
+      <MessageBubble
+        message={item.message}
+        currency={currency}
+        onHotelPress={handleHotelPress}
+      />
+    )
+  }, [currency, handleHotelPress])
+
+  const hasMessages = messages.length > 0
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 30}>
-
-        {/* Top bar — menu left, locale right */}
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.topBtn} activeOpacity={0.7} onPress={() => {
-            Alert.alert(t.menu.title, undefined, [
-              { text: t.menu.myBookings, onPress: () => router.navigate('/trips') },
-              { text: t.menu.exploreDestinations, onPress: () => router.navigate('/explore') },
-              { text: t.menu.signOut, style: 'destructive', onPress: async () => { await setGuestMode(false); await signOut() } },
-              { text: t.menu.cancel, style: 'cancel' },
-            ])
-          }}>
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView
+        style={s.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        {/* Top bar */}
+        <View style={s.topBar}>
+          <TouchableOpacity
+            style={s.topBtn}
+            activeOpacity={0.7}
+            onPress={() => {
+              Alert.alert(t.menu.title, undefined, [
+                { text: t.menu.myBookings, onPress: () => router.navigate('/trips') },
+                { text: t.menu.exploreDestinations, onPress: () => router.navigate('/explore') },
+                { text: t.menu.signOut, style: 'destructive', onPress: async () => { await setGuestMode(false); await signOut() } },
+                { text: t.menu.cancel, style: 'cancel' },
+              ])
+            }}
+          >
             <Ionicons name="menu-outline" size={22} color={Colors.text} />
           </TouchableOpacity>
-          <View style={styles.topRight}>
-            <LocaleSelector country={country} currency={currency} onCountryChange={(c) => { setCountry(c); setAppLang(c === 'mk' ? 'mk' : 'en') }} onCurrencyChange={setCurrency} />
+          <View style={s.topRight}>
+            <LocaleSelector
+              country={country}
+              currency={currency}
+              onCountryChange={(c) => {
+                setCountry(c)
+                setAppLang(c === 'mk' ? 'mk' : 'en')
+              }}
+              onCurrencyChange={setCurrency}
+            />
           </View>
         </View>
 
+        {/* Message list or empty state */}
         {hasMessages ? (
           <FlatList
             ref={listRef}
-            data={messages}
-            keyExtractor={m => m.id}
+            data={listData}
+            keyExtractor={item => item.key}
             renderItem={renderItem}
-            style={styles.flex}
-            contentContainerStyle={styles.list}
-            onContentSizeChange={scrollToEnd}
+            style={s.flex}
+            contentContainerStyle={s.listContent}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            ListFooterComponent={loading ? <TypingDots /> : null}
+            keyboardDismissMode="none"
+            // Do NOT auto-scroll on content size change — scroll anchoring is manual
+            onScrollToIndexFailed={({ index }) => {
+              // Fallback: if index isn't rendered yet, try after a frame
+              setTimeout(() => {
+                listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0 })
+              }, 100)
+            }}
           />
         ) : (
-          <ScrollView contentContainerStyle={styles.greetingScroll} keyboardShouldPersistTaps="handled">
-            <View style={styles.greeting}>
-              <Image source={require('../../assets/balkanea-logo.png')} style={styles.greetingLogo} resizeMode="contain" />
-              <Text style={styles.greetingText}>{userName ? t.chat.greetingPersonal.replace('{{name}}', userName) : t.chat.greeting}</Text>
-            </View>
-            {showIntro && (
-              <View style={styles.introSection}>
-                <View style={styles.introBubble}>
-                  <LinearGradient colors={Gradients.primaryFade} style={styles.introAvatar}>
-                    <Text style={styles.introAvatarText}>B</Text>
-                  </LinearGradient>
-                  <Text style={styles.introText}>{t.chat.introMessage}</Text>
-                </View>
-                <View style={styles.introSamples}>
-                  {[t.chat.introSample1, t.chat.introSample2, t.chat.introSample3].map(s => (
-                    <TouchableOpacity key={s} style={styles.introSampleBtn} activeOpacity={0.7} onPress={() => {
-                      AsyncStorage.setItem('balkanea_intro_seen', 'true')
-                      setShowIntro(false)
-                      handleSend(s)
-                    }}>
-                      <Text style={styles.introSampleText}>{s}</Text>
-                      <Ionicons name="arrow-forward" size={12} color={Colors.primary} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
+          <ScrollView
+            contentContainerStyle={s.emptyScroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            <EmptyState onSuggest={(text) => handleSendRef.current(text)} />
           </ScrollView>
         )}
 
-        {/* Input card */}
-        <View style={styles.inputCard}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder={t.chat.messagePlaceholder}
-            placeholderTextColor={Colors.textLight}
-            maxLength={500}
-            returnKeyType="send"
-            blurOnSubmit={false}
-            autoFocus
-            onSubmitEditing={() => handleSend(input)}
-          />
-          <View style={styles.inputActions}>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => router.navigate('/explore')}>
-              <Ionicons name="compass-outline" size={20} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => router.navigate('/trips')}>
-              <Ionicons name="briefcase-outline" size={20} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={handleVoicePress}>
-              <Ionicons
-                name={callStatus === 'active' ? 'stop-circle' : 'mic-outline'}
-                size={20}
-                color={callStatus === 'active' ? Colors.error : Colors.textSecondary}
-              />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }} />
-            {input.trim() ? (
-              <TouchableOpacity onPress={() => handleSend(input)} disabled={loading} activeOpacity={0.7}>
-                <LinearGradient colors={loading ? [Colors.border, Colors.border] : Gradients.primaryFade} style={styles.sendBtn}>
-                  <Ionicons name="arrow-up" size={18} color="#fff" />
+        {/* Composer */}
+        <View style={s.composerWrap}>
+          <View style={s.composerCard}>
+            <TextInput
+              ref={inputRef}
+              style={s.composerInput}
+              value={input}
+              onChangeText={setInput}
+              placeholder={t.chat.messagePlaceholder}
+              placeholderTextColor={Colors.textLight}
+              maxLength={500}
+              returnKeyType="send"
+              blurOnSubmit={false}
+              multiline
+              onSubmitEditing={() => handleSend(input)}
+            />
+            <View style={s.composerActions}>
+              <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => router.navigate('/explore')}>
+                <Ionicons name="compass-outline" size={20} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => router.navigate('/trips')}>
+                <Ionicons name="briefcase-outline" size={20} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={handleVoicePress}>
+                <Ionicons
+                  name={callStatus === 'active' ? 'stop-circle' : 'mic-outline'}
+                  size={20}
+                  color={callStatus === 'active' ? Colors.error : Colors.textSecondary}
+                />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity
+                onPress={() => handleSend(input)}
+                disabled={loading || !input.trim()}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={(loading || !input.trim()) ? [Colors.borderLight, Colors.borderLight] : Gradients.primaryFade}
+                  style={s.sendBtn}
+                >
+                  <Ionicons name="arrow-up" size={18} color={(loading || !input.trim()) ? Colors.textLight : '#fff'} />
                 </LinearGradient>
               </TouchableOpacity>
-            ) : null}
+            </View>
           </View>
+          <Text style={s.disclaimer}>{t.chat.disclaimer}</Text>
         </View>
 
       </KeyboardAvoidingView>
-      <VoiceHUD transcript={transcript} agentTalking={agentTalking} callStatus={callStatus} onEndCall={handleVoicePress} />
+      <VoiceHUD
+        transcript={transcript}
+        agentTalking={agentTalking}
+        callStatus={callStatus}
+        onEndCall={handleVoicePress}
+      />
     </SafeAreaView>
   )
 }
 
 // ── Styles ─────────────────────────────────────────────────────────
 
-const CARD_W = 220
-
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
 
@@ -401,125 +630,315 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
-    gap: Spacing.sm,
   },
   topBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 38, height: 38, borderRadius: Radius.full,
     backgroundColor: Colors.surface,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
+    ...Shadows.sm,
   },
   topRight: { flexDirection: 'row', alignItems: 'center' },
 
-  // Greeting
-  greetingScroll: { flexGrow: 1, justifyContent: 'center' },
-  greeting: {
+  // Empty state
+  emptyScroll: { flexGrow: 1 },
+  empty: {
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
-  greetingLogo: {
-    width: 120,
-    height: 36,
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    ...Shadows.glow,
+  },
+  emptyTitle: {
+    ...Typography.hero,
+    color: Colors.text,
+    marginTop: Spacing.lg,
+    letterSpacing: -0.6,
+  },
+  emptySub: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    lineHeight: 22,
+    maxWidth: 260,
+  },
+  suggestions: {
+    width: '100%',
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+  },
+  suggestionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.sm,
+  },
+  suggestionText: {
+    ...Typography.body,
+    color: Colors.text,
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+
+  // Message list
+  listContent: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    flexGrow: 1,
+  },
+
+  // User bubble
+  rowUser: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
   },
-  greetingText: {
-    ...Typography.h1,
-    color: Colors.text,
-    fontSize: 22,
+  bubbleUser: {
+    maxWidth: '80%',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: 20,
+    borderBottomRightRadius: 6,
+    ...Shadows.sm,
+  },
+  textUser: {
+    ...Typography.body,
+    color: '#fff',
+    lineHeight: 21,
   },
 
-  // Messages list
-  list: { paddingTop: Spacing.sm, paddingBottom: Spacing.sm, flexGrow: 1 },
+  // Assistant row
+  rowAssistant: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: 10,
+  },
+  neaAvatar: {
+    width: 30, height: 30, borderRadius: 15,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  assistantCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  textAssistant: {
+    ...Typography.body,
+    color: Colors.text,
+    lineHeight: 23,
+  },
 
-  // Bubbles
-  bubbleRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: Spacing.sm, marginBottom: 6 },
-  bubbleRowUser: { justifyContent: 'flex-end' },
-  bubbleAvatar: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: 2, marginRight: 6 },
-  bubbleAvatarText: { color: '#fff', fontWeight: '700', fontSize: 11 },
-  bubbleCol: { maxWidth: '82%' },
-  bubbleColUser: { alignItems: 'flex-end' },
-  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 2 },
-  bubbleUser: { borderBottomRightRadius: 4 },
-  bubbleBot: { backgroundColor: Colors.surface, borderBottomLeftRadius: 4 },
-  textUser: { ...Typography.body, color: '#fff', fontSize: 14 },
-  textBot: { ...Typography.body, color: Colors.text, fontSize: 14 },
+  // Streaming caret
+  caret: {
+    display: 'flex',
+    width: 8,
+    height: 16,
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+    marginLeft: 2,
+    verticalAlign: 'middle',
+  } as any,
 
-  // Typing
-  dotsRow: { paddingHorizontal: Spacing.sm + 26 + 6, marginBottom: 6 },
-  dotsBubble: { flexDirection: 'row', gap: 5, backgroundColor: Colors.surface, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 12, alignSelf: 'flex-start' },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.primary },
-
-  // Hotel carousel
-  carouselWrap: { marginTop: 6, marginBottom: 2 },
-  carouselScroll: { paddingRight: Spacing.md, gap: 8 },
-  hCard: { width: CARD_W, backgroundColor: Colors.surface, borderRadius: Radius.md, overflow: 'hidden', ...Shadows.sm },
-  hCardImg: { width: CARD_W, height: 100 },
-  hCardBody: { padding: 8 },
-  hCardName: { ...Typography.bodyMedium, color: Colors.text, fontSize: 12, marginBottom: 3 },
-  hCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
-  starsRow: { flexDirection: 'row', gap: 1 },
-  ratingPill: { backgroundColor: Colors.accent, borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1 },
-  ratingText: { color: '#fff', fontSize: 9, fontWeight: '700' },
-  hCardPriceRow: { flexDirection: 'row', alignItems: 'baseline' },
-  hCardPrice: { ...Typography.h3, color: Colors.primary, fontSize: 15 },
-  hCardPerNight: { ...Typography.caption, color: Colors.textSecondary, fontSize: 10, marginLeft: 2 },
-  hCardGo: { marginLeft: 'auto', width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-
-  // Escalation
-  escRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  escBtn: { flex: 1, borderRadius: Radius.sm, overflow: 'hidden' },
-  escBtnFill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, borderRadius: Radius.sm },
-  escBtnLight: { ...Typography.button, color: '#fff', fontSize: 12 },
-  escBtnOut: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.primary },
-  escBtnDark: { ...Typography.button, color: Colors.primary, fontSize: 12 },
-
-  // Input card
-  inputCard: {
-    marginHorizontal: Spacing.sm,
-    marginBottom: Platform.OS === 'ios' ? 4 : Spacing.sm,
+  // Typing dots
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: 10,
+  },
+  dotsAvatar: {
+    width: 30, height: 30, borderRadius: 15,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dotsBubble: {
+    flexDirection: 'row',
+    gap: 5,
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.sm + 6,
+    paddingVertical: 14,
+    ...Shadows.sm,
+  },
+  dot: {
+    width: 7, height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.textLight,
+  },
+
+  // Inline hotel cards (inside Nea message)
+  hotelBlock: {
+    marginTop: Spacing.sm,
+    gap: Spacing.sm - 2,
+  },
+  hotelCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    ...Shadows.md,
+  },
+  hotelThumb: {
+    width: 92,
+    flexShrink: 0,
+    justifyContent: 'flex-end',
+    padding: 7,
+  },
+  hotelCity: {
+    ...Typography.overline,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 8,
+  },
+  hotelBody: {
+    flex: 1,
+    padding: Spacing.sm + 4,
+    justifyContent: 'center',
+    gap: 3,
+  },
+  hotelName: {
+    ...Typography.bodyMedium,
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  hotelMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  hotelRating: {
+    ...Typography.caption,
+    color: Colors.text,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  hotelReviews: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontSize: 11,
+  },
+  hotelBlurb: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+    fontSize: 11,
+  },
+  hotelPrice: {
+    ...Typography.bodyMedium,
+    color: Colors.primary,
+    fontWeight: '800',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  hotelPerNight: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontWeight: '400',
+    fontSize: 10,
+  },
+  viewAllPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm + 6,
+    paddingVertical: 7,
+    marginTop: 2,
+  },
+  viewAllText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  // Escalation
+  escRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  escBtnPrimary: { flex: 1, borderRadius: Radius.sm, overflow: 'hidden' },
+  escBtnFill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: Radius.sm,
+  },
+  escBtnLightText: { ...Typography.button, color: '#fff', fontSize: 12 },
+  escBtnOut: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: Radius.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  escBtnDarkText: { ...Typography.button, color: Colors.primary, fontSize: 12 },
+
+  // Composer
+  composerWrap: {
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? 4 : Spacing.sm,
+  },
+  composerCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
+    ...Shadows.md,
   },
-  input: {
+  composerInput: {
     paddingHorizontal: Spacing.md,
-    paddingTop: Platform.OS === 'ios' ? 12 : 10,
+    paddingTop: 12,
     paddingBottom: 8,
     ...Typography.body,
     color: Colors.text,
-    fontSize: 15,
-    minHeight: 42,
+    fontSize: 16,
+    minHeight: 44,
+    maxHeight: 120,
   },
-  inputActions: {
+  composerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
-    paddingBottom: 8,
+    paddingBottom: 10,
     gap: 4,
   },
   actionBtn: { padding: 6 },
-  sendBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-
-  // Intro (first time)
-  introSection: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
-  introBubble: {
-    backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.md,
-    marginBottom: Spacing.md, ...Shadows.sm,
+  sendBtn: {
+    width: 36, height: 36,
+    borderRadius: Radius.full,
+    alignItems: 'center', justifyContent: 'center',
   },
-  introAvatar: {
-    width: 32, height: 32, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm,
+  disclaimer: {
+    ...Typography.caption,
+    color: Colors.textLight,
+    textAlign: 'center',
+    marginTop: 7,
+    paddingHorizontal: Spacing.md,
+    lineHeight: 16,
+    fontSize: 11,
   },
-  introAvatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  introText: { ...Typography.body, color: Colors.text, fontSize: 14, lineHeight: 22 },
-  introSamples: { gap: 6 },
-  introSampleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.surface, borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  introSampleText: { ...Typography.body, color: Colors.text, fontSize: 14, flex: 1, marginRight: 8 },
 })

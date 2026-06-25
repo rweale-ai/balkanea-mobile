@@ -1,9 +1,18 @@
 export type MessageRole = 'user' | 'assistant'
 
+export type ChatBlock =
+  | { type: 'text'; content: string }
+  | { type: 'hotel-list'; hotels: Hotel[]; searchParams?: HotelSearchParams; totalCount?: number }
+  | { type: 'escalation' }
+
 export interface ChatMessage {
   id: string
   role: MessageRole
   content: string
+  // Block-based rendering: populated on assistant messages after streaming completes
+  blocks?: ChatBlock[]
+  // True while the response is streaming token-by-token
+  streaming?: boolean
   hotels?: Hotel[]
   timestamp: Date
 }

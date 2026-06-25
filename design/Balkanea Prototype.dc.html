@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  body { margin: 0; }
+  .b-scroll::-webkit-scrollbar, .chat-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  .b-scroll, .chat-scroll { scrollbar-width: none; }
+  @keyframes beaDot { 0%,60%,100%{ transform: translateY(0); opacity:.4 } 30%{ transform: translateY(-4px); opacity:1 } }
+  @keyframes msgIn { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: none } }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  @keyframes pulseRing { 0%{ transform: scale(.85); opacity:.5 } 70%{ transform: scale(1.15); opacity:0 } 100%{ opacity:0 } }
+  @keyframes sheetUp { from { transform: translateY(100%) } to { transform: none } }
+  .b-msg { animation: msgIn .28s ease both; }
+  .b-tap { cursor: pointer; transition: transform .12s ease, box-shadow .18s ease; }
+  .b-tap:active { transform: scale(.975); }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:radial-gradient(120% 120% at 50% 0%, #efe9e1 0%, #e2dcd2 100%); padding:28px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div id="bk-phone" style="position:relative; width:414px; height:872px; background:#0c0c0e; border-radius:56px; padding:13px; box-shadow:0 40px 90px rgba(40,30,20,.34), 0 8px 24px rgba(0,0,0,.18);">
+    <div style="position:relative; width:388px; height:846px; background:#F8F9FA; border-radius:44px; overflow:hidden;">
+
+      <!-- ===== STATUS BAR ===== -->
+      <div style="position:absolute; top:0; left:0; right:0; height:52px; z-index:60; display:flex; align-items:center; justify-content:space-between; padding:0 30px 0 34px; pointer-events:none;">
+        <div style="font-size:15px; font-weight:600; color:#1A1A2E; letter-spacing:.2px;">9:41</div>
+        <div style="position:absolute; left:50%; top:9px; transform:translateX(-50%); width:118px; height:33px; background:#0c0c0e; border-radius:20px;"></div>
+        <div style="display:flex; align-items:center; gap:7px;">
+          <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="7" width="3" height="5" rx="1" fill="#1A1A2E"/><rect x="5" y="4.5" width="3" height="7.5" rx="1" fill="#1A1A2E"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#1A1A2E"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#1A1A2E"/></svg>
+          <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.2c2.6 0 5 1 6.8 2.7l1.3-1.4C14.4 1.3 11.6 0 8.5 0S2.6 1.3.4 3.5l1.3 1.4C3.5 3.2 5.9 2.2 8.5 2.2z" fill="#1A1A2E"/><path d="M8.5 5.4c1.5 0 2.9.6 3.9 1.6l1.3-1.4C12.3 4.2 10.5 3.4 8.5 3.4S4.7 4.2 3.3 5.6l1.3 1.4c1-1 2.4-1.6 3.9-1.6z" fill="#1A1A2E"/><circle cx="8.5" cy="9.6" r="1.9" fill="#1A1A2E"/></svg>
+          <div style="display:flex; align-items:center; gap:2px;"><div style="width:23px; height:12px; border:1.4px solid rgba(26,26,46,.5); border-radius:3.5px; padding:1.6px;"><div style="width:72%; height:100%; background:#1A1A2E; border-radius:1.5px;"></div></div><div style="width:1.6px; height:5px; background:rgba(26,26,46,.5); border-radius:1px;"></div></div>
+        </div>
+      </div>
+
+      <!-- ============ LANGUAGE ============ -->
+      <sc-if value="{{ isLanguage }}" hint-placeholder-val="{{ true }}">
+      <div class="b-scroll" style="position:absolute; inset:0; padding:104px 28px 40px; display:flex; flex-direction:column; align-items:center;">
+        <div style="width:78px; height:78px; border-radius:22px; background:linear-gradient(150deg,#ED8323,#E57757); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(237,131,35,.32);">
+          <svg width="46" height="46" viewBox="0 0 48 48"><path d="M9 20c0-5 3-8 8-8h3c2 0 3 1.4 3 4v16c0 4.5-3 7-7.5 7S9 36.5 9 32z" fill="#fff"/><circle cx="29" cy="31" r="13" fill="#fff"/><circle cx="35" cy="12" r="7.5" fill="#fff"/></svg>
+        </div>
+        <div style="font-size:26px; font-weight:800; color:#00332A; letter-spacing:-.5px; margin-top:18px;">Balkanea</div>
+        <div style="font-size:24px; font-weight:700; color:#1A1A2E; margin-top:36px; text-align:center; letter-spacing:-.4px;">{{ t.chooseLang }}</div>
+        <div style="font-size:14px; color:#6B7280; margin-top:8px; text-align:center;">{{ t.langSub }}</div>
+        <div style="width:100%; display:flex; flex-direction:column; gap:14px; margin-top:34px;">
+          <div class="b-tap" onClick="{{ setMK }}" style="display:flex; align-items:center; gap:16px; padding:20px; background:#fff; border:2px solid {{ mkBorder }}; border-radius:20px; box-shadow:0 1px 3px rgba(0,0,0,.07);">
+            <div style="width:40px; height:40px; border-radius:11px; overflow:hidden; display:flex; flex-direction:column;"><div style="flex:1; background:#D20000;"></div><div style="height:14px; background:#FFE600;"></div><div style="flex:1; background:#D20000;"></div></div>
+            <div style="flex:1;"><div style="font-size:17px; font-weight:700; color:#1A1A2E;">Македонски</div><div style="font-size:13px; color:#9CA3AF;">Macedonian</div></div>
+            <sc-if value="{{ langMK }}" hint-placeholder-val="{{ false }}"><div style="width:24px; height:24px; border-radius:50%; background:#ED8323; display:flex; align-items:center; justify-content:center;"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M2 7.5l3.2 3.2L12 3.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div></sc-if>
+          </div>
+          <div class="b-tap" onClick="{{ setEN }}" style="display:flex; align-items:center; gap:16px; padding:20px; background:#fff; border:2px solid {{ enBorder }}; border-radius:20px; box-shadow:0 1px 3px rgba(0,0,0,.07);">
+            <div style="width:40px; height:40px; border-radius:11px; overflow:hidden; background:#012169; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800;">UK</div>
+            <div style="flex:1;"><div style="font-size:17px; font-weight:700; color:#1A1A2E;">English</div><div style="font-size:13px; color:#9CA3AF;">English</div></div>
+            <sc-if value="{{ langEN }}" hint-placeholder-val="{{ true }}"><div style="width:24px; height:24px; border-radius:50%; background:#ED8323; display:flex; align-items:center; justify-content:center;"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M2 7.5l3.2 3.2L12 3.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div></sc-if>
+          </div>
+        </div>
+        <div class="b-tap" onClick="{{ goAuth }}" style="margin-top:auto; width:100%; padding:17px; border-radius:999px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:16px; font-weight:600; text-align:center; box-shadow:0 8px 20px rgba(237,131,35,.32);">Continue · Продолжи</div>
+      </div>
+      </sc-if>
+
+      <!-- ============ AUTH ============ -->
+      <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+      <div class="b-scroll" style="position:absolute; inset:0; padding:70px 24px 40px; overflow-y:auto;">
+        <div class="b-tap" onClick="{{ onToggleLang }}" style="position:absolute; top:64px; right:24px; display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #E5E7EB; padding:8px 13px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.06); z-index:5;">
+          <div style="width:18px; height:18px; border-radius:50%; overflow:hidden; display:flex; flex-direction:column;"><div style="flex:1;background:#D20000;"></div><div style="height:6px;background:#FFE600;"></div><div style="flex:1;background:#D20000;"></div></div>
+          <span style="font-size:13px; font-weight:700; color:#1A1A2E;">{{ langPill }}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; margin-top:18px;">
+          <div style="width:56px; height:56px; border-radius:16px; background:linear-gradient(150deg,#ED8323,#E57757); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(237,131,35,.3);">
+            <svg width="34" height="34" viewBox="0 0 48 48"><path d="M9 20c0-5 3-8 8-8h3c2 0 3 1.4 3 4v16c0 4.5-3 7-7.5 7S9 36.5 9 32z" fill="#fff"/><circle cx="29" cy="31" r="13" fill="#fff"/><circle cx="35" cy="12" r="7.5" fill="#fff"/></svg>
+          </div>
+          <div style="font-size:20px; font-weight:800; color:#00332A; margin-top:12px; letter-spacing:-.4px;">Balkanea</div>
+          <div style="font-size:15px; color:#6B7280; margin-top:4px;">{{ t.tagline }}</div>
+        </div>
+        <div style="background:#fff; border-radius:28px; box-shadow:0 6px 16px rgba(0,0,0,.08); padding:26px 22px; margin-top:24px;">
+          <div style="font-size:26px; font-weight:800; color:#1A1A2E; text-align:center; letter-spacing:-.6px;">{{ t.welcomeBack }}</div>
+          <div style="display:flex; gap:11px; margin-top:22px;">
+            <div class="b-tap" style="flex:1; display:flex; align-items:center; justify-content:center; gap:9px; padding:14px; border:1.5px solid #E5E7EB; border-radius:14px; font-weight:700; color:#1A1A2E; font-size:15px;"><span style="color:#4285F4; font-weight:800; font-size:17px;">G</span> Google</div>
+            <div class="b-tap" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border:1.5px solid #E5E7EB; border-radius:14px; font-weight:700; color:#1A1A2E; font-size:15px;"><svg width="15" height="17" viewBox="0 0 14 17" fill="#1A1A2E"><path d="M11.6 9c0-2 1.6-3 1.7-3.1-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7s-1.6-.7-2.6-.7C3.5 4.3 2.2 5 1.5 6.3-.1 9-.9 13 1.3 15.2c.6.6 1.3 1.3 2.2 1.3.9 0 1.2-.6 2.3-.6s1.4.6 2.3.6c1 0 1.6-.6 2.2-1.3.7-.8 1-1.6 1-1.7-.1 0-1.9-.7-1.9-2.8zM9.7 3.1c.5-.6.8-1.5.7-2.4-.7 0-1.6.5-2.1 1.1-.5.5-.9 1.4-.8 2.3.8.1 1.7-.4 2.2-1z"/></svg> Apple</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; margin:20px 0;"><div style="flex:1; height:1px; background:#E5E7EB;"></div><span style="font-size:13px; color:#9CA3AF;">{{ t.or }}</span><div style="flex:1; height:1px; background:#E5E7EB;"></div></div>
+          <div style="display:flex; gap:10px; margin-bottom:18px;">
+            <div style="flex:1; text-align:center; padding:13px; border-radius:13px; background:#FFF4E8; border:1.5px solid #ED8323; color:#ED8323; font-weight:700; font-size:15px;">{{ t.email }}</div>
+            <div style="flex:1; text-align:center; padding:13px; border-radius:13px; background:#F3F4F6; color:#6B7280; font-weight:600; font-size:15px;">{{ t.phone }}</div>
+          </div>
+          <div style="font-size:14px; font-weight:600; color:#374151; margin-bottom:7px;">{{ t.emailLabel }}</div>
+          <div style="display:flex; align-items:center; gap:10px; padding:15px; border:1.5px solid #E5E7EB; border-radius:14px; background:#F8F9FA; margin-bottom:16px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.6"><rect x="2" y="4" width="16" height="12" rx="2"/><path d="M3 5l7 5 7-5"/></svg><span style="color:#9CA3AF; font-size:15px;">{{ t.emailPh }}</span></div>
+          <div style="font-size:14px; font-weight:600; color:#374151; margin-bottom:7px;">{{ t.passwordLabel }}</div>
+          <div style="display:flex; align-items:center; gap:10px; padding:15px; border:1.5px solid #E5E7EB; border-radius:14px; background:#F8F9FA; margin-bottom:22px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.6"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.5a3 3 0 016 0V9"/></svg><span style="flex:1; color:#9CA3AF; font-size:15px;">{{ t.passwordPh }}</span><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.6"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/><circle cx="10" cy="10" r="2.2"/></svg></div>
+          <div class="b-tap" onClick="{{ goChat }}" style="padding:17px; border-radius:999px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:16px; font-weight:700; text-align:center; box-shadow:0 8px 18px rgba(237,131,35,.3);">{{ t.signIn }}</div>
+        </div>
+        <div style="text-align:center; margin-top:20px; font-size:15px; color:#6B7280;">{{ t.noAccount }} <span style="color:#ED8323; font-weight:700;">{{ t.signUp }}</span></div>
+        <div class="b-tap" onClick="{{ goChat }}" style="text-align:center; margin-top:18px; font-size:14px; color:#9CA3AF; font-weight:600;">{{ t.continueGuest }}</div>
+      </div>
+      </sc-if>
+
+      <!-- ============ CHAT (Bea) ============ -->
+      <sc-if value="{{ isChat }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column;">
+        <!-- header -->
+        <div style="padding:58px 18px 10px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="width:38px; height:38px; border-radius:50%; background:#fff; border:1px solid #Ece-eef; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; justify-content:center;"><svg width="17" height="17" viewBox="0 0 20 20" stroke="#1A1A2E" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="b-tap" onClick="{{ onToggleLang }}" style="width:38px; height:38px; border-radius:50%; background:#fff; border:1px solid #EEE; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; justify-content:center; overflow:hidden;"><div style="width:24px; height:24px; border-radius:50%; overflow:hidden; display:flex; flex-direction:column;"><div style="flex:1;background:#D20000;"></div><div style="height:8px;background:#FFE600;"></div><div style="flex:1;background:#D20000;"></div></div></div>
+            <div class="b-tap" onClick="{{ onToggleCur }}" style="width:38px; height:38px; border-radius:50%; background:#fff; border:1px solid #EEE; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; justify-content:center; font-weight:700; color:#1A1A2E; font-size:15px;">{{ curSymbol }}</div>
+          </div>
+        </div>
+        <!-- conversation / empty -->
+        <div class="chat-scroll b-scroll" onClick="{{ dismissKb }}" style="flex:1; min-height:0; overflow-y:auto; padding:0 18px;">
+          <sc-if value="{{ hasMessages }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:16px; padding:8px 0 16px;">
+              <sc-for list="{{ messages }}" as="m" hint-placeholder-count="0">
+                <div>
+                  <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ true }}">
+                    <div class="b-msg" style="display:flex; justify-content:flex-end;"><div style="max-width:80%; padding:12px 16px; border-radius:20px 20px 6px 20px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:15px; line-height:21px; box-shadow:0 3px 10px rgba(237,131,35,.25);">{{ m.text }}</div></div>
+                  </sc-if>
+                  <sc-if value="{{ m.isBea }}" hint-placeholder-val="{{ false }}">
+                    <div class="b-msg" style="display:flex; gap:10px; align-items:flex-start;">
+                      <div style="width:30px; height:30px; border-radius:50%; background:linear-gradient(150deg,#ED8323,#E57757); flex-shrink:0; display:flex; align-items:center; justify-content:center; margin-top:2px;"><svg width="17" height="17" viewBox="0 0 48 48"><path d="M9 20c0-5 3-8 8-8h3c2 0 3 1.4 3 4v16c0 4.5-3 7-7.5 7S9 36.5 9 32z" fill="#fff"/><circle cx="29" cy="31" r="13" fill="#fff"/><circle cx="35" cy="12" r="7.5" fill="#fff"/></svg></div>
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:15px; line-height:23px; color:#1A1A2E;">{{ m.text }}<sc-if value="{{ m.streaming }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block; width:8px; height:16px; background:#ED8323; border-radius:2px; margin-left:2px; vertical-align:-2px; animation:beaDot 1s infinite;"></span></sc-if></div>
+                        <sc-if value="{{ m.hasCards }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex; flex-direction:column; gap:11px; margin-top:14px;">
+                            <sc-for list="{{ m.cards }}" as="c" hint-placeholder-count="3">
+                              <div class="b-tap" onClick="{{ c.open }}" style="background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.08); display:flex;">
+                                <div style="width:96px; flex-shrink:0; background:{{ c.g }}; position:relative;"><div style="position:absolute; top:8px; left:8px; font-size:9px; font-weight:800; letter-spacing:1px; color:rgba(255,255,255,.92);">{{ c.city }}</div></div>
+                                <div style="flex:1; padding:12px 13px; min-width:0;">
+                                  <div style="font-size:14px; font-weight:700; color:#1A1A2E; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ c.name }}</div>
+                                  <div style="display:flex; align-items:center; gap:4px; margin-top:3px;"><svg width="12" height="12" viewBox="0 0 16 16" fill="#F59E0B"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg><span style="font-size:12px; font-weight:700; color:#1A1A2E;">{{ c.rating }}</span><span style="font-size:11px; color:#9CA3AF;">({{ c.reviews }})</span></div>
+                                  <div style="font-size:11px; color:#6B7280; line-height:15px; margin-top:5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ c.blurb }}</div>
+                                  <div style="font-size:13px; font-weight:800; color:#ED8323; margin-top:6px;">{{ c.priceLabel }} <span style="font-size:10px; font-weight:600; color:#9CA3AF;">{{ c.perNight }}</span></div>
+                                </div>
+                              </div>
+                            </sc-for>
+                            <div class="b-tap" onClick="{{ m.onViewAll }}" style="align-self:flex-start; padding:8px 14px; border-radius:999px; background:#FFF4E8; color:#ED8323; font-size:13px; font-weight:700;">{{ m.viewAll }} →</div>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.follow }}" hint-placeholder-val="{{ false }}"><div style="font-size:15px; line-height:23px; color:#1A1A2E; margin-top:14px;">{{ m.followText }}</div></sc-if>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; gap:10px; align-items:center;"><div style="width:30px; height:30px; border-radius:50%; background:linear-gradient(150deg,#ED8323,#E57757); display:flex; align-items:center; justify-content:center;"><svg width="17" height="17" viewBox="0 0 48 48"><path d="M9 20c0-5 3-8 8-8h3c2 0 3 1.4 3 4v16c0 4.5-3 7-7.5 7S9 36.5 9 32z" fill="#fff"/><circle cx="29" cy="31" r="13" fill="#fff"/><circle cx="35" cy="12" r="7.5" fill="#fff"/></svg></div><div style="display:flex; gap:4px; padding:12px 14px; background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);"><div style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;animation:beaDot 1.2s infinite;"></div><div style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;animation:beaDot 1.2s infinite .2s;"></div><div style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;animation:beaDot 1.2s infinite .4s;"></div></div></div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ hasMessages }}" hint-placeholder-val="{{ false }}"></sc-if>
+          <sc-if value="{{ noMessages }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding-bottom:30px;">
+              <div style="width:64px; height:64px; border-radius:19px; background:linear-gradient(150deg,#ED8323,#E57757); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(237,131,35,.3);"><svg width="38" height="38" viewBox="0 0 48 48"><path d="M9 20c0-5 3-8 8-8h3c2 0 3 1.4 3 4v16c0 4.5-3 7-7.5 7S9 36.5 9 32z" fill="#fff"/><circle cx="29" cy="31" r="13" fill="#fff"/><circle cx="35" cy="12" r="7.5" fill="#fff"/></svg></div>
+              <div style="font-size:28px; font-weight:800; color:#1A1A2E; margin-top:20px; letter-spacing:-.6px;">{{ t.whereNext }}</div>
+              <div style="font-size:15px; color:#6B7280; margin-top:8px; text-align:center; max-width:260px; line-height:21px;">{{ t.whereSub }}</div>
+              <div style="display:flex; flex-direction:column; gap:10px; margin-top:28px; width:100%;">
+                <sc-for list="{{ sugg }}" as="s" hint-placeholder-count="3">
+                  <div class="b-tap" onClick="{{ s.go }}" style="display:flex; align-items:center; justify-content:space-between; padding:15px 18px; background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); font-size:15px; color:#1A1A2E; font-weight:500;"><span>{{ s.label }}</span><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#ED8323" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <!-- composer -->
+        <div style="padding:8px 16px 6px;">
+          <div style="background:#fff; border:1px solid #EAEBEE; border-radius:26px; box-shadow:0 4px 16px rgba(0,0,0,.07); padding:12px 14px;">
+            <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" onFocus="{{ onFocusInput }}" onMouseDown="{{ onFocusInput }}" onClick="{{ onFocusInput }}" placeholder="{{ t.messageBea }}" style="width:100%; border:none; outline:none; font-size:16px; color:#1A1A2E; background:transparent; padding:2px 0;"/>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px;">
+              <div style="display:flex; gap:16px; color:#9CA3AF;">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M13.5 6.5l-2 4.5-4.5 2 2-4.5z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.6"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7 6V4.5a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0113 4.5V6"/></svg>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.6"><rect x="7.5" y="2.5" width="5" height="10" rx="2.5"/><path d="M5 9v1a5 5 0 0010 0V9M10 15.5V18"/></svg>
+              </div>
+              <div class="b-tap" onClick="{{ onSend }}" style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#ED8323,#E57757); display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(237,131,35,.3);"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16V4M5 9l5-5 5 5"/></svg></div>
+            </div>
+          </div>
+          <div style="font-size:11px; color:#B6BAC2; text-align:center; margin-top:8px; padding:0 10px; line-height:15px;">{{ t.disclaimer }}</div>
+        </div>
+        <!-- simulated keyboard / tab-bar spacer -->
+        <div style="height:{{ kbHeight }}; overflow:hidden; background:{{ kbBg }}; transition:height .3s cubic-bezier(.4,0,.2,1); flex-shrink:0;">
+          <sc-if value="{{ kb }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:9px 3px 12px; display:flex; flex-direction:column; gap:11px;">
+            <sc-for list="{{ kbRows }}" as="row" hint-placeholder-count="4">
+              <div style="display:flex; gap:6px; justify-content:center;">
+                <sc-for list="{{ row.keys }}" as="k" hint-placeholder-count="10">
+                  <div class="b-tap" onClick="{{ k.tap }}" style="flex:{{ k.flex }}; height:42px; background:{{ k.bg }}; color:{{ k.fg }}; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:{{ k.fs }}; box-shadow:0 1px 0 rgba(0,0,0,.3);">{{ k.label }}</div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ EXPLORE ============ -->
+      <sc-if value="{{ isExplore }}" hint-placeholder-val="{{ false }}">
+      <div class="b-scroll" style="position:absolute; inset:0; overflow-y:auto; padding:58px 18px 110px;">
+        <div style="font-size:30px; font-weight:800; color:#1A1A2E; letter-spacing:-.8px;">{{ t.explore }}</div>
+        <div style="font-size:15px; color:#6B7280; margin-top:4px;">{{ t.exploreSub }}</div>
+        <div style="display:flex; align-items:center; gap:11px; padding:15px 18px; background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-top:18px;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" stroke-width="1.8"><circle cx="9" cy="9" r="6.5"/><path d="M14 14l3.5 3.5"/></svg><span style="color:#9CA3AF; font-size:15px;">{{ t.searchDest }}</span></div>
+        <div style="display:flex; gap:9px; margin-top:16px; overflow-x:auto; padding-bottom:2px;">
+          <sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+            <div class="b-tap" style="flex-shrink:0; padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; background:{{ c.bg }}; color:{{ c.fg }}; border:1px solid {{ c.bd }};">{{ c.label }}</div>
+          </sc-for>
+        </div>
+        <div class="b-tap" onClick="{{ heroDest.open }}" style="margin-top:18px; height:230px; border-radius:24px; overflow:hidden; position:relative; background:{{ heroDest.g }}; box-shadow:0 8px 22px rgba(0,0,0,.16);">
+          <div style="position:absolute; inset:0; background:linear-gradient(180deg, transparent 30%, rgba(0,0,0,.6));"></div>
+          <div style="position:absolute; left:20px; bottom:18px; right:20px;">
+            <div style="font-size:11px; font-weight:800; letter-spacing:1.5px; color:rgba(255,255,255,.85);">{{ heroDest.countryLabel }}</div>
+            <div style="font-size:30px; font-weight:800; color:#fff; letter-spacing:-.6px; margin-top:2px;">{{ heroDest.name }}</div>
+            <div style="font-size:14px; color:rgba(255,255,255,.92); margin-top:2px;">{{ heroDest.tagline }}</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;"><div style="display:flex; align-items:center; gap:5px;"><svg width="15" height="15" viewBox="0 0 16 16" fill="#F59E0B"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg><span style="font-size:15px; font-weight:700; color:#fff;">{{ heroDest.rating }}</span><span style="font-size:13px; color:rgba(255,255,255,.7);">({{ heroDest.reviews }})</span></div><div style="background:rgba(255,255,255,.92); padding:9px 16px; border-radius:999px; font-size:13px; font-weight:700; color:#1A1A2E;">{{ t.findHotels }} →</div></div>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-top:14px;">
+          <sc-for list="{{ gridDests }}" as="d" hint-placeholder-count="4">
+            <div class="b-tap" onClick="{{ d.open }}" style="height:170px; border-radius:20px; overflow:hidden; position:relative; background:{{ d.g }}; box-shadow:0 3px 12px rgba(0,0,0,.1);">
+              <div style="position:absolute; inset:0; background:linear-gradient(180deg, transparent 35%, rgba(0,0,0,.62));"></div>
+              <div style="position:absolute; left:13px; bottom:12px; right:13px;">
+                <div style="font-size:9px; font-weight:800; letter-spacing:1px; color:rgba(255,255,255,.82);">{{ d.countryLabel }}</div>
+                <div style="font-size:18px; font-weight:800; color:#fff; letter-spacing:-.3px;">{{ d.name }}</div>
+                <div style="display:flex; align-items:center; gap:4px; margin-top:4px;"><svg width="12" height="12" viewBox="0 0 16 16" fill="#F59E0B"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg><span style="font-size:12px; font-weight:700; color:#fff;">{{ d.rating }}</span><span style="font-size:11px; color:rgba(255,255,255,.7);">({{ d.reviews }})</span></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ DASHBOARD ============ -->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div class="b-scroll" style="position:absolute; inset:0; overflow-y:auto; padding:58px 22px 110px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+          <div><div style="font-size:30px; font-weight:800; color:#1A1A2E; letter-spacing:-.8px;">{{ t.dashboard }}</div><div style="font-size:15px; color:#6B7280; margin-top:4px;">{{ t.yourBookings }}</div></div>
+          <div class="b-tap" onClick="{{ goProfile }}" style="width:44px; height:44px; border-radius:50%; background:linear-gradient(150deg,#00332A,#001a15); display:flex; align-items:center; justify-content:center; color:#fff; font-size:17px; font-weight:700;">M</div>
+        </div>
+        <sc-if value="{{ hasBookings }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:14px; margin-top:24px;">
+            <div style="font-size:13px; font-weight:700; letter-spacing:.5px; color:#9CA3AF; text-transform:uppercase;">{{ t.upcoming }}</div>
+            <sc-for list="{{ bookings }}" as="b" hint-placeholder-count="0">
+              <div class="b-tap" onClick="{{ b.open }}" style="background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.08);">
+                <div style="height:96px; background:{{ b.g }}; position:relative;"><div style="position:absolute; top:12px; right:12px; padding:5px 11px; border-radius:999px; font-size:11px; font-weight:700; background:{{ b.badgeBg }}; color:{{ b.badgeFg }};">{{ b.statusLabel }}</div></div>
+                <div style="padding:15px 16px;">
+                  <div style="font-size:17px; font-weight:700; color:#1A1A2E;">{{ b.name }}</div>
+                  <div style="font-size:13px; color:#6B7280; margin-top:3px;">{{ b.city }} · {{ b.checkIn }} → {{ b.checkOut }}</div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;"><span style="font-size:12px; color:#9CA3AF;">{{ b.code }}</span><span style="font-size:16px; font-weight:800; color:#ED8323;">{{ b.priceLabel }}</span></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noBookings }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:100px;">
+            <div style="width:130px; height:130px; border-radius:50%; background:radial-gradient(circle, #FFF4E8, #FFF8F2); display:flex; align-items:center; justify-content:center;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ED8323" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></div>
+            <div style="font-size:24px; font-weight:800; color:#1A1A2E; margin-top:26px;">{{ t.noBookings }}</div>
+            <div style="font-size:15px; color:#6B7280; margin-top:8px; text-align:center; max-width:240px; line-height:22px;">{{ t.noBookingsSub }}</div>
+            <div class="b-tap" onClick="{{ tabChat }}" style="margin-top:28px; display:flex; align-items:center; gap:8px; padding:15px 28px; border-radius:999px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:16px; font-weight:700; box-shadow:0 8px 20px rgba(237,131,35,.32);"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L17 17"/></svg>{{ t.findHotel }}</div>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ============ RESULTS + FILTERS ============ -->
+      <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+        <div style="padding:58px 18px 12px; background:#F8F9FA;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="b-tap" onClick="{{ onBack }}" style="width:38px; height:38px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg></div>
+            <div style="flex:1;"><div style="font-size:19px; font-weight:800; color:#1A1A2E;">{{ t.resultsTitle }}</div><div style="font-size:13px; color:#6B7280;">{{ resultCount }} {{ t.hotelsFound }}</div></div>
+            <div class="b-tap" onClick="{{ openFilters }}" style="display:flex; align-items:center; gap:7px; padding:9px 15px; background:#fff; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.08); font-size:14px; font-weight:700; color:#1A1A2E;"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="1.8"><path d="M3 5h14M6 10h8M9 15h2"/></svg>{{ t.filters }}</div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px; overflow-x:auto;">
+            <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="4">
+              <div class="b-tap" onClick="{{ s.tap }}" style="flex-shrink:0; padding:8px 15px; border-radius:999px; font-size:13px; font-weight:600; background:{{ s.bg }}; color:{{ s.fg }}; border:1px solid {{ s.bd }};">{{ s.label }}</div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="b-scroll" style="flex:1; overflow-y:auto; padding:8px 18px 24px;">
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; align-items:center; padding-top:80px;"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg><div style="font-size:17px; font-weight:700; color:#1A1A2E; margin-top:18px; text-align:center;">{{ t.noResults }}</div><div class="b-tap" onClick="{{ onClearFilters }}" style="margin-top:18px; padding:11px 22px; border-radius:999px; background:#FFF4E8; color:#ED8323; font-weight:700; font-size:14px;">{{ t.clearFilters }}</div></div>
+          </sc-if>
+          <div style="display:flex; flex-direction:column; gap:14px; padding-top:6px;">
+            <sc-for list="{{ results }}" as="c" hint-placeholder-count="4">
+              <div class="b-tap" onClick="{{ c.open }}" style="background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.08);">
+                <div style="height:150px; background:{{ c.g }}; position:relative;"><div style="position:absolute; top:12px; left:14px; font-size:10px; font-weight:800; letter-spacing:1px; color:rgba(255,255,255,.9);">{{ c.city }}</div><div style="position:absolute; top:11px; right:12px; padding:6px 11px; background:rgba(255,255,255,.95); border-radius:999px; display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16" fill="#F59E0B"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg><span style="font-size:12px; font-weight:800; color:#1A1A2E;">{{ c.rating }}</span></div></div>
+                <div style="padding:14px 16px;">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;"><div style="font-size:17px; font-weight:700; color:#1A1A2E;">{{ c.name }}</div><div style="text-align:right; flex-shrink:0;"><div style="font-size:17px; font-weight:800; color:#ED8323;">{{ c.priceLabel }}</div><div style="font-size:11px; color:#9CA3AF;">{{ c.perNight }}</div></div></div>
+                  <div style="font-size:13px; color:#6B7280; line-height:18px; margin-top:6px;">{{ c.blurb }}</div>
+                  <div style="font-size:12px; color:#9CA3AF; margin-top:6px;">{{ c.reviews }} {{ t.reviews }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <!-- filter sheet -->
+        <sc-if value="{{ showFilters }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeFilters }}" style="position:absolute; inset:0; background:rgba(0,0,0,.4); z-index:40;"></div>
+          <div style="position:absolute; left:0; right:0; bottom:0; z-index:41; background:#fff; border-radius:28px 28px 0 0; padding:14px 22px 28px; box-shadow:0 -8px 30px rgba(0,0,0,.18); animation:sheetUp .3s ease;">
+            <div style="width:40px; height:5px; border-radius:3px; background:#E5E7EB; margin:0 auto 16px;"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between;"><div style="font-size:20px; font-weight:800; color:#1A1A2E;">{{ t.filters }}</div><div class="b-tap" onClick="{{ onClearFilters }}" style="font-size:14px; font-weight:700; color:#ED8323;">{{ t.clearFilters }}</div></div>
+            <div style="font-size:14px; font-weight:700; color:#374151; margin:20px 0 10px;">{{ t.priceRange }}</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; font-size:13px; color:#6B7280;"><span>€40</span><span>€220+</span></div>
+            <div style="height:4px; background:#E5E7EB; border-radius:2px; margin:10px 0; position:relative;"><div style="position:absolute; left:12%; right:18%; height:100%; background:#ED8323; border-radius:2px;"></div><div style="position:absolute; left:12%; top:50%; transform:translate(-50%,-50%); width:20px; height:20px; background:#fff; border:3px solid #ED8323; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,.2);"></div><div style="position:absolute; left:82%; top:50%; transform:translate(-50%,-50%); width:20px; height:20px; background:#fff; border:3px solid #ED8323; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,.2);"></div></div>
+            <div style="font-size:14px; font-weight:700; color:#374151; margin:20px 0 10px;">{{ t.starRating }}</div>
+            <div style="display:flex; gap:10px;">
+              <sc-for list="{{ stars }}" as="s" hint-placeholder-count="3"><div class="b-tap" onClick="{{ s.tap }}" style="padding:10px 18px; border-radius:13px; font-size:14px; font-weight:700; background:{{ s.bg }}; color:{{ s.fg }}; border:1.5px solid {{ s.bd }};">{{ s.label }}</div></sc-for>
+            </div>
+            <div style="font-size:14px; font-weight:700; color:#374151; margin:20px 0 10px;">{{ t.amenitiesF }}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:9px;">
+              <sc-for list="{{ amChips }}" as="a" hint-placeholder-count="6"><div class="b-tap" onClick="{{ a.tap }}" style="padding:9px 15px; border-radius:999px; font-size:13px; font-weight:600; background:{{ a.bg }}; color:{{ a.fg }}; border:1.5px solid {{ a.bd }};">{{ a.label }}</div></sc-for>
+            </div>
+            <div class="b-tap" onClick="{{ closeFilters }}" style="margin-top:24px; padding:16px; border-radius:999px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:16px; font-weight:700; text-align:center; box-shadow:0 8px 18px rgba(237,131,35,.3);">{{ t.apply }} ({{ resultCount }})</div>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ============ HOTEL DETAIL ============ -->
+      <sc-if value="{{ isHotel }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+        <div class="b-scroll" style="flex:1; overflow-y:auto; padding-bottom:96px;">
+          <div style="height:300px; background:{{ hotel.g }}; position:relative;">
+            <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.15), transparent 40%, rgba(0,0,0,.35));"></div>
+            <div style="position:absolute; top:58px; left:18px; right:18px; display:flex; justify-content:space-between;">
+              <div class="b-tap" onClick="{{ onBack }}" style="width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.15);"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg></div>
+              <div style="width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.15);"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="1.7"><path d="M14 7a2 2 0 100-4 2 2 0 000 4zM6 12a2 2 0 100-4 2 2 0 000 4zM14 17a2 2 0 100-4 2 2 0 000 4zM7.7 11l4.6 2.5M12.3 6.5L7.7 9"/></svg></div>
+            </div>
+          </div>
+          <div style="background:#F8F9FA; border-radius:28px 28px 0 0; margin-top:-26px; position:relative; padding:24px 22px 0;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+              <div><div style="font-size:11px; font-weight:800; letter-spacing:1px; color:#ED8323;">{{ hotelCity }}</div><div style="font-size:24px; font-weight:800; color:#1A1A2E; letter-spacing:-.5px; margin-top:3px;">{{ hotel.name }}</div></div>
+              <div style="background:#00332A; color:#fff; padding:8px 12px; border-radius:13px; text-align:center; flex-shrink:0;"><div style="font-size:18px; font-weight:800;">{{ hotel.rating }}</div><div style="font-size:10px; opacity:.8;">{{ hotel.reviews }}</div></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:14px; color:#6B7280; font-size:13px;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6"><path d="M8 1.5C5 1.5 3 3.5 3 6.3 3 9.8 8 14.5 8 14.5s5-4.7 5-8.2C13 3.5 11 1.5 8 1.5z"/><circle cx="8" cy="6.2" r="1.6"/></svg> 400m {{ t.distanceCenter }}</div>
+            <div style="background:#fff; border-radius:18px; padding:16px; margin-top:18px; box-shadow:0 1px 3px rgba(0,0,0,.06);">
+              <div style="font-size:16px; font-weight:700; color:#1A1A2E;">{{ t.aboutTitle }}</div>
+              <div style="font-size:14px; color:#6B7280; line-height:21px; margin-top:8px;">{{ hotel.blurb }}</div>
+            </div>
+            <div style="font-size:16px; font-weight:700; color:#1A1A2E; margin:22px 0 12px;">{{ t.amenitiesTitle }}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:9px;">
+              <sc-for list="{{ hotel.amenities }}" as="a" hint-placeholder-count="5"><div style="padding:9px 14px; background:#fff; border-radius:13px; font-size:13px; font-weight:600; color:#374151; box-shadow:0 1px 2px rgba(0,0,0,.05);">{{ a.label }}</div></sc-for>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; background:#E6F0EF; padding:13px 15px; border-radius:14px; margin-top:18px;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#00332A" stroke-width="1.7"><circle cx="10" cy="10" r="8"/><path d="M6.5 10l2.5 2.5 5-5.5"/></svg><span style="font-size:13px; color:#00332A; font-weight:600;">{{ t.freeCancel }}</span></div>
+            <div style="font-size:16px; font-weight:700; color:#1A1A2E; margin:24px 0 12px;">{{ t.selectRoom }}</div>
+            <div style="display:flex; flex-direction:column; gap:11px; padding-bottom:14px;">
+              <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="3">
+                <div class="b-tap" onClick="{{ r.tap }}" style="display:flex; align-items:center; gap:13px; background:#fff; border:2px solid {{ r.bd }}; border-radius:16px; padding:15px;">
+                  <div style="width:22px; height:22px; border-radius:50%; border:2px solid {{ r.dot }}; background:{{ r.dotBg }}; flex-shrink:0; display:flex; align-items:center; justify-content:center;"><sc-if value="{{ r.selected }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7.5l3.2 3.2L12 3.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if></div>
+                  <div style="flex:1;"><div style="font-size:15px; font-weight:700; color:#1A1A2E;">{{ r.name }}</div><div style="font-size:12px; color:#9CA3AF; margin-top:2px;">{{ r.meal }}</div></div>
+                  <div style="text-align:right;"><div style="font-size:16px; font-weight:800; color:#ED8323;">{{ r.priceLabel }}</div><div style="font-size:11px; color:#9CA3AF;">{{ t.perNight }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute; left:0; right:0; bottom:0; background:rgba(248,249,250,.94); backdrop-filter:blur(12px); border-top:1px solid #EEE; padding:14px 22px 26px;">
+          <div class="b-tap" onClick="{{ goBooking }}" style="padding:17px; border-radius:999px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:16px; font-weight:700; text-align:center; box-shadow:0 8px 20px rgba(237,131,35,.34);">{{ bookForLabel }}</div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ BOOKING + STRIPE ============ -->
+      <sc-if value="{{ isBooking }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+        <div style="padding:58px 18px 10px; display:flex; align-items:center; gap:12px;">
+          <div class="b-tap" onClick="{{ onBack }}" style="width:38px; height:38px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg></div>
+          <div style="font-size:19px; font-weight:800; color:#1A1A2E;">{{ t.bookingTitle }}</div>
+        </div>
+        <div class="b-scroll" style="flex:1; overflow-y:auto; padding:8px 22px 110px;">
+          <!-- summary -->
+          <div style="background:#fff; border-radius:20px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.07); display:flex; gap:14px;">
+            <div style="width:62px; height:62px; border-radius:14px; background:{{ bSummary.g }}; flex-shrink:0;"></div>
+            <div style="flex:1;"><div style="font-size:16px; font-weight:700; color:#1A1A2E;">{{ bSummary.name }}</div><div style="font-size:13px; color:#6B7280; margin-top:2px;">{{ bSummary.room }}</div><div style="font-size:13px; color:#6B7280; margin-top:2px;">24 Jun → 27 Jun · 3 {{ t.nights }}</div></div>
+            <div style="text-align:right;"><div style="font-size:18px; font-weight:800; color:#ED8323;">{{ bSummary.priceLabel }}</div><div style="font-size:10px; color:#9CA3AF;">{{ t.taxesIncl }}</div></div>
+          </div>
+          <!-- guest -->
+          <div style="font-size:15px; font-weight:700; color:#1A1A2E; margin:22px 0 12px;">{{ t.guestDetails }}</div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div><div style="font-size:13px; color:#6B7280; margin-bottom:6px;">{{ t.fullName }}</div><input value="{{ guestName }}" onChange="{{ onName }}" style="width:100%; padding:14px; border:1.5px solid #E5E7EB; border-radius:13px; font-size:15px; color:#1A1A2E; background:#fff; outline:none;"/></div>
+            <div><div style="font-size:13px; color:#6B7280; margin-bottom:6px;">{{ t.email }}</div><input value="{{ guestEmail }}" onChange="{{ onEmail }}" style="width:100%; padding:14px; border:1.5px solid #E5E7EB; border-radius:13px; font-size:15px; color:#1A1A2E; background:#fff; outline:none;"/></div>
+          </div>
+          <!-- payment -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin:24px 0 12px;"><div style="font-size:15px; font-weight:700; color:#1A1A2E;">{{ t.payTitle }}</div><div style="display:flex; align-items:center; gap:6px;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#10B981" stroke-width="1.8"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.5a3 3 0 016 0V9"/></svg><span style="font-size:11px; color:#10B981; font-weight:600;">{{ t.securedStripe }}</span></div></div>
+          <!-- banners -->
+          <sc-if value="{{ payDeclined }}" hint-placeholder-val="{{ false }}"><div style="display:flex; align-items:center; gap:10px; background:#FEF2F2; border:1px solid #FECACA; padding:13px 15px; border-radius:13px; margin-bottom:14px;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#EF4444" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M10 6v5M10 13.5v.5"/></svg><span style="font-size:13px; color:#B91C1C; font-weight:600;">{{ t.declined }}</span></div></sc-if>
+          <div style="background:#fff; border-radius:16px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);">
+            <div style="font-size:12px; color:#6B7280; margin-bottom:6px;">{{ t.cardNumber }}</div>
+            <div style="display:flex; align-items:center; gap:10px; border-bottom:1.5px solid #EEE; padding-bottom:11px; margin-bottom:14px;">
+              <input value="{{ card }}" onChange="{{ onCard }}" placeholder="1234 5678 9012 3456" style="flex:1; border:none; outline:none; font-size:16px; color:#1A1A2E; background:transparent; letter-spacing:.5px;"/>
+              <sc-if value="{{ isVisa }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px; font-weight:900; font-style:italic; color:#1A1F71;">VISA</div></sc-if>
+              <sc-if value="{{ isMC }}" hint-placeholder-val="{{ false }}"><div style="display:flex;"><div style="width:16px; height:16px; border-radius:50%; background:#EB001B;"></div><div style="width:16px; height:16px; border-radius:50%; background:#F79E1B; margin-left:-7px; opacity:.9;"></div></div></sc-if>
+            </div>
+            <div style="display:flex; gap:16px;">
+              <div style="flex:1;"><div style="font-size:12px; color:#6B7280; margin-bottom:6px;">{{ t.expiry }}</div><input value="{{ exp }}" onChange="{{ onExp }}" placeholder="MM / YY" style="width:100%; border:none; border-bottom:1.5px solid #EEE; outline:none; font-size:16px; color:#1A1A2E; background:transparent; padding-bottom:8px;"/></div>
+              <div style="flex:1;"><div style="font-size:12px; color:#6B7280; margin-bottom:6px;">{{ t.cvcL }}</div><input value="{{ cvc }}" onChange="{{ onCvc }}" placeholder="123" maxlength="4" style="width:100%; border:none; border-bottom:1.5px solid #EEE; outline:none; font-size:16px; color:#1A1A2E; background:transparent; padding-bottom:8px;"/></div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;">
+            <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:11px; color:#9CA3AF;">{{ t.acceptedCards }}</span><div style="font-size:11px; font-weight:900; font-style:italic; color:#1A1F71;">VISA</div><div style="display:flex;"><div style="width:13px;height:13px;border-radius:50%;background:#EB001B;"></div><div style="width:13px;height:13px;border-radius:50%;background:#F79E1B;margin-left:-5px;"></div></div></div>
+            <div style="display:flex; gap:8px;"><div class="b-tap" onClick="{{ onFillTest }}" style="font-size:11px; color:#10B981; font-weight:700; padding:5px 10px; background:#ECFDF5; border-radius:8px;">{{ t.useTest }}</div><div class="b-tap" onClick="{{ onFillDecline }}" style="font-size:11px; color:#EF4444; font-weight:700; padding:5px 10px; background:#FEF2F2; border-radius:8px;">{{ t.useDecline }}</div></div>
+          </div>
+        </div>
+        <div style="position:absolute; left:0; right:0; bottom:0; background:rgba(248,249,250,.94); backdrop-filter:blur(12px); border-top:1px solid #EEE; padding:14px 22px 26px;">
+          <div class="b-tap" onClick="{{ onPay }}" style="padding:17px; border-radius:999px; background:{{ payBtnBg }}; color:#fff; font-size:16px; font-weight:700; text-align:center; box-shadow:0 8px 20px rgba(237,131,35,.3); display:flex; align-items:center; justify-content:center; gap:10px;">
+            <sc-if value="{{ payProcessing }}" hint-placeholder-val="{{ false }}"><div style="width:18px; height:18px; border:2.5px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite;"></div>{{ t.processing }}</sc-if>
+            <sc-if value="{{ payIdle }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="1.9"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.5a3 3 0 016 0V9"/></svg>{{ payLabel }}</sc-if>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ CONFIRMED ============ -->
+      <sc-if value="{{ isConfirmed }}" hint-placeholder-val="{{ false }}">
+      <div class="b-scroll" style="position:absolute; inset:0; overflow-y:auto; padding:90px 26px 40px; display:flex; flex-direction:column; align-items:center;">
+        <div style="position:relative; width:96px; height:96px; display:flex; align-items:center; justify-content:center;">
+          <div style="position:absolute; inset:0; border-radius:50%; background:#10B981; opacity:.18; animation:pulseRing 2s ease-out infinite;"></div>
+          <div style="width:84px; height:84px; border-radius:50%; background:#10B981; display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(16,185,129,.35);"><svg width="44" height="44" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </div>
+        <div style="font-size:26px; font-weight:800; color:#1A1A2E; margin-top:26px; text-align:center; letter-spacing:-.5px;">{{ t.confirmedTitle }}</div>
+        <div style="font-size:15px; color:#6B7280; margin-top:8px; text-align:center;">{{ t.confirmedSub }}</div>
+        <div style="background:#FFF4E8; border:1.5px dashed #ED8323; border-radius:18px; padding:18px 28px; margin-top:26px; text-align:center;"><div style="font-size:11px; font-weight:700; letter-spacing:1px; color:#ED8323; text-transform:uppercase;">{{ t.confirmationCode }}</div><div style="font-size:30px; font-weight:800; color:#1A1A2E; letter-spacing:2px; margin-top:4px;">{{ confCode }}</div></div>
+        <div style="width:100%; background:#fff; border-radius:18px; padding:18px; margin-top:22px; box-shadow:0 2px 10px rgba(0,0,0,.07);">
+          <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="font-size:14px; color:#6B7280;">{{ confHotel }}</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">{{ confCity }}</span></div>
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-top:1px solid #F3F4F6;"><span style="font-size:14px; color:#6B7280;">24 Jun → 27 Jun</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">3 {{ t.nights }}</span></div>
+          <div style="display:flex; justify-content:space-between; padding:10px 0 2px; border-top:1px solid #F3F4F6; margin-top:4px;"><span style="font-size:15px; font-weight:700; color:#1A1A2E;">{{ t.total }}</span><span style="font-size:18px; font-weight:800; color:#ED8323;">{{ confTotal }}</span></div>
+        </div>
+        <div class="b-tap" onClick="{{ onViewDash }}" style="width:100%; padding:17px; border-radius:999px; background:linear-gradient(135deg,#ED8323,#E57757); color:#fff; font-size:16px; font-weight:700; text-align:center; margin-top:24px; box-shadow:0 8px 20px rgba(237,131,35,.3);">{{ t.viewDashboard }}</div>
+        <div class="b-tap" onClick="{{ onBookAnother }}" style="width:100%; padding:16px; border-radius:999px; border:1.5px solid #E5E7EB; color:#1A1A2E; font-size:15px; font-weight:600; text-align:center; margin-top:12px;">{{ t.bookAnother }}</div>
+      </div>
+      </sc-if>
+
+      <!-- ============ BOOKING DETAIL ============ -->
+      <sc-if value="{{ isBookingDetail }}" hint-placeholder-val="{{ false }}">
+      <div class="b-scroll" style="position:absolute; inset:0; overflow-y:auto; padding-bottom:30px;">
+        <div style="height:200px; background:{{ bd.g }}; position:relative;">
+          <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.2), transparent 50%, rgba(0,0,0,.4));"></div>
+          <div style="position:absolute; top:58px; left:18px;"><div class="b-tap" onClick="{{ onBack }}" style="width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.15);"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg></div></div>
+          <div style="position:absolute; left:20px; bottom:18px;"><div style="font-size:22px; font-weight:800; color:#fff;">{{ bd.name }}</div><div style="font-size:14px; color:rgba(255,255,255,.9);">{{ bd.city }}</div></div>
+          <div style="position:absolute; top:58px; right:18px; padding:7px 14px; border-radius:999px; font-size:12px; font-weight:700; background:{{ bd.badgeBg }}; color:{{ bd.badgeFg }};">{{ bd.statusLabel }}</div>
+        </div>
+        <div style="padding:22px;">
+          <div style="background:#FFF4E8; border:1.5px dashed #ED8323; border-radius:16px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between;"><span style="font-size:12px; font-weight:700; letter-spacing:.5px; color:#ED8323; text-transform:uppercase;">{{ t.confirmationCode }}</span><span style="font-size:20px; font-weight:800; color:#1A1A2E; letter-spacing:1px;">{{ bd.code }}</span></div>
+          <div style="font-size:15px; font-weight:700; color:#1A1A2E; margin:22px 0 12px;">{{ t.stayDetails }}</div>
+          <div style="background:#fff; border-radius:16px; padding:6px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06);">
+            <div style="display:flex; justify-content:space-between; padding:11px 0;"><span style="font-size:14px; color:#6B7280;">{{ t.checkIn }}</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">{{ bd.checkIn }}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:11px 0; border-top:1px solid #F3F4F6;"><span style="font-size:14px; color:#6B7280;">{{ t.checkOut }}</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">{{ bd.checkOut }}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:11px 0; border-top:1px solid #F3F4F6;"><span style="font-size:14px; color:#6B7280;">{{ t.roomType }}</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">{{ bd.room }}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:11px 0; border-top:1px solid #F3F4F6;"><span style="font-size:14px; color:#6B7280;">{{ t.mealPlanShort }}</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">{{ bd.meal }}</span></div>
+          </div>
+          <div style="font-size:15px; font-weight:700; color:#1A1A2E; margin:22px 0 12px;">{{ t.priceBreakdown }}</div>
+          <div style="background:#fff; border-radius:16px; padding:6px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06);">
+            <div style="display:flex; justify-content:space-between; padding:11px 0;"><span style="font-size:14px; color:#6B7280;">{{ bd.perNight }} × 3 {{ t.nights }}</span><span style="font-size:14px; font-weight:600; color:#1A1A2E;">{{ bd.priceLabel }}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:12px 0 10px; border-top:1px solid #F3F4F6;"><span style="font-size:15px; font-weight:700; color:#1A1A2E;">{{ t.totalPaid }}</span><span style="font-size:18px; font-weight:800; color:#ED8323;">{{ bd.priceLabel }}</span></div>
+          </div>
+          <sc-if value="{{ bd.cancelled }}" hint-placeholder-val="{{ false }}"><div style="background:#F3F4F6; border-radius:14px; padding:14px; text-align:center; margin-top:22px; font-size:14px; color:#9CA3AF; font-weight:600;">{{ t.statusCancelled }}</div></sc-if>
+          <sc-if value="{{ bdActive }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; align-items:center; gap:10px; background:#E6F0EF; padding:13px 15px; border-radius:14px; margin-top:22px;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#00332A" stroke-width="1.7"><circle cx="10" cy="10" r="8"/><path d="M6.5 10l2.5 2.5 5-5.5"/></svg><span style="font-size:13px; color:#00332A; font-weight:600;">{{ t.freeCancelShort }}</span></div>
+            <div class="b-tap" onClick="{{ onCancelBooking }}" style="margin-top:14px; padding:15px; border-radius:14px; border:1.5px solid #FECACA; background:#fff; color:#EF4444; font-size:15px; font-weight:700; text-align:center;">{{ t.cancelBooking }}</div>
+            <div class="b-tap" style="margin-top:11px; padding:15px; border-radius:14px; background:#00332A; color:#fff; font-size:15px; font-weight:700; text-align:center;">{{ t.contactBalkanea }}</div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ PROFILE ============ -->
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+      <div class="b-scroll" style="position:absolute; inset:0; overflow-y:auto; padding:58px 22px 40px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:22px;"><div class="b-tap" onClick="{{ onBack }}" style="width:38px; height:38px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg></div><div style="font-size:20px; font-weight:800; color:#1A1A2E;">{{ t.profileTitle }}</div></div>
+        <div style="display:flex; flex-direction:column; align-items:center;"><div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(150deg,#00332A,#001a15); display:flex; align-items:center; justify-content:center; color:#fff; font-size:30px; font-weight:700;">M</div><div style="font-size:19px; font-weight:700; color:#1A1A2E; margin-top:12px;">Marko Petrov</div><div style="font-size:14px; color:#6B7280;">marko@balkanea.mk</div></div>
+        <div style="font-size:13px; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:.5px; margin:26px 0 10px;">{{ t.preferences }}</div>
+        <div style="background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px;"><span style="font-size:15px; color:#1A1A2E;">{{ t.language }}</span><div class="b-tap" onClick="{{ onToggleLang }}" style="display:flex; gap:6px; background:#F3F4F6; border-radius:999px; padding:4px;"><div style="padding:5px 12px; border-radius:999px; font-size:13px; font-weight:700; background:{{ mkTabBg }}; color:{{ mkTabFg }};">MK</div><div style="padding:5px 12px; border-radius:999px; font-size:13px; font-weight:700; background:{{ enTabBg }}; color:{{ enTabFg }};">EN</div></div></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-top:1px solid #F3F4F6;"><span style="font-size:15px; color:#1A1A2E;">{{ t.currency }}</span><div class="b-tap" onClick="{{ onToggleCur }}" style="display:flex; align-items:center; gap:6px; padding:7px 14px; background:#F3F4F6; border-radius:999px; font-size:14px; font-weight:700; color:#1A1A2E;">{{ currency }} <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.8"><path d="M4 6l4 4 4-4"/></svg></div></div>
+        </div>
+        <div style="font-size:13px; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:.5px; margin:24px 0 10px;">{{ t.notifications }}</div>
+        <div style="background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px;"><span style="font-size:15px; color:#1A1A2E;">{{ t.bookingConfirmations }}</span><div class="b-tap" onClick="{{ onNotifConfirm }}" style="width:48px; height:28px; border-radius:999px; background:{{ swConfirm }}; padding:3px; display:flex; justify-content:{{ swConfirmJ }};"><div style="width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2);"></div></div></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-top:1px solid #F3F4F6;"><span style="font-size:15px; color:#1A1A2E;">{{ t.checkinReminders }}</span><div class="b-tap" onClick="{{ onNotifCheckin }}" style="width:48px; height:28px; border-radius:999px; background:{{ swCheckin }}; padding:3px; display:flex; justify-content:{{ swCheckinJ }};"><div style="width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2);"></div></div></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-top:1px solid #F3F4F6;"><span style="font-size:15px; color:#1A1A2E;">{{ t.promoOffers }}</span><div class="b-tap" onClick="{{ onNotifPromo }}" style="width:48px; height:28px; border-radius:999px; background:{{ swPromo }}; padding:3px; display:flex; justify-content:{{ swPromoJ }};"><div style="width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2);"></div></div></div>
+        </div>
+        <div class="b-tap" onClick="{{ goPayments }}" style="display:flex; align-items:center; justify-content:space-between; background:#fff; border-radius:16px; padding:15px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-top:24px;"><span style="font-size:15px; color:#1A1A2E; font-weight:500;">{{ t.paymentHistory }}</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg></div>
+        <div style="background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); overflow:hidden; margin-top:12px;">
+          <div class="b-tap" style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px;"><span style="font-size:15px; color:#1A1A2E;">{{ t.help }}</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg></div>
+          <div class="b-tap" style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-top:1px solid #F3F4F6;"><span style="font-size:15px; color:#1A1A2E;">{{ t.terms }}</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg></div>
+          <div class="b-tap" style="display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-top:1px solid #F3F4F6;"><span style="font-size:15px; color:#1A1A2E;">{{ t.privacy }}</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg></div>
+        </div>
+        <div class="b-tap" onClick="{{ goChat }}" style="margin-top:24px; padding:15px; border-radius:14px; border:1.5px solid #E5E7EB; background:#fff; color:#1A1A2E; font-size:15px; font-weight:700; text-align:center;">{{ t.signOut }}</div>
+        <div style="text-align:center; margin-top:18px; font-size:12px; color:#B6BAC2;">{{ t.version }} 1.0.0 (MVP)</div>
+      </div>
+      </sc-if>
+
+      <!-- ============ PAYMENT HISTORY ============ -->
+      <sc-if value="{{ isPayments }}" hint-placeholder-val="{{ false }}">
+      <div class="b-scroll" style="position:absolute; inset:0; overflow-y:auto; padding:58px 22px 40px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:22px;"><div class="b-tap" onClick="{{ onBack }}" style="width:38px; height:38px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-6 6 6 6"/></svg></div><div style="font-size:20px; font-weight:800; color:#1A1A2E;">{{ t.paymentHistory }}</div></div>
+        <sc-if value="{{ hasPayments }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <sc-for list="{{ payList }}" as="p" hint-placeholder-count="1">
+              <div style="background:#fff; border-radius:16px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; gap:14px;">
+                <div style="width:44px; height:44px; border-radius:12px; background:#FFF4E8; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#ED8323" stroke-width="1.7"><rect x="2" y="5" width="16" height="11" rx="2"/><path d="M2 8h16"/></svg></div>
+                <div style="flex:1; min-width:0;"><div style="font-size:15px; font-weight:700; color:#1A1A2E;">{{ p.hotel }}</div><div style="font-size:12px; color:#9CA3AF; margin-top:2px;">{{ p.date }} · {{ p.code }}</div></div>
+                <div style="text-align:right;"><div style="font-size:16px; font-weight:800; color:{{ p.amtColor }}; text-decoration:{{ p.strike }};">{{ p.priceLabel }}</div><div style="font-size:11px; font-weight:700; color:{{ p.stColor }};">{{ p.statusLabel }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noPayments }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; padding-top:120px;"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg><div style="font-size:18px; font-weight:700; color:#1A1A2E; margin-top:18px;">{{ t.noPayments }}</div></div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ============ TAB BAR ============ -->
+      <sc-if value="{{ showTabBar }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute; left:0; right:0; bottom:0; height:88px; background:rgba(255,255,255,.94); backdrop-filter:blur(16px); border-top:1px solid #EFEFF2; display:flex; padding:10px 0 24px; z-index:30;">
+        <div class="b-tap" onClick="{{ tabChat }}" style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tabChatColor }}" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16 16l4 4"/></svg><span style="font-size:10px; font-weight:600; color:{{ tabChatColor }};">{{ t.search }}</span></div>
+        <div class="b-tap" onClick="{{ tabExplore }}" style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tabExploreColor }}" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg><span style="font-size:10px; font-weight:600; color:{{ tabExploreColor }};">{{ t.explore }}</span></div>
+        <div class="b-tap" onClick="{{ tabDashboard }}" style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; position:relative;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tabDashColor }}" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg><span style="font-size:10px; font-weight:600; color:{{ tabDashColor }};">{{ t.dashboard }}</span></div>
+      </div>
+      </sc-if>
+
+      <!-- home indicator -->
+      <div style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:134px; height:5px; border-radius:3px; background:rgba(20,20,30,.28); z-index:70;"></div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:920}}">
+class Component extends DCLogic {
+  state = {
+    lang: 'en', currency: 'EUR',
+    view: 'language', nav: [],
+    draft: '', messages: [], typing: false,
+    selectedHotel: null, selectedRoom: 1,
+    bookings: [],
+    payments: [{ hotel:'Hotel Tino & Spa', city:'Ohrid', date:'12 May 2026', eur:285, code:'BLK-K3P1', status:'paid', month:'May 2026' }],
+    payState: 'idle', card:'', exp:'', cvc:'', guestName:'Marko Petrov', guestEmail:'marko@balkanea.mk', guestPhone:'+389 70 123 456',
+    filterStars: [], filterAm: [], sort: 'recommended', showFilters: false,
+    notif: { confirm:true, checkin:true, promo:false },
+    lastCode: 'BLK-A7X9', kb:false,
+  };
+
+  RATE = 61.5;
+
+  hotels = [
+    { id:'unique', name:'Unique Resort & Spa', city:'Ohrid', rating:4.8, reviews:312, eur:145, am:['wifi','pool','spa','beach','restaurant'],
+      g:'linear-gradient(155deg,#8fc6e6 0%,#4a90b8 48%,#27567a 100%)',
+      en:'Lakefront design resort with an infinity pool over Lake Ohrid and a full spa.', mk:'Дизајн-ресорт на езеро со базен со поглед кон Охридското Езеро и спа центар.' },
+    { id:'tino', name:'Hotel Tino & Spa', city:'Ohrid', rating:4.3, reviews:2453, eur:95, am:['wifi','spa','restaurant','parking'],
+      g:'linear-gradient(155deg,#79b3d4 0%,#3f82a8 50%,#28567a 100%)',
+      en:'Prime lakefront location by the port with great views — lively bar downstairs.', mk:'Одлична локација на езеро кај пристаништето со прекрасен поглед — жив бар во приземје.' },
+    { id:'panoramika', name:'Hotel Panoramika', city:'Skopje', rating:4.6, reviews:540, eur:130, am:['wifi','pool','spa','restaurant'],
+      g:'linear-gradient(155deg,#a9c7a0 0%,#5f8c5a 50%,#3a5e38 100%)',
+      en:'Hilltop hotel above Skopje with panoramic city views and a quiet spa.', mk:'Хотел на ритче над Скопје со панорамски поглед кон градот и тивок спа.' },
+    { id:'marriott', name:'Skopje Marriott', city:'Skopje', rating:4.7, reviews:1840, eur:160, am:['wifi','pool','spa','restaurant','parking'],
+      g:'linear-gradient(155deg,#c6b69a 0%,#9a8364 50%,#6a5540 100%)',
+      en:'Five-star tower on Macedonia Square — the city\u2019s most central luxury stay.', mk:'Петѕвезден хотел на плоштадот Македонија — најцентралниот луксузен престој.' },
+    { id:'boulevard', name:'Hotel Boulevard', city:'Bitola', rating:4.6, reviews:119, eur:70, am:['wifi','restaurant','parking'],
+      g:'linear-gradient(155deg,#d8a87a 0%,#b07845 50%,#7a4f2a 100%)',
+      en:'Friendly, great-value pick a short walk from Bitola\u2019s \u0160irok Sokak street.', mk:'Пријатен избор со одличен сооднос цена-вредност, на чекор од Широк Сокак.' },
+    { id:'dihovo', name:'Villa Dihovo', city:'Bitola', rating:4.9, reviews:88, eur:60, am:['wifi','parking','restaurant'],
+      g:'linear-gradient(155deg,#9ec0a4 0%,#5a8560 50%,#36563c 100%)',
+      en:'Rustic guesthouse in a mountain village below Pelister — home cooking included.', mk:'Рустична куќа за гости во планинско село под Пелистер — домашна кујна вклучена.' },
+  ];
+
+  dests = [
+    { name:'Ohrid', country:'MACEDONIA', mkc:'МАКЕДОНИЈА', rating:4.9, reviews:'8,400', g:'linear-gradient(155deg,#8fc6e6 0%,#3f82a8 55%,#244f6f 100%)', en:'UNESCO lake & old town', mk:'УНЕСКО езеро и стар град', hero:true },
+    { name:'Skopje', country:'MACEDONIA', mkc:'МАКЕДОНИЈА', rating:4.6, reviews:'5,200', g:'linear-gradient(155deg,#c6b69a 0%,#8a7458 60%,#5a4636 100%)', en:'Capital city break', mk:'Одмор во главниот град' },
+    { name:'Bitola', country:'MACEDONIA', mkc:'МАКЕДОНИЈА', rating:4.7, reviews:'2,100', g:'linear-gradient(155deg,#d8a87a 0%,#a06d3f 60%,#6e4626 100%)', en:'Cafés & cobblestones', mk:'Кафулиња и калдрма' },
+    { name:'Mavrovo', country:'MACEDONIA', mkc:'МАКЕДОНИЈА', rating:4.8, reviews:'1,400', g:'linear-gradient(155deg,#a9c7a0 0%,#557d52 60%,#33502f 100%)', en:'Mountains & national park', mk:'Планини и национален парк' },
+    { name:'Santorini', country:'GREECE', mkc:'ГРЦИЈА', rating:4.9, reviews:'4,200', g:'linear-gradient(155deg,#bcd4e6 0%,#5b86a8 55%,#2f5a7a 100%)', en:'Sunsets over the caldera', mk:'Зајдисонца над калдерата' },
+    { name:'Athens', country:'GREECE', mkc:'ГРЦИЈА', rating:4.6, reviews:'5,400', g:'linear-gradient(155deg,#cdbfa6 0%,#8f7c5c 60%,#5e4f38 100%)', en:'Ancient history, modern city', mk:'Античка историја, модерен град' },
+  ];
+
+  T = {
+    en: {
+      search:'Search', explore:'Explore', dashboard:'Dashboard',
+      chooseLang:'Choose your language', langSub:'You can change this anytime in Settings',
+      welcomeBack:'Welcome back', tagline:'Your personal travel advisor', or:'or',
+      email:'Email', phone:'Phone', emailLabel:'Email', emailPh:'you@example.com',
+      passwordLabel:'Password', passwordPh:'Your password', signIn:'Sign In',
+      noAccount:"Don't have an account?", signUp:'Sign up', continueGuest:'Continue without account',
+      whereNext:'Where to next?', whereSub:'Ask Nea anything — she plans, finds and books.',
+      messageBea:'Message Nea\u2026', disclaimer:'Nea is AI and can make mistakes. Double-check details before booking.',
+      sug1:'Lakefront hotel in Ohrid', sug2:'A weekend in Skopje', sug3:'Family stay under \u20ac100',
+      beaReply:'Ohrid is a beautiful choice \u2014 the lakefront is gorgeous this time of year. Here are three places I\u2019d book myself, balancing the view, comfort and value:',
+      beaFollow:'Want me to filter by price, or check specific dates?', viewAll:'See all 12 hotels',
+      exploreSub:'Popular destinations from the Balkans', searchDest:'Search destinations\u2026',
+      all:'All', beach:'Beach', mountain:'Mountain', culture:'Culture', city:'City', lakes:'Lakes', findHotels:'Find hotels',
+      yourBookings:'Your bookings', noBookings:'No bookings yet', noBookingsSub:'Chat with Nea to find your perfect hotel',
+      findHotel:'Find a Hotel', upcoming:'Upcoming', reviews:'reviews',
+      resultsTitle:'Hotels in Ohrid', hotelsFound:'hotels found', filters:'Filters', sort:'Sort',
+      recommended:'Recommended', priceLow:'Price: low to high', priceHigh:'Price: high to low', guestRating:'Guest rating', distanceSort:'Distance',
+      clearFilters:'Clear filters', noResults:'No hotels match your filters', apply:'Show results',
+      priceRange:'Price per night', starRating:'Star rating', amenitiesF:'Amenities', mealPlan:'Meal plan', anyMeal:'Any', perNight:'/ night',
+      night:'night', nights:'nights', selectRoom:'Select your room', bookFor:'Book for', freeCancel:'Free cancellation until 48h before check-in',
+      distanceCenter:'from centre', aboutTitle:'About this stay', amenitiesTitle:'What this place offers',
+      standardRoom:'Standard Room', deluxeRoom:'Deluxe Lake View', suite:'Junior Suite', breakfastIncl:'Breakfast included', roomOnly:'Room only',
+      bookingTitle:'Confirm & pay', summary:'Your stay', guestDetails:'Guest details', fullName:'Full name',
+      payTitle:'Payment', cardNumber:'Card number', expiry:'MM / YY', cvcL:'CVC', payNow:'Pay', securedStripe:'Secured by Stripe \u00b7 PCI compliant',
+      processing:'Processing payment\u2026', declined:'Payment declined. Please try another card.', networkErr:'Connection lost. Please try again.',
+      retry:'Try again', acceptedCards:'We accept', total:'Total', useTest:'Fill test card', useDecline:'Decline card',
+      confirmedTitle:'Booking confirmed!', confirmedSub:'Nea sent a confirmation to your email', confirmationCode:'Confirmation code',
+      viewDashboard:'View dashboard', bookAnother:'Book another stay',
+      bookingDetails:'Booking details', stayDetails:'Stay details', checkIn:'Check-in', checkOut:'Check-out',
+      roomType:'Room type', guestInfo:'Guest', mealPlanShort:'Meal plan', priceBreakdown:'Price breakdown', totalPaid:'Total paid',
+      cancellationPolicy:'Cancellation', cancelBooking:'Cancel booking', contactBalkanea:'Contact Balkanea',
+      statusConfirmed:'Confirmed', statusCancelled:'Cancelled', statusPast:'Completed', freeCancelShort:'Free cancellation available',
+      profileTitle:'Profile', personalInfo:'Personal info', preferences:'Preferences', language:'Language', currency:'Currency',
+      notifications:'Notifications', bookingConfirmations:'Booking confirmations', checkinReminders:'Check-in reminders', promoOffers:'Promotional offers',
+      account:'Account', signOut:'Sign out', deleteAccount:'Delete account', appInfo:'About', version:'Version',
+      help:'Help & support', terms:'Terms & Conditions', privacy:'Privacy Policy', paymentHistory:'Payment history',
+      paid:'Paid', refunded:'Refunded', pending:'Pending', noPayments:'No payments yet', edit:'Edit', save:'Save changes',
+      perNightLabel:'per night', taxesIncl:'Taxes & fees included', today:'Today',
+    },
+    mk: {
+      search:'Пребарај', explore:'Истражи', dashboard:'Табла',
+      chooseLang:'Избери јазик', langSub:'Можеш да го смениш во секое време во Поставки',
+      welcomeBack:'Добредојде назад', tagline:'Твој личен патувачки советник', or:'или',
+      email:'Е-пошта', phone:'Телефон', emailLabel:'Е-пошта', emailPh:'ti@primer.com',
+      passwordLabel:'Лозинка', passwordPh:'Твоја лозинка', signIn:'Најави се',
+      noAccount:'Немаш сметка?', signUp:'Регистрирај се', continueGuest:'Продолжи без сметка',
+      whereNext:'Каде следно?', whereSub:'Прашај ја Неа сè — таа планира, наоѓа и резервира.',
+      messageBea:'Напиши ѝ на Неа\u2026', disclaimer:'Неа е вештачка интелигенција и може да греши. Провери ги деталите.',
+      sug1:'Хотел на езеро во Охрид', sug2:'Викенд во Скопје', sug3:'Семеен престој под \u20ac100',
+      beaReply:'Охрид е прекрасен избор \u2014 езерскиот брег е прекрасен во ова време од годината. Еве три места што јас би ги резервирала, балансирајќи поглед, удобност и цена:',
+      beaFollow:'Сакаш да филтрирам по цена или да проверам слободни датуми?', viewAll:'Погледни ги сите 12 хотели',
+      exploreSub:'Популарни дестинации од Балканот', searchDest:'Барај дестинации\u2026',
+      all:'Сите', beach:'Плажа', mountain:'Планина', culture:'Култура', city:'Град', lakes:'Езера', findHotels:'Најди хотели',
+      yourBookings:'Твои резервации', noBookings:'Сè уште нема резервации', noBookingsSub:'Разговарај со Неа за да го најдеш совршениот хотел',
+      findHotel:'Најди хотел', upcoming:'Претстојни', reviews:'оценки',
+      resultsTitle:'Хотели во Охрид', hotelsFound:'хотели пронајдени', filters:'Филтри', sort:'Подреди',
+      recommended:'Препорачано', priceLow:'Цена: ниска кон висока', priceHigh:'Цена: висока кон ниска', guestRating:'Оцена од гости', distanceSort:'Растојание',
+      clearFilters:'Исчисти филтри', noResults:'Ниту еден хотел не одговара на филтрите', apply:'Прикажи резултати',
+      priceRange:'Цена по ноќ', starRating:'Ѕвезди', amenitiesF:'Содржини', mealPlan:'Оброци', anyMeal:'Било кој', perNight:'/ ноќ',
+      night:'ноќ', nights:'ноќи', selectRoom:'Избери соба', bookFor:'Резервирај за', freeCancel:'Бесплатно откажување до 48ч пред пристигнување',
+      distanceCenter:'од центарот', aboutTitle:'За овој престој', amenitiesTitle:'Што нуди ова место',
+      standardRoom:'Стандардна соба', deluxeRoom:'Делукс со поглед', suite:'Помал апартман', breakfastIncl:'Појадок вклучен', roomOnly:'Само соба',
+      bookingTitle:'Потврди и плати', summary:'Твој престој', guestDetails:'Детали за гостинот', fullName:'Име и презиме',
+      payTitle:'Плаќање', cardNumber:'Број на картичка', expiry:'ММ / ГГ', cvcL:'CVC', payNow:'Плати', securedStripe:'Заштитено од Stripe \u00b7 PCI усогласено',
+      processing:'Се обработува плаќањето\u2026', declined:'Плаќањето е одбиено. Пробај друга картичка.', networkErr:'Врската е изгубена. Обиди се повторно.',
+      retry:'Обиди се повторно', acceptedCards:'Прифаќаме', total:'Вкупно', useTest:'Тест картичка', useDecline:'Одбиена картичка',
+      confirmedTitle:'Резервацијата е потврдена!', confirmedSub:'Неа испрати потврда на твојата е-пошта', confirmationCode:'Код за потврда',
+      viewDashboard:'Погледни табла', bookAnother:'Резервирај друг престој',
+      bookingDetails:'Детали за резервација', stayDetails:'Детали за престој', checkIn:'Пристигнување', checkOut:'Заминување',
+      roomType:'Тип на соба', guestInfo:'Гостин', mealPlanShort:'Оброци', priceBreakdown:'Распределба на цена', totalPaid:'Вкупно платено',
+      cancellationPolicy:'Откажување', cancelBooking:'Откажи резервација', contactBalkanea:'Контактирај Balkanea',
+      statusConfirmed:'Потврдено', statusCancelled:'Откажано', statusPast:'Завршено', freeCancelShort:'Достапно бесплатно откажување',
+      profileTitle:'Профил', personalInfo:'Лични информации', preferences:'Поставки', language:'Јазик', currency:'Валута',
+      notifications:'Известувања', bookingConfirmations:'Потврди за резервации', checkinReminders:'Потсетници за пристигнување', promoOffers:'Промотивни понуди',
+      account:'Сметка', signOut:'Одјави се', deleteAccount:'Избриши сметка', appInfo:'За апликацијата', version:'Верзија',
+      help:'Помош и поддршка', terms:'Услови за користење', privacy:'Политика за приватност', paymentHistory:'Историја на плаќања',
+      paid:'Платено', refunded:'Вратено', pending:'Во тек', noPayments:'Сè уште нема плаќања', edit:'Уреди', save:'Зачувај промени',
+      perNightLabel:'по ноќ', taxesIncl:'Даноци и такси вклучени', today:'Денес',
+    }
+  };
+
+  tt() { return this.T[this.state.lang]; }
+  money(eur) { return this.state.currency === 'MKD' ? Math.round(eur * this.RATE).toLocaleString('en-US') + ' ден' : '\u20ac' + eur; }
+  hname(h) { return this.state.lang === 'mk' ? h.mk : h.en; }
+
+  componentDidMount() {
+    this._fit = () => { const el=document.getElementById('bk-phone'); if (el) { const s=Math.min(1,(window.innerHeight-20)/884); el.style.transform='scale('+s+')'; el.style.transformOrigin='center center'; } };
+    this._fit(); window.addEventListener('resize', this._fit);
+  }
+  componentWillUnmount() { clearInterval(this._stream); clearTimeout(this._t1); clearTimeout(this._t2); if (this._fit) window.removeEventListener('resize', this._fit); }
+
+  setLang(l) { this.setState({ lang:l }); }
+  toggleLang() { this.setState(s => ({ lang: s.lang==='en'?'mk':'en' })); }
+  toggleCurrency() { this.setState(s => ({ currency: s.currency==='EUR'?'MKD':'EUR' })); }
+
+  _scroll() { setTimeout(() => { document.querySelectorAll('.b-scroll').forEach(el => el.scrollTop = 0); }, 10); }
+  go(view) { this.setState(s => ({ nav:[...s.nav, s.view], view })); this._scroll(); }
+  back() { this.setState(s => { const nav=[...s.nav]; const view=nav.pop()||'chat'; return { nav, view }; }); this._scroll(); }
+  tab(view) { this.setState({ view, nav:[] }); this._scroll(); }
+
+  onDraft(e) { this.setState({ draft: e.target.value }); }
+  onKey(e) { if (e.key === 'Enter') { e.preventDefault(); this.send(this.state.draft); } }
+  suggest(text) { this.send(text); }
+
+  onFocusInput() { if (!this.state.kb) this.setState({ kb:true }); this._scrollChat(); }
+  dismissKb() { if (this.state.kb) this.setState({ kb:false }); }
+  _scrollChat() { for (const d of [60,260,360]) setTimeout(() => { const el=document.querySelector('.chat-scroll'); if (el) el.scrollTop=el.scrollHeight; }, d); }
+  kbKey(ch) { this.setState(s => ({ draft: s.draft + ch })); }
+  kbBack() { this.setState(s => ({ draft: s.draft.slice(0,-1) })); }
+  kbSpace() { this.setState(s => ({ draft: s.draft + ' ' })); }
+  kbReturn() { this.send(this.state.draft); this._scrollChat(); }
+
+  send(text) {
+    const t = (text || '').trim(); if (!t || this.state.typing) return;
+    this.setState(s => ({ messages:[...s.messages, { role:'user', text:t }], typing:true, draft:'', kb:false }));
+    this._t1 = setTimeout(() => {
+      this.setState(s => ({ typing:false, messages:[...s.messages, { role:'bea', text:'', full:this.tt().beaReply, streaming:true, cards:null, follow:false }] }));
+      this._stream = setInterval(() => {
+        this.setState(s => {
+          const msgs=[...s.messages]; const last=msgs[msgs.length-1];
+          if (!last || !last.streaming) { clearInterval(this._stream); return {}; }
+          const next = last.full.slice(0, last.text.length + 2);
+          const done = next.length >= last.full.length;
+          msgs[msgs.length-1] = { ...last, text:next, streaming:!done, cards: done ? ['unique','tino','panoramika'] : null, follow:done };
+          if (done) clearInterval(this._stream);
+          return { messages:msgs };
+        });
+      }, 16);
+    }, 850);
+    this._scroll2();
+  }
+  _scroll2() { for (const d of [40,300,700,1400,2600]) setTimeout(() => { const el=document.querySelector('.chat-scroll'); if (el) el.scrollTop=el.scrollHeight; }, d); }
+
+  openHotel(id) { const h=this.hotels.find(x=>x.id===id); this.setState(s=>({ nav:[...s.nav,s.view], view:'hotel', selectedHotel:h, selectedRoom:1 })); this._scroll(); }
+  selectRoom(i) { this.setState({ selectedRoom:i }); }
+
+  rooms() {
+    const t=this.tt(); const b=this.state.selectedHotel?this.state.selectedHotel.eur:120;
+    return [
+      { name:t.standardRoom, eur:b, meal:t.roomOnly },
+      { name:t.deluxeRoom, eur:b+40, meal:t.breakfastIncl },
+      { name:t.suite, eur:b+110, meal:t.breakfastIncl },
+    ];
+  }
+
+  onField(k, e) { this.setState({ [k]: e.target.value }); }
+  onCard(e) { let v=e.target.value.replace(/\D/g,'').slice(0,16); v=v.replace(/(.{4})/g,'$1 ').trim(); this.setState({ card:v }); }
+  onExp(e) { let v=e.target.value.replace(/\D/g,'').slice(0,4); if(v.length>2) v=v.slice(0,2)+' / '+v.slice(2); this.setState({ exp:v }); }
+  fillTest() { this.setState({ card:'4242 4242 4242 4242', exp:'12 / 27', cvc:'123', payState:'idle' }); }
+  fillDecline() { this.setState({ card:'4000 0000 0000 0002', exp:'12 / 27', cvc:'123', payState:'idle' }); }
+
+  pay() {
+    if (this.state.payState === 'processing') return;
+    this.setState({ payState:'processing' });
+    this._t2 = setTimeout(() => {
+      const digits = this.state.card.replace(/\s/g,'');
+      if (digits === '4000000000000002') { this.setState({ payState:'declined' }); return; }
+      const room=this.rooms()[this.state.selectedRoom]; const h=this.state.selectedHotel;
+      const total=room.eur*3;
+      const code='BLK-'+Math.random().toString(36).slice(2,6).toUpperCase();
+      const booking={ id:Date.now(), name:h.name, city:h.city, g:h.g, checkIn:'24 Jun 2026', checkOut:'27 Jun 2026', nights:3, room:room.name, meal:room.meal, eur:total, code, status:'confirmed' };
+      const pay={ hotel:h.name, city:h.city, date:'24 Jun 2026', eur:total, code, status:'paid', month:'Jun 2026' };
+      this.setState(s => ({ payState:'idle', view:'confirmed', nav:[], lastCode:code, card:'', exp:'', cvc:'', bookings:[booking, ...s.bookings], payments:[pay, ...s.payments] }));
+      this._scroll();
+    }, 1900);
+  }
+
+  openBooking(b) { this.setState(s=>({ nav:[...s.nav,s.view], view:'bookingDetail', selectedBooking:b })); this._scroll(); }
+  cancelBooking() {
+    const id=this.state.selectedBooking.id;
+    this.setState(s => ({
+      selectedBooking:{ ...s.selectedBooking, status:'cancelled' },
+      bookings: s.bookings.map(b => b.id===id ? { ...b, status:'cancelled' } : b),
+    }));
+  }
+
+  toggleStar(n) { this.setState(s => ({ filterStars: s.filterStars.includes(n) ? s.filterStars.filter(x=>x!==n) : [...s.filterStars, n] })); }
+  toggleAm(a) { this.setState(s => ({ filterAm: s.filterAm.includes(a) ? s.filterAm.filter(x=>x!==a) : [...s.filterAm, a] })); }
+  setSort(v) { this.setState({ sort:v }); }
+  clearFilters() { this.setState({ filterStars:[], filterAm:[] }); }
+  toggleNotif(k) { this.setState(s => ({ notif:{ ...s.notif, [k]: !s.notif[k] } })); }
+
+  filtered() {
+    let list = this.hotels.slice();
+    const fs=this.state.filterStars, fa=this.state.filterAm;
+    if (fs.length) list = list.filter(h => fs.some(n => Math.floor(h.rating) >= n));
+    if (fa.length) list = list.filter(h => fa.every(a => h.am.includes(a)));
+    const s=this.state.sort;
+    if (s==='priceLow') list.sort((a,b)=>a.eur-b.eur);
+    else if (s==='priceHigh') list.sort((a,b)=>b.eur-a.eur);
+    else if (s==='guestRating') list.sort((a,b)=>b.rating-a.rating);
+    return list;
+  }
+
+  hcard(id) {
+    const h=this.hotels.find(x=>x.id===id); const t=this.tt();
+    return { id:h.id, name:h.name, city:h.city, rating:h.rating, reviews:h.reviews.toLocaleString('en-US'),
+      priceLabel:this.money(h.eur), perNight:t.perNight, blurb:this.hname(h), g:h.g, open:()=>this.openHotel(h.id) };
+  }
+
+  renderVals() {
+    const t=this.tt(); const v=this.state.view; const st=this.state;
+    const showTabs = ['chat','explore','dashboard'].includes(v);
+    const sel=st.selectedHotel;
+    const rooms=this.rooms();
+    const room=rooms[st.selectedRoom];
+    const total = room ? room.eur*3 : 0;
+    const amLabels={ wifi:'Free WiFi', pool:'Pool', spa:'Spa', beach:'Beach access', parking:'Parking', restaurant:'Restaurant' };
+    const amLabelsMk={ wifi:'Бесплатен WiFi', pool:'Базен', spa:'Спа', beach:'Пристап до плажа', parking:'Паркинг', restaurant:'Ресторан' };
+    const AL = st.lang==='mk' ? amLabelsMk : amLabels;
+
+    const mk=(label,o={})=>({ label, flex:o.flex||1, bg:o.bg||'#ffffff', fg:o.fg||'#1A1A2E', fs:o.fs||'18px', tap:o.tap||(()=>this.kbKey(label.toLowerCase())) });
+    const kbRows=[
+      { keys:'QWERTYUIOP'.split('').map(c=>mk(c)) },
+      { keys:'ASDFGHJKL'.split('').map(c=>mk(c)) },
+      { keys:[ mk('\u21E7',{flex:1.5,bg:'#adb3bd',tap:()=>{}}), ...'ZXCVBNM'.split('').map(c=>mk(c)), mk('\u232B',{flex:1.5,bg:'#adb3bd',tap:()=>this.kbBack()}) ] },
+      { keys:[ mk('123',{flex:1.5,bg:'#adb3bd',fs:'15px',tap:()=>{}}), mk('space',{flex:5,fs:'14px',fg:'#9CA3AF',tap:()=>this.kbSpace()}), mk('return',{flex:2,bg:'#ED8323',fg:'#ffffff',fs:'14px',tap:()=>this.kbReturn()}) ] },
+    ];
+
+    return {
+      t, lang:st.lang, currency:st.currency, view:v, showTabs,
+      langEN: st.lang==='en', langMK: st.lang==='mk', curEUR: st.currency==='EUR',
+      isLanguage:v==='language', isAuth:v==='auth', isChat:v==='chat', isExplore:v==='explore',
+      isDashboard:v==='dashboard', isResults:v==='results', isHotel:v==='hotel', isBooking:v==='booking',
+      isConfirmed:v==='confirmed', isBookingDetail:v==='bookingDetail', isProfile:v==='profile', isPayments:v==='payments',
+      canBack: st.nav.length>0,
+      mkBorder: st.lang==='mk'?'#ED8323':'#EEEEEE', enBorder: st.lang==='en'?'#ED8323':'#EEEEEE',
+      langPill: st.lang==='mk'?'MK':'EN', curSymbol: st.currency==='EUR'?'\u20ac':'ден',
+      noMessages: st.messages.length===0, noBookings: st.bookings.length===0, noPayments: st.payments.length===0,
+      tabChatColor: v==='chat'?'#ED8323':'#9CA3AF', tabExploreColor: v==='explore'?'#ED8323':'#9CA3AF', tabDashColor: v==='dashboard'?'#ED8323':'#9CA3AF',
+      hotelCity: sel?sel.city.toUpperCase():'',
+      payIdle: st.payState==='idle', payBtnBg: 'linear-gradient(135deg,#ED8323,#E57757)',
+      bdActive: !!(st.selectedBooking && st.selectedBooking.status!=='cancelled'),
+      mkTabBg: st.lang==='mk'?'#ffffff':'transparent', mkTabFg: st.lang==='mk'?'#1A1A2E':'#9CA3AF',
+      enTabBg: st.lang==='en'?'#ffffff':'transparent', enTabFg: st.lang==='en'?'#1A1A2E':'#9CA3AF',
+      swConfirm: st.notif.confirm?'#ED8323':'#E5E7EB', swConfirmJ: st.notif.confirm?'flex-end':'flex-start',
+      swCheckin: st.notif.checkin?'#ED8323':'#E5E7EB', swCheckinJ: st.notif.checkin?'flex-end':'flex-start',
+      swPromo: st.notif.promo?'#ED8323':'#E5E7EB', swPromoJ: st.notif.promo?'flex-end':'flex-start',
+      onBack:()=>this.back(), onToggleLang:()=>this.toggleLang(), onToggleCur:()=>this.toggleCurrency(),
+      setEN:()=>this.setLang('en'), setMK:()=>this.setLang('mk'),
+      goAuth:()=>this.go('auth'), goChat:()=>this.tab('chat'),
+      tabChat:()=>this.tab('chat'), tabExplore:()=>this.tab('explore'), tabDashboard:()=>this.tab('dashboard'),
+      goProfile:()=>this.go('profile'), goPayments:()=>this.go('payments'), goResults:()=>this.go('results'),
+      goBooking:()=>this.go('booking'), goExploreSearch:()=>this.go('results'),
+
+      // chat
+      draft:st.draft, onDraft:(e)=>this.onDraft(e), onKey:(e)=>this.onKey(e), onSend:()=>this.send(st.draft),
+      kb:st.kb, kbRows, kbHeight: st.kb?'300px':'88px', kbBg: st.kb?'#d3d6dc':'transparent', showTabBar: showTabs && !st.kb,
+      onFocusInput:()=>this.onFocusInput(), dismissKb:()=>this.dismissKb(),
+      typing:st.typing, hasMessages: st.messages.length>0,
+      sugg:[ t.sug1, t.sug2, t.sug3 ].map(s=>({ label:s, go:()=>this.suggest(s) })),
+      messages: st.messages.map(m => ({
+        isUser:m.role==='user', isBea:m.role==='bea', text:m.text, streaming:m.streaming, follow:m.follow, followText:t.beaFollow,
+        hasCards: !!(m.cards && m.cards.length),
+        cards: (m.cards||[]).map(id=>this.hcard(id)),
+        viewAll:t.viewAll, onViewAll:()=>this.go('results'),
+      })),
+
+      // explore
+      dests: this.dests.map(d => ({ ...d, countryLabel: st.lang==='mk'?d.mkc:d.country, tagline: st.lang==='mk'?d.mk:d.en,
+        open:()=>this.go('results') })),
+      heroDest: (()=>{ const d=this.dests[0]; return { ...d, countryLabel: st.lang==='mk'?d.mkc:d.country, tagline: st.lang==='mk'?d.mk:d.en, open:()=>this.go('results') }; })(),
+      gridDests: this.dests.slice(1).map(d => ({ ...d, countryLabel: st.lang==='mk'?d.mkc:d.country, tagline: st.lang==='mk'?d.mk:d.en, open:()=>this.go('results') })),
+      cats:[ {k:'all',label:t.all}, {k:'beach',label:t.beach}, {k:'mountain',label:t.mountain}, {k:'culture',label:t.culture}, {k:'lakes',label:t.lakes} ].map((c,i)=>({ ...c, bg: i===0?'linear-gradient(135deg,#ED8323,#E57757)':'#ffffff', fg: i===0?'#ffffff':'#374151', bd: i===0?'transparent':'#EEEEEE' })),
+
+      // dashboard
+      hasBookings: st.bookings.length>0,
+      bookings: st.bookings.map(b => ({ ...b, statusLabel: b.status==='cancelled'?t.statusCancelled:t.statusConfirmed,
+        cancelled:b.status==='cancelled', priceLabel:this.money(b.eur),
+        badgeBg: b.status==='cancelled'?'rgba(0,0,0,.5)':'rgba(255,255,255,.95)', badgeFg: b.status==='cancelled'?'#ffffff':'#10B981',
+        open:()=>this.openBooking(b) })),
+
+      // results
+      resultCount: this.filtered().length,
+      results: this.filtered().map(h => this.hcard(h.id)),
+      noResults: this.filtered().length===0,
+      showFilters: st.showFilters, openFilters:()=>this.setState({showFilters:true}), closeFilters:()=>this.setState({showFilters:false}),
+      stars:[5,4,3].map(n=>{ const on=st.filterStars.includes(n); return { n, label:n+'\u2605', on, tap:()=>this.toggleStar(n), bg:on?'#FFF4E8':'#ffffff', fg:on?'#ED8323':'#374151', bd:on?'#ED8323':'#E5E7EB' }; }),
+      amChips:['wifi','pool','spa','beach','parking','restaurant'].map(a=>{ const on=st.filterAm.includes(a); return { a, label:AL[a], on, tap:()=>this.toggleAm(a), bg:on?'#FFF4E8':'#ffffff', fg:on?'#ED8323':'#374151', bd:on?'#ED8323':'#E5E7EB' }; }),
+      sorts:[ {k:'recommended',label:t.recommended}, {k:'priceLow',label:t.priceLow}, {k:'priceHigh',label:t.priceHigh}, {k:'guestRating',label:t.guestRating} ].map(s=>{ const on=st.sort===s.k; return { ...s, on, tap:()=>this.setSort(s.k), bg:on?'#1A1A2E':'#ffffff', fg:on?'#ffffff':'#6B7280', bd:on?'transparent':'#EEEEEE' }; }),
+      onClearFilters:()=>this.clearFilters(),
+
+      // hotel detail
+      hotel: sel ? { name:sel.name, city:sel.city, rating:sel.rating, reviews:sel.reviews.toLocaleString('en-US'),
+        priceLabel:this.money(sel.eur), blurb:this.hname(sel), g:sel.g,
+        amenities: sel.am.map(a=>({ a, label:AL[a] })) } : null,
+      rooms: rooms.map((r,i)=>{ const sel2=st.selectedRoom===i; return { name:r.name, meal:r.meal, priceLabel:this.money(r.eur), selected:sel2, tap:()=>this.selectRoom(i), bd:sel2?'#ED8323':'#F0F0F2', dot:sel2?'#ED8323':'#D1D5DB', dotBg:sel2?'#ED8323':'transparent' }; }),
+      bookForLabel: t.bookFor+' '+this.money(total),
+      selectedRoomName: room ? room.name : '',
+
+      // booking + payment
+      payState:st.payState, payProcessing:st.payState==='processing', payDeclined:st.payState==='declined', payError:st.payState==='network',
+      card:st.card, exp:st.exp, cvc:st.cvc, guestName:st.guestName, guestEmail:st.guestEmail, guestPhone:st.guestPhone,
+      onCard:(e)=>this.onCard(e), onExp:(e)=>this.onExp(e), onCvc:(e)=>this.onField('cvc',e), onName:(e)=>this.onField('guestName',e),
+      onEmail:(e)=>this.onField('guestEmail',e), onPhone:(e)=>this.onField('guestPhone',e),
+      onPay:()=>this.pay(), onFillTest:()=>this.fillTest(), onFillDecline:()=>this.fillDecline(),
+      cardBrand: st.card.startsWith('4')?'VISA':(st.card.startsWith('5')?'MC':''),
+      isVisa: st.card.startsWith('4'), isMC: st.card.startsWith('5'),
+      payValid: st.card.replace(/\s/g,'').length>=16 && st.exp.length>=5 && st.cvc.length>=3,
+      payLabel: t.payNow+' '+this.money(total),
+      bSummary: sel ? { name:sel.name, city:sel.city, g:sel.g, room: room?room.name:'', priceLabel:this.money(total) } : null,
+
+      // confirmed
+      confCode: st.lastCode,
+      confHotel: sel ? sel.name : '', confCity: sel ? sel.city : '',
+      confTotal: this.money(total),
+      onViewDash:()=>this.tab('dashboard'), onBookAnother:()=>this.tab('chat'),
+
+      // booking detail
+      bd: st.selectedBooking ? { ...st.selectedBooking, priceLabel:this.money(st.selectedBooking.eur),
+        perNight:this.money(Math.round(st.selectedBooking.eur/st.selectedBooking.nights)),
+        statusLabel: st.selectedBooking.status==='cancelled'?t.statusCancelled:t.statusConfirmed,
+        cancelled: st.selectedBooking.status==='cancelled' } : null,
+      onCancelBooking:()=>this.cancelBooking(),
+
+      // profile
+      notifConfirm:st.notif.confirm, notifCheckin:st.notif.checkin, notifPromo:st.notif.promo,
+      onNotifConfirm:()=>this.toggleNotif('confirm'), onNotifCheckin:()=>this.toggleNotif('checkin'), onNotifPromo:()=>this.toggleNotif('promo'),
+
+      // payments
+      hasPayments: st.payments.length>0,
+      payList: st.payments.map(p => ({ ...p, priceLabel:this.money(p.eur),
+        statusLabel: p.status==='refunded'?t.refunded:(p.status==='pending'?t.pending:t.paid),
+        refunded:p.status==='refunded',
+        amtColor: p.status==='refunded'?'#9CA3AF':'#1A1A2E', strike: p.status==='refunded'?'line-through':'none',
+        stColor: p.status==='pending'?'#F59E0B':'#10B981' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

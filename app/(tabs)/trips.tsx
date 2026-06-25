@@ -64,8 +64,17 @@ export default function DashboardScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.headerSection}>
-          <Text style={styles.title}>{t.dashboard.title}</Text>
-          <Text style={styles.subtitle}>{t.dashboard.subtitle}</Text>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.title}>{t.dashboard.title}</Text>
+              <Text style={styles.subtitle}>{t.dashboard.subtitle}</Text>
+            </View>
+            <TouchableOpacity style={styles.avatarBtn} onPress={() => router.push('/profile')}>
+              <LinearGradient colors={['#00332A', '#001a15'] as const} style={styles.avatar}>
+                <Ionicons name="person" size={20} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyVisual}>
@@ -98,8 +107,17 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>{t.dashboard.title}</Text>
-        <Text style={styles.subtitle}>{t.dashboard.subtitle}</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>{t.dashboard.title}</Text>
+            <Text style={styles.subtitle}>{t.dashboard.subtitle}</Text>
+          </View>
+          <TouchableOpacity style={styles.avatarBtn} onPress={() => router.push('/profile')}>
+            <LinearGradient colors={['#00332A', '#001a15'] as const} style={styles.avatar}>
+              <Ionicons name="person" size={20} color="#fff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
       <SectionList
         sections={sections}
@@ -220,6 +238,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  avatarBtn: {},
+  avatar: {
+    width: 44, height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...Typography.hero,

@@ -48,9 +48,9 @@ export function VoiceButton({ status, agentTalking, onPress, size = BASE }: Prop
   const isConnecting = status === 'connecting'
 
   const label = isConnecting ? 'Connecting...'
-    : isActive && agentTalking ? 'Bea is speaking'
+    : isActive && agentTalking ? 'Nea is speaking'
     : isActive ? 'Listening...'
-    : 'Talk to Bea'
+    : 'Talk to Nea'
 
   const r = size / 2
   const iconSize = Math.round(22 * scale)

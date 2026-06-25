@@ -320,7 +320,7 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
             <Text style={s.transcript} numberOfLines={4}>{displayText}</Text>
           ) : (
             <Text style={s.transcriptPlaceholder}>
-              {callStatus === 'connecting' ? 'Starting call…' : 'Waiting for Bea…'}
+              {callStatus === 'connecting' ? 'Starting call…' : 'Waiting for Nea…'}
             </Text>
           )}
 
