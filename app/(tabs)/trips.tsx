@@ -11,6 +11,7 @@ import {
   cancelBooking, subscribeToBookings,
 } from '../../lib/bookings-store'
 import type { Booking } from '../../lib/types'
+import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 function formatDate(iso: string): string {
@@ -28,6 +29,7 @@ export default function DashboardScreen() {
   const [upcoming, setUpcoming] = useState<Booking[]>(getUpcomingBookings())
   const [past, setPast] = useState<Booking[]>(getPastBookings())
   const router = useRouter()
+  const { t } = useLang()
 
   useEffect(() => {
     const unsub = subscribeToBookings(() => {
@@ -39,18 +41,18 @@ export default function DashboardScreen() {
 
   const handleCancel = useCallback((booking: Booking) => {
     Alert.alert(
-      'Cancel booking?',
-      `Cancel your reservation at "${booking.hotel.name}"?`,
+      t.dashboard.cancelBooking,
+      t.dashboard.cancelConfirm.replace('{{hotel}}', booking.hotel.name),
       [
-        { text: 'Keep', style: 'cancel' },
+        { text: t.dashboard.keep, style: 'cancel' },
         {
-          text: 'Cancel Booking',
+          text: t.dashboard.cancelAction,
           style: 'destructive',
           onPress: () => cancelBooking(booking.id),
         },
       ]
     )
-  }, [])
+  }, [t])
 
   const handlePress = useCallback((id: string) => {
     router.push(`/booking-detail?id=${id}`)
@@ -62,16 +64,16 @@ export default function DashboardScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.headerSection}>
-          <Text style={styles.title}>Dashboard</Text>
-          <Text style={styles.subtitle}>Your bookings</Text>
+          <Text style={styles.title}>{t.dashboard.title}</Text>
+          <Text style={styles.subtitle}>{t.dashboard.subtitle}</Text>
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyVisual}>
             <Ionicons name="compass-outline" size={72} color={Colors.primaryLight} />
           </View>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
+          <Text style={styles.emptyTitle}>{t.dashboard.noBookings}</Text>
           <Text style={styles.emptyText}>
-            Chat with Bea to find your perfect hotel
+            {t.dashboard.chatWithBea}
           </Text>
           <TouchableOpacity onPress={() => router.navigate('/')} activeOpacity={0.8}>
             <LinearGradient
@@ -81,7 +83,7 @@ export default function DashboardScreen() {
               style={styles.ctaBtn}
             >
               <Ionicons name="search" size={16} color="#fff" />
-              <Text style={styles.ctaText}>Find a Hotel</Text>
+              <Text style={styles.ctaText}>{t.dashboard.findHotel}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -90,14 +92,14 @@ export default function DashboardScreen() {
   }
 
   const sections: { title: string; data: Booking[] }[] = []
-  if (upcoming.length > 0) sections.push({ title: 'Upcoming', data: upcoming })
-  if (past.length > 0) sections.push({ title: 'Past', data: past })
+  if (upcoming.length > 0) sections.push({ title: t.dashboard.upcoming, data: upcoming })
+  if (past.length > 0) sections.push({ title: t.dashboard.past, data: past })
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>Dashboard</Text>
-        <Text style={styles.subtitle}>Your bookings</Text>
+        <Text style={styles.title}>{t.dashboard.title}</Text>
+        <Text style={styles.subtitle}>{t.dashboard.subtitle}</Text>
       </View>
       <SectionList
         sections={sections}
@@ -128,6 +130,7 @@ function BookingCard({
   onPress: (id: string) => void
   onCancel: (booking: Booking) => void
 }) {
+  const { t } = useLang()
   const imageUrl = booking.hotel.images?.[0] ?? null
   const nights = nightCount(booking.checkin, booking.checkout)
   const isConfirmed = booking.status === 'confirmed'
@@ -160,7 +163,7 @@ function BookingCard({
               color="#fff"
             />
             <Text style={styles.statusText}>
-              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+              {isConfirmed ? t.dashboard.confirmed : isCancelled ? t.dashboard.cancelled : t.dashboard.pending}
             </Text>
           </View>
         </View>

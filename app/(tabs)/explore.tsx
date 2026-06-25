@@ -7,12 +7,14 @@ import { SearchBar } from '../../components/explore/SearchBar'
 import { CATEGORIES, filterDestinations } from '../../lib/destinations'
 import type { DestinationCategory, Destination } from '../../lib/destinations'
 import { setExploreIntent } from '../../lib/explore-intent'
+import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Gradients } from '../../constants/theme'
 
 export default function ExploreScreen() {
   const [category, setCategory] = useState<DestinationCategory | 'all'>('all')
   const [search, setSearch] = useState('')
   const router = useRouter()
+  const { t } = useLang()
 
   const destinations = useMemo(() => filterDestinations(category, search), [category, search])
 
@@ -46,11 +48,11 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>Where to next?</Text>
-        <Text style={styles.subtitle}>Popular destinations from the Balkans</Text>
+        <Text style={styles.title}>{t.explore.title}</Text>
+        <Text style={styles.subtitle}>{t.explore.subtitle}</Text>
       </View>
 
-      <SearchBar value={search} onChangeText={setSearch} />
+      <SearchBar value={search} onChangeText={setSearch} placeholder={t.explore.searchPlaceholder} />
 
       <ScrollView
         horizontal
@@ -90,8 +92,8 @@ export default function ExploreScreen() {
       {destinations.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>🔍</Text>
-          <Text style={styles.emptyTitle}>No destinations found</Text>
-          <Text style={styles.emptyText}>Try a different search or category</Text>
+          <Text style={styles.emptyTitle}>{t.explore.noDestinations}</Text>
+          <Text style={styles.emptyText}>{t.explore.tryDifferent}</Text>
         </View>
       ) : (
         <FlatList

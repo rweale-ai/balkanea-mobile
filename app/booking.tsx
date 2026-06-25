@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
+import { useLang } from '../lib/i18n'
 import { addBooking } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
@@ -14,6 +15,7 @@ import type { Hotel, RoomType } from '../lib/types'
 
 export default function BookingScreen() {
   const router = useRouter()
+  const { t } = useLang()
   const params = useLocalSearchParams<{
     hotelId: string
     roomId: string
@@ -75,11 +77,11 @@ export default function BookingScreen() {
 
   const handleConfirm = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Missing information', 'Please enter your full name.')
+      Alert.alert(t.booking.missingInfo, t.booking.enterName)
       return
     }
     if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Missing information', 'Please enter a valid email address.')
+      Alert.alert(t.booking.missingInfo, t.booking.enterEmail)
       return
     }
 
@@ -134,14 +136,14 @@ export default function BookingScreen() {
         <TouchableOpacity style={styles.headerBackBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Complete your booking</Text>
+        <Text style={styles.headerTitle}>{t.booking.completeBooking}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Booking Summary */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Booking Summary</Text>
+          <Text style={styles.summaryLabel}>{t.booking.bookingSummary}</Text>
 
           <View style={styles.summaryRow}>
             <Ionicons name="business-outline" size={16} color={Colors.primary} />
@@ -173,10 +175,10 @@ export default function BookingScreen() {
 
         {/* Guest Details */}
         <View style={styles.formSection}>
-          <Text style={styles.formSectionTitle}>Guest Details</Text>
+          <Text style={styles.formSectionTitle}>{t.booking.guestDetails}</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Full Name</Text>
+            <Text style={styles.inputLabel}>{t.booking.fullName}</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="person-outline" size={18} color={Colors.textLight} style={styles.inputIcon} />
               <TextInput
@@ -191,7 +193,7 @@ export default function BookingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email</Text>
+            <Text style={styles.inputLabel}>{t.booking.emailAddress}</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={18} color={Colors.textLight} style={styles.inputIcon} />
               <TextInput
@@ -208,7 +210,7 @@ export default function BookingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone</Text>
+            <Text style={styles.inputLabel}>{t.booking.phoneNumber}</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="call-outline" size={18} color={Colors.textLight} style={styles.inputIcon} />
               <TextInput
@@ -225,7 +227,7 @@ export default function BookingScreen() {
 
         {/* Payment Section */}
         <View style={styles.formSection}>
-          <Text style={styles.formSectionTitle}>Payment</Text>
+          <Text style={styles.formSectionTitle}>{t.booking.payment}</Text>
 
           <View style={styles.paymentCard}>
             <View style={styles.paymentHeader}>
@@ -245,7 +247,7 @@ export default function BookingScreen() {
 
             <View style={styles.paymentNotice}>
               <Ionicons name="information-circle-outline" size={16} color={Colors.accent} />
-              <Text style={styles.paymentNoticeText}>Payment simulation -- no charge</Text>
+              <Text style={styles.paymentNoticeText}>{t.booking.simulatedPayment}</Text>
             </View>
           </View>
         </View>
@@ -270,7 +272,7 @@ export default function BookingScreen() {
           >
             <Ionicons name={isSubmitting ? 'hourglass-outline' : 'checkmark-circle'} size={20} color="#fff" />
             <Text style={styles.confirmButtonText}>
-              {isSubmitting ? 'Processing...' : 'Confirm Booking'}
+              {isSubmitting ? t.booking.confirming : t.booking.confirmBooking}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

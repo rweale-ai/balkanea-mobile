@@ -135,13 +135,13 @@ const SHEET_RADIUS = 20
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
   },
 
   btn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
@@ -149,12 +149,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   btnFlagImg: {
-    width: 26,
-    height: 18,
+    width: 22,
+    height: 15,
     borderRadius: 2,
   },
   btnSymbol: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: Colors.text,
   },

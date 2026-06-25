@@ -7,11 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
+import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
 
 export default function HotelDetailScreen() {
   const router = useRouter()
+  const { t } = useLang()
   const params = useLocalSearchParams<{
     hotelId: string
     checkin: string
@@ -61,9 +63,9 @@ export default function HotelDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.textLight} />
-          <Text style={styles.emptyText}>Hotel not found</Text>
+          <Text style={styles.emptyText}>{t.hotel.notFound}</Text>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>Go Back</Text>
+            <Text style={styles.backBtnText}>{t.hotel.goBack}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -145,7 +147,7 @@ export default function HotelDetailScreen() {
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="navigate-outline" size={16} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{hotel.distance_to_center} km from centre</Text>
+            <Text style={styles.infoText}>{t.hotel.kmFromCentre.replace('{{distance}}', String(hotel.distance_to_center))}</Text>
           </View>
 
           <View style={styles.dateRow}>
@@ -162,7 +164,7 @@ export default function HotelDetailScreen() {
 
         {/* Amenities */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Amenities</Text>
+          <Text style={styles.sectionTitle}>{t.hotel.amenities}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.amenitiesScroll}>
             {hotel.amenities.map((amenity, i) => (
               <View key={i} style={styles.amenityChip}>
@@ -186,7 +188,7 @@ export default function HotelDetailScreen() {
               color={hotel.cancellation_policy.toLowerCase().includes('free') ? Colors.success : Colors.accent}
             />
             <View style={styles.policyContent}>
-              <Text style={styles.policyLabel}>Cancellation policy</Text>
+              <Text style={styles.policyLabel}>{t.hotel.cancellationPolicy}</Text>
               <Text style={styles.policyText}>{hotel.cancellation_policy}</Text>
             </View>
           </View>
@@ -194,7 +196,7 @@ export default function HotelDetailScreen() {
 
         {/* Room Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select a room</Text>
+          <Text style={styles.sectionTitle}>{t.hotel.selectRoom}</Text>
           {hotel.room_types.map((room) => (
             <TouchableOpacity
               key={room.room_id}
@@ -219,7 +221,7 @@ export default function HotelDetailScreen() {
                 </View>
                 <View style={styles.roomDetail}>
                   <Ionicons name="people-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.roomDetailText}>Max {room.max_guests} guests</Text>
+                  <Text style={styles.roomDetailText}>{t.hotel.maxGuests.replace('{{count}}', String(room.max_guests))}</Text>
                 </View>
                 <View style={styles.roomDetail}>
                   <Ionicons name="restaurant-outline" size={14} color={Colors.textSecondary} />
@@ -241,10 +243,10 @@ export default function HotelDetailScreen() {
               <View style={styles.roomPricing}>
                 <Text style={styles.roomPricePerNight}>
                   {currencySymbol}{room.price_per_night}
-                  <Text style={styles.roomPriceUnit}> / night</Text>
+                  <Text style={styles.roomPriceUnit}> {t.hotel.perNight}</Text>
                 </Text>
                 <Text style={styles.roomTotalPrice}>
-                  Total: {currencySymbol}{room.total_price}
+                  {t.hotel.total}: {currencySymbol}{room.total_price}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -272,8 +274,8 @@ export default function HotelDetailScreen() {
             <Ionicons name="card-outline" size={20} color="#fff" />
             <Text style={styles.bookButtonText}>
               {selectedRoom
-                ? `Book for ${currencySymbol}${selectedRoom.total_price}`
-                : 'Select a room to book'}
+                ? t.hotel.bookFor.replace('{{price}}', `${currencySymbol}${selectedRoom.total_price}`)
+                : t.hotel.selectRoom}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

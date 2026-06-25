@@ -6,9 +6,10 @@ import { Colors, Spacing, Radius, Typography, Shadows } from '../../constants/th
 interface Props {
   value: string
   onChangeText: (text: string) => void
+  placeholder?: string
 }
 
-export function SearchBar({ value, onChangeText }: Props) {
+export function SearchBar({ value, onChangeText, placeholder = 'Search destinations...' }: Props) {
   const [focused, setFocused] = useState(false)
 
   return (
@@ -18,7 +19,7 @@ export function SearchBar({ value, onChangeText }: Props) {
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search destinations..."
+        placeholder={placeholder}
         placeholderTextColor={Colors.textLight}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}

@@ -7,10 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { getBooking } from '../lib/bookings-store'
+import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 
 export default function BookingConfirmedScreen() {
   const router = useRouter()
+  const { t } = useLang()
   const { id } = useLocalSearchParams<{ id: string }>()
 
   const booking = useMemo(() => {
@@ -55,11 +57,11 @@ export default function BookingConfirmedScreen() {
         </View>
 
         {/* Heading */}
-        <Text style={styles.heading}>Booking Confirmed!</Text>
+        <Text style={styles.heading}>{t.bookingConfirmed.title}</Text>
 
         {/* Confirmation Code Badge */}
         <View style={styles.codeBadge}>
-          <Text style={styles.codeLabel}>Confirmation Code</Text>
+          <Text style={styles.codeLabel}>{t.bookingConfirmed.confirmationCode}</Text>
           <Text style={styles.codeValue}>{booking.confirmation_code}</Text>
         </View>
 
@@ -104,7 +106,7 @@ export default function BookingConfirmedScreen() {
               style={styles.primaryBtnGradient}
             >
               <Ionicons name="grid-outline" size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>View in Dashboard</Text>
+              <Text style={styles.primaryBtnText}>{t.bookingConfirmed.viewDashboard}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -114,7 +116,7 @@ export default function BookingConfirmedScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="search-outline" size={18} color={Colors.primary} />
-            <Text style={styles.secondaryBtnText}>Book Another</Text>
+            <Text style={styles.secondaryBtnText}>{t.bookingConfirmed.bookAnother}</Text>
           </TouchableOpacity>
         </View>
       </View>

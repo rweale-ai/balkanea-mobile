@@ -15,6 +15,10 @@ import type { ChatMessage, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent } from '../../lib/explore-intent'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { getUser, signOut } from '../../lib/auth'
+import { useLang } from '../../lib/i18n'
+import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 const BALKANEA_PHONE = '+38923100200'
@@ -90,17 +94,18 @@ function HotelCarousel({ hotels, onPress }: { hotels: Hotel[]; onPress: (h: Hote
 // ── Escalation buttons ─────────────────────────────────────────────
 
 function EscalationInline() {
+  const { t } = useLang()
   return (
     <View style={styles.escRow}>
       <TouchableOpacity style={styles.escBtn} activeOpacity={0.8} onPress={() => Linking.openURL(`tel:${BALKANEA_PHONE}`)}>
         <LinearGradient colors={Gradients.primaryFade} style={styles.escBtnFill}>
           <Ionicons name="call-outline" size={13} color="#fff" />
-          <Text style={styles.escBtnLight}>Call Agent</Text>
+          <Text style={styles.escBtnLight}>{t.actions.callAgent}</Text>
         </LinearGradient>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.escBtnOut} activeOpacity={0.8} onPress={() => Alert.alert('Callback Requested', 'An agent will call you back shortly.', [{ text: 'OK' }])}>
+      <TouchableOpacity style={styles.escBtnOut} activeOpacity={0.8} onPress={() => Alert.alert(t.actions.callbackRequested, t.actions.callbackMessage, [{ text: t.actions.ok }])}>
         <Ionicons name="time-outline" size={13} color={Colors.primary} />
-        <Text style={styles.escBtnDark}>Callback</Text>
+        <Text style={styles.escBtnDark}>{t.actions.callback}</Text>
       </TouchableOpacity>
     </View>
   )
@@ -140,6 +145,8 @@ function Bubble({ item, onHotelPress }: { item: ChatItem; onHotelPress: (h: Hote
 
 export default function SearchScreen() {
   const router = useRouter()
+  const { t, setLang: setAppLang } = useLang()
+  const [userName, setUserName] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatItem[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -154,14 +161,30 @@ export default function SearchScreen() {
   const inputRef = useRef<TextInput>(null)
   const handleSendRef = useRef<(text: string) => void>(() => {})
 
+  const [showIntro, setShowIntro] = useState(false)
   const hasMessages = messages.length > 0
 
   const scrollToEnd = () => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120)
 
+  useEffect(() => {
+    getUser().then(u => {
+      if (u?.user_metadata?.full_name) {
+        const first = u.user_metadata.full_name.split(' ')[0]
+        setUserName(first)
+      }
+    })
+    AsyncStorage.getItem('balkanea_intro_seen').then(v => {
+      if (v !== 'true') setShowIntro(true)
+    })
+  }, [])
+
   useFocusEffect(useCallback(() => {
     const intent = consumeExploreIntent()
     if (intent) setPendingPrompt(intent)
-    setTimeout(() => inputRef.current?.focus(), 300)
+    const t1 = setTimeout(() => inputRef.current?.focus(), 100)
+    const t2 = setTimeout(() => inputRef.current?.focus(), 400)
+    const t3 = setTimeout(() => inputRef.current?.focus(), 800)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, []))
 
   useEffect(() => {
@@ -188,14 +211,22 @@ export default function SearchScreen() {
         setCallStatus('idle')
         setAgentTalking(false)
         setTranscript([])
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: msg, timestamp: new Date() }])
+        const translated = msg.includes('not available') ? t.chat.voiceNotAvailable
+          : msg.includes('failed') ? t.chat.voiceFailed
+          : t.chat.voiceError
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: translated, timestamp: new Date() }])
       },
     })
-  }, [callStatus, lang])
+  }, [callStatus, lang, t])
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
+
+    if (showIntro) {
+      AsyncStorage.setItem('balkanea_intro_seen', 'true')
+      setShowIntro(false)
+    }
 
     const userMsg: ChatItem = { id: Date.now().toString(), role: 'user', content: trimmed, timestamp: new Date() }
     const allMessages = [...messages, userMsg]
@@ -250,11 +281,18 @@ export default function SearchScreen() {
 
         {/* Top bar — menu left, locale right */}
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.topBtn} activeOpacity={0.7} onPress={() => router.navigate('/trips')}>
-            <Ionicons name="menu-outline" size={24} color={Colors.text} />
+          <TouchableOpacity style={styles.topBtn} activeOpacity={0.7} onPress={() => {
+            Alert.alert(t.menu.title, undefined, [
+              { text: t.menu.myBookings, onPress: () => router.navigate('/trips') },
+              { text: t.menu.exploreDestinations, onPress: () => router.navigate('/explore') },
+              { text: t.menu.signOut, style: 'destructive', onPress: async () => { await setGuestMode(false); await signOut() } },
+              { text: t.menu.cancel, style: 'cancel' },
+            ])
+          }}>
+            <Ionicons name="menu-outline" size={22} color={Colors.text} />
           </TouchableOpacity>
           <View style={styles.topRight}>
-            <LocaleSelector country={country} currency={currency} onCountryChange={setCountry} onCurrencyChange={setCurrency} />
+            <LocaleSelector country={country} currency={currency} onCountryChange={(c) => { setCountry(c); setAppLang(c === 'mk' ? 'mk' : 'en') }} onCurrencyChange={setCurrency} />
           </View>
         </View>
 
@@ -272,10 +310,34 @@ export default function SearchScreen() {
             ListFooterComponent={loading ? <TypingDots /> : null}
           />
         ) : (
-          <View style={styles.greeting}>
-            <Image source={require('../../assets/balkanea-logo.png')} style={styles.greetingLogo} resizeMode="contain" />
-            <Text style={styles.greetingText}>Where to next?</Text>
-          </View>
+          <ScrollView contentContainerStyle={styles.greetingScroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.greeting}>
+              <Image source={require('../../assets/balkanea-logo.png')} style={styles.greetingLogo} resizeMode="contain" />
+              <Text style={styles.greetingText}>{userName ? t.chat.greetingPersonal.replace('{{name}}', userName) : t.chat.greeting}</Text>
+            </View>
+            {showIntro && (
+              <View style={styles.introSection}>
+                <View style={styles.introBubble}>
+                  <LinearGradient colors={Gradients.primaryFade} style={styles.introAvatar}>
+                    <Text style={styles.introAvatarText}>B</Text>
+                  </LinearGradient>
+                  <Text style={styles.introText}>{t.chat.introMessage}</Text>
+                </View>
+                <View style={styles.introSamples}>
+                  {[t.chat.introSample1, t.chat.introSample2, t.chat.introSample3].map(s => (
+                    <TouchableOpacity key={s} style={styles.introSampleBtn} activeOpacity={0.7} onPress={() => {
+                      AsyncStorage.setItem('balkanea_intro_seen', 'true')
+                      setShowIntro(false)
+                      handleSend(s)
+                    }}>
+                      <Text style={styles.introSampleText}>{s}</Text>
+                      <Ionicons name="arrow-forward" size={12} color={Colors.primary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </ScrollView>
         )}
 
         {/* Input card */}
@@ -285,7 +347,7 @@ export default function SearchScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Message Bea..."
+            placeholder={t.chat.messagePlaceholder}
             placeholderTextColor={Colors.textLight}
             maxLength={500}
             returnKeyType="send"
@@ -339,24 +401,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
+    gap: Spacing.sm,
   },
   topBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: Colors.surface,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
   topRight: { flexDirection: 'row', alignItems: 'center' },
 
-  // Greeting (idle — visible with keyboard open)
+  // Greeting
+  greetingScroll: { flexGrow: 1, justifyContent: 'center' },
   greeting: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: Spacing.lg,
   },
   greetingLogo: {
-    width: 140,
-    height: 42,
+    width: 120,
+    height: 36,
     marginBottom: Spacing.sm,
   },
   greetingText: {
@@ -438,4 +501,25 @@ const styles = StyleSheet.create({
   },
   actionBtn: { padding: 6 },
   sendBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+
+  // Intro (first time)
+  introSection: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  introBubble: {
+    backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.md,
+    marginBottom: Spacing.md, ...Shadows.sm,
+  },
+  introAvatar: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm,
+  },
+  introAvatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  introText: { ...Typography.body, color: Colors.text, fontSize: 14, lineHeight: 22 },
+  introSamples: { gap: 6 },
+  introSampleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surface, borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  introSampleText: { ...Typography.body, color: Colors.text, fontSize: 14, flex: 1, marginRight: 8 },
 })
