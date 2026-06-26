@@ -22,8 +22,10 @@ export default function ExploreScreen() {
   const grid = destinations.slice(1)
 
   const handlePress = (dest: Destination) => {
-    setExploreIntent(`I'm interested in visiting ${dest.name}, ${dest.country}. Tell me more!`)
-    router.navigate('/')
+    router.push({
+      pathname: '/results',
+      params: { destination: dest.name.toLowerCase() },
+    })
   }
 
   const pairs: Destination[][] = []
