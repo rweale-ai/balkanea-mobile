@@ -1,11 +1,10 @@
 import React, {
-  useState, useRef, useCallback, useEffect, useLayoutEffect,
+  useState, useRef, useCallback, useEffect,
 } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, Animated,
   SafeAreaView, Linking, Alert, Keyboard, ScrollView,
-  useWindowDimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -25,8 +24,6 @@ import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 const BALKANEA_PHONE = '+38923100200'
-// How far the just-sent user message sits from the top of the chat viewport
-const ANCHOR_OFFSET = 14
 
 // ── Nea avatar icon ────────────────────────────────────────────────
 function NeaIcon({ size = 17 }: { size?: number }) {
@@ -290,8 +287,6 @@ function EmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
 export default function SearchScreen() {
   const router = useRouter()
   const { t, setLang: setAppLang } = useLang()
-  const { height: windowHeight } = useWindowDimensions()
-
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -301,19 +296,22 @@ export default function SearchScreen() {
   const [country, setCountry] = useState<CountryCode>('mk')
   const [currency, setCurrency] = useState<CurrencyCode>('EUR')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
-  // Extra bottom space injected after send so the user message can reach the top
-  const [anchorSpacerHeight, setAnchorSpacerHeight] = useState(0)
-  // Index of the user message we want anchored at the top
-  const anchorIndexRef = useRef<number | null>(null)
   const lang: AgentLang = country === 'mk' ? 'mk' : 'en'
 
   const listRef = useRef<FlatList>(null)
   const inputRef = useRef<TextInput>(null)
   const handleSendRef = useRef<(text: string) => void>(() => {})
 
-  useEffect(() => {
-    AsyncStorage.getItem('balkanea_intro_seen')
+  // Scroll to bottom — used on new messages and when keyboard appears
+  const scrollToEnd = useCallback((animated = true) => {
+    setTimeout(() => listRef.current?.scrollToEnd({ animated }), 50)
   }, [])
+
+  // When keyboard appears, scroll to end so the latest message stays visible
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => scrollToEnd())
+    return () => sub.remove()
+  }, [scrollToEnd])
 
   // Accept a review query passed from hotel-detail via route params
   const params = useLocalSearchParams<{ reviewQuery?: string }>()
@@ -334,27 +332,9 @@ export default function SearchScreen() {
     }
   }, [pendingPrompt, loading])
 
-  // ── Scroll anchoring ──────────────────────────────────────────────
-  // After the user message renders, scroll so it sits ANCHOR_OFFSET from the top.
-  // We use scrollToIndex with viewPosition:0 (item at top of viewport).
-  // The dynamic spacer (anchorSpacerHeight) ensures there is enough scroll room
-  // even for a short Nea reply.
-  const anchorToIndex = useCallback((index: number) => {
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToIndex({
-        index,
-        animated: true,
-        viewPosition: 0,    // top of viewport
-        viewOffset: -ANCHOR_OFFSET,
-      })
-    })
-  }, [])
-
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
-
-    Keyboard.dismiss()
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -363,22 +343,13 @@ export default function SearchScreen() {
       timestamp: new Date(),
     }
 
-    // Append user message and anchor it to the top of the viewport
-    setMessages(prev => {
-      const next = [...prev, userMsg]
-      anchorIndexRef.current = next.length - 1
-      setAnchorSpacerHeight(windowHeight)
-      return next
-    })
+    setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
+    scrollToEnd()
 
-    requestAnimationFrame(() => {
-      if (anchorIndexRef.current !== null) anchorToIndex(anchorIndexRef.current)
-    })
-
-    // Create the assistant placeholder immediately with streaming: true
-    // so the caret appears while the first tokens load (~850ms API latency)
+    // Create the assistant placeholder with streaming: true immediately
+    // so the caret appears while the API responds
     const assistantId = (Date.now() + 1).toString()
     const placeholder: ChatMessage = {
       id: assistantId,
@@ -388,9 +359,8 @@ export default function SearchScreen() {
       timestamp: new Date(),
     }
     setMessages(prev => [...prev, placeholder])
+    scrollToEnd()
 
-    // onToken: append each arriving token to the placeholder message in place.
-    // We use a functional update so there's no stale closure over content.
     const onToken = (token: string) => {
       setMessages(prev => prev.map(m =>
         m.id === assistantId ? { ...m, content: m.content + token } : m
@@ -400,7 +370,6 @@ export default function SearchScreen() {
     const allMessages = [...messages, userMsg]
     const response = await sendMessage(allMessages, onToken)
 
-    // Stream closed — build blocks and mark streaming done
     const blocks: ChatBlock[] = []
     if (response.type === 'hotels') {
       blocks.push({ type: 'text', content: response.content })
@@ -423,8 +392,8 @@ export default function SearchScreen() {
         : m
     ))
     setLoading(false)
-    setAnchorSpacerHeight(0)
-  }, [messages, loading, windowHeight, anchorToIndex])
+    scrollToEnd()
+  }, [messages, loading, scrollToEnd])
 
   useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
 
@@ -473,22 +442,18 @@ export default function SearchScreen() {
     })
   }, [currency, router])
 
-  // List items: messages + optional loading indicator as final item
   type ListItem = { key: string } & (
     | { kind: 'message'; message: ChatMessage }
     | { kind: 'typing' }
-    | { kind: 'spacer'; height: number }
   )
 
   const listData: ListItem[] = [
     ...messages.map(m => ({ key: m.id, kind: 'message' as const, message: m })),
     ...(loading ? [{ key: '__typing', kind: 'typing' as const }] : []),
-    ...(anchorSpacerHeight > 0 ? [{ key: '__spacer', kind: 'spacer' as const, height: anchorSpacerHeight }] : []),
   ]
 
   const renderItem = useCallback(({ item }: { item: ListItem }) => {
     if (item.kind === 'typing') return <TypingDots />
-    if (item.kind === 'spacer') return <View style={{ height: item.height }} />
     return (
       <MessageBubble
         message={item.message}
@@ -505,7 +470,7 @@ export default function SearchScreen() {
       <KeyboardAvoidingView
         style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
         {/* Top bar */}
         <View style={s.topBar}>
@@ -546,14 +511,8 @@ export default function SearchScreen() {
             style={s.flex}
             contentContainerStyle={s.listContent}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="none"
-            // Do NOT auto-scroll on content size change — scroll anchoring is manual
-            onScrollToIndexFailed={({ index }) => {
-              // Fallback: if index isn't rendered yet, try after a frame
-              setTimeout(() => {
-                listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0 })
-              }, 100)
-            }}
+            keyboardDismissMode="interactive"
+            onContentSizeChange={() => scrollToEnd(false)}
           />
         ) : (
           <ScrollView
