@@ -179,6 +179,28 @@ export default function HotelDetailScreen() {
           </ScrollView>
         </View>
 
+        {/* Ask Nea about reviews */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.reviewsBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              router.push({
+                pathname: '/',
+                params: {
+                  reviewQuery: `What are guests saying about ${hotel.name}? Search for reviews and give me an honest summary.`,
+                },
+              })
+            }}
+          >
+            <LinearGradient colors={['#FFF4E8', '#FFF8F2'] as const} style={styles.reviewsBtnInner}>
+              <Ionicons name="sparkles" size={16} color={Colors.primary} />
+              <Text style={styles.reviewsBtnText}>Ask Nea about reviews</Text>
+              <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* Cancellation Policy */}
         <View style={styles.section}>
           <View style={styles.policyBanner}>
@@ -552,6 +574,26 @@ const styles = StyleSheet.create({
   roomTotalPrice: {
     ...Typography.bodyMedium,
     color: Colors.text,
+  },
+
+  /* Reviews button */
+  reviewsBtn: {
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    ...Shadows.sm,
+  },
+  reviewsBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 4,
+  },
+  reviewsBtnText: {
+    ...Typography.bodyMedium,
+    color: Colors.primary,
+    fontWeight: '700',
+    flex: 1,
   },
 
   /* Book bar */

@@ -149,10 +149,13 @@ function BookingCard({
   onCancel: (booking: Booking) => void
 }) {
   const { t } = useLang()
+  const router = useRouter()
   const imageUrl = booking.hotel.images?.[0] ?? null
   const nights = nightCount(booking.checkin, booking.checkout)
   const isConfirmed = booking.status === 'confirmed'
   const isCancelled = booking.status === 'cancelled'
+  const today = new Date().toISOString().split('T')[0]
+  const isPast = booking.checkout < today
 
   return (
     <TouchableOpacity
@@ -215,7 +218,7 @@ function BookingCard({
           </Text>
         </View>
 
-        {isConfirmed && (
+        {isConfirmed && !isPast && (
           <View style={styles.footerRow}>
             <TouchableOpacity
               style={styles.cancelBtn}
@@ -226,6 +229,25 @@ function BookingCard({
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
+        )}
+        {isConfirmed && isPast && (
+          <TouchableOpacity
+            style={styles.feedbackBtn}
+            onPress={() => router.push({
+              pathname: '/feedback-chat',
+              params: {
+                hotelName: booking.hotel.name,
+                destination: booking.hotel.address?.split(',')[0] ?? '',
+                checkin: booking.checkin,
+                checkout: booking.checkout,
+                bookingId: booking.id,
+              },
+            })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="sparkles-outline" size={14} color={Colors.primary} />
+            <Text style={styles.feedbackBtnText}>{t.feedback.howWasYourTrip}</Text>
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -429,6 +451,23 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.error,
     fontWeight: '600',
+    fontSize: 12,
+  },
+  feedbackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
+  },
+  feedbackBtnText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
     fontSize: 12,
   },
 })

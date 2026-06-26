@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import { useFocusEffect, useRouter } from 'expo-router'
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router'
 import { VoiceHUD } from '../../components/VoiceHUD'
 import { sendMessage } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
@@ -314,6 +314,12 @@ export default function SearchScreen() {
   useEffect(() => {
     AsyncStorage.getItem('balkanea_intro_seen')
   }, [])
+
+  // Accept a review query passed from hotel-detail via route params
+  const params = useLocalSearchParams<{ reviewQuery?: string }>()
+  useEffect(() => {
+    if (params.reviewQuery) setPendingPrompt(params.reviewQuery)
+  }, [params.reviewQuery])
 
   useFocusEffect(useCallback(() => {
     const intent = consumeExploreIntent()

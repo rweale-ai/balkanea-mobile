@@ -323,13 +323,10 @@ export default function ProfileScreen() {
           </View>
         </SectionCard>
 
-        {/* ── Payment history link ────────────────────────────── */}
+        {/* ── Payment history + admin ─────────────────────────── */}
         <SectionCard>
-          <InfoRow
-            label={t.profile.paymentHistory}
-            onPress={() => router.push('/payments')}
-            last
-          />
+          <InfoRow label={t.profile.paymentHistory} onPress={() => router.push('/payments')} />
+          <InfoRow label="Knowledge Base (Admin)" onPress={() => router.push('/admin-knowledge')} last />
         </SectionCard>
 
         {/* ── Account links ──────────────────────────────────── */}

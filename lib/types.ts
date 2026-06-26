@@ -114,4 +114,5 @@ export type PlannerResponse =
   | { type: 'message'; content: string }
   | { type: 'hotels'; content: string; hotels: Hotel[]; searchParams: HotelSearchParams }
   | { type: 'escalation'; content: string }
+  | { type: 'feedback'; content: string; feedbackData: Record<string, unknown> }
   | { type: 'error'; content: string }
