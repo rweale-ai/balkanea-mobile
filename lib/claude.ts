@@ -74,15 +74,17 @@ const WEB_SEARCH_TOOLS = [
 export async function sendMessage(
   messages: ChatMessage[],
   onToken: (token: string) => void,
+  language: 'mk' | 'en' = 'en',
 ): Promise<PlannerResponse> {
   const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
   if (!apiKey) return simulateResponse(messages, onToken)
 
-  // Fetch Balkanea's knowledge base and inject into system prompt
   const knowledge = await fetchAllKnowledge()
-  const system = knowledge
-    ? `${BASE_SYSTEM_PROMPT}\n\n${knowledge}`
-    : BASE_SYSTEM_PROMPT
+  const langInstruction = language === 'mk'
+    ? '\n\n## LANGUAGE\nThe user has selected Macedonian. ALWAYS reply in Macedonian (Cyrillic script) regardless of what language the user types in.'
+    : '\n\n## LANGUAGE\nAlways reply in English.'
+
+  const system = `${BASE_SYSTEM_PROMPT}${langInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
 
   return runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
 }

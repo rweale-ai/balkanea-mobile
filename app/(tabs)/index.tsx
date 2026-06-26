@@ -365,7 +365,7 @@ export default function SearchScreen() {
     }
 
     const allMessages = [...messages, userMsg]
-    const response = await sendMessage(allMessages, onToken)
+    const response = await sendMessage(allMessages, onToken, lang)
 
     const blocks: ChatBlock[] = []
     if (response.type === 'hotels') {
