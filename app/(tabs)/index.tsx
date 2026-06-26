@@ -307,11 +307,6 @@ export default function SearchScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated }), 50)
   }, [])
 
-  // When keyboard appears, scroll to end so the latest message stays visible
-  useEffect(() => {
-    const sub = Keyboard.addListener('keyboardDidShow', () => scrollToEnd())
-    return () => sub.remove()
-  }, [scrollToEnd])
 
   // Accept a review query passed from hotel-detail via route params
   const params = useLocalSearchParams<{ reviewQuery?: string }>()
@@ -335,6 +330,8 @@ export default function SearchScreen() {
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
+
+    Keyboard.dismiss()
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -470,7 +467,7 @@ export default function SearchScreen() {
       <KeyboardAvoidingView
         style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        keyboardVerticalOffset={0}
       >
         {/* Top bar */}
         <View style={s.topBar}>
@@ -511,8 +508,7 @@ export default function SearchScreen() {
             style={s.flex}
             contentContainerStyle={s.listContent}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            onContentSizeChange={() => scrollToEnd(false)}
+            keyboardDismissMode="on-drag"
           />
         ) : (
           <ScrollView
