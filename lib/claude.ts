@@ -65,8 +65,9 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 // Sonnet 4.6: supports web search, better reasoning for review synthesis
 const MODEL = 'claude-sonnet-4-6'
 
+// Using the widely-supported basic variant — no beta header required
 const WEB_SEARCH_TOOLS = [
-  { type: 'web_search_20260209', name: 'web_search' },
+  { type: 'web_search_20250305', name: 'web_search' },
 ]
 
 // ── Main send function ─────────────────────────────────────────────
@@ -118,8 +119,25 @@ async function runMessageLoop(
   onToken: (token: string) => void,
   tools: object[],
 ): Promise<PlannerResponse> {
-  const formatted: object[] = userMessages.map(m => ({ role: m.role, content: m.content }))
-  let conversationMessages = [...formatted]
+  // Filter out empty-content messages — these cause 400 errors from the API
+  // and can cascade if a previous request failed mid-stream
+  const formatted: object[] = userMessages
+    .filter(m => m.content && m.content.trim().length > 0)
+    .map(m => ({ role: m.role, content: m.content }))
+
+  // Ensure messages alternate roles properly (Claude requirement)
+  const deduplicated: object[] = []
+  for (const msg of formatted) {
+    const last = deduplicated[deduplicated.length - 1] as any
+    if (last && last.role === (msg as any).role) {
+      // Merge consecutive same-role messages
+      last.content += '\n' + (msg as any).content
+    } else {
+      deduplicated.push({ ...(msg as any) })
+    }
+  }
+
+  let conversationMessages = deduplicated
   let fullText = ''
 
   for (let iteration = 0; iteration < 5; iteration++) {
@@ -179,6 +197,8 @@ async function streamOnce(
   }
 
   if (!res.ok || !res.body) {
+    const errBody = await res.text().catch(() => '')
+    console.error(`[Nea] API error ${res.status}:`, errBody)
     return { text: 'Sorry, I had trouble with that. Please try again.', stopReason: 'error', rawContent: [] }
   }
 
