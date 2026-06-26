@@ -286,17 +286,29 @@ function EmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
 // ── Main screen ────────────────────────────────────────────────────
 export default function SearchScreen() {
   const router = useRouter()
-  const { t, setLang: setAppLang } = useLang()
+  // appLang is the source of truth — set on language screen and auth screen
+  const { t, lang: appLang, setLang: setAppLang } = useLang()
+
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [callStatus, setCallStatus] = useState<CallStatus>('idle')
   const [agentTalking, setAgentTalking] = useState(false)
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
-  const [country, setCountry] = useState<CountryCode>('mk')
-  const [currency, setCurrency] = useState<CurrencyCode>('EUR')
+  // Initialise country from the persisted app language so LocaleSelector
+  // flag matches the language the user already selected
+  const [country, setCountry] = useState<CountryCode>(() => appLang === 'mk' ? 'mk' : 'gb')
+  const [currency, setCurrency] = useState<CurrencyCode>(() => appLang === 'mk' ? 'MKD' : 'EUR')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
-  const lang: AgentLang = country === 'mk' ? 'mk' : 'en'
+
+  // Keep country in sync if language changes from profile/auth while app is open
+  useEffect(() => {
+    setCountry(appLang === 'mk' ? 'mk' : 'gb')
+  }, [appLang])
+
+  // Use appLang directly for Nea — don't derive from country so language
+  // is always consistent with what the user selected on the language screen
+  const lang: AgentLang = appLang
 
   const listRef = useRef<FlatList>(null)
   const inputRef = useRef<TextInput>(null)
