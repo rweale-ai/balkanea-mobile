@@ -174,11 +174,15 @@ async function streamOnce(
 ): Promise<StreamResult> {
   let res: Response
   try {
+    // Cache the system prompt (knowledge base + language instruction) for 5 min.
+    // Cached tokens cost 10% and process near-instantly, reducing rate limit pressure.
+    const cachedSystem = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+
     const body: Record<string, unknown> = {
       model: MODEL,
       max_tokens: 2048,
       stream: true,
-      system,
+      system: cachedSystem,
       messages,
     }
     if (tools.length > 0) body.tools = tools
@@ -189,6 +193,7 @@ async function streamOnce(
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
       },
       body: JSON.stringify(body),
     })
