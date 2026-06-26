@@ -12,10 +12,11 @@ import { setGuestMode } from '../lib/guest'
 import { useLang, setLang } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
+import Constants from 'expo-constants'
 
 const NOTIF_KEY = 'balkanea_notif_prefs'
 const CURRENCY_KEY = 'balkanea_currency'
-const APP_VERSION = '1.0.0 (MVP)'
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0'
 
 type NotifPrefs = {
   bookingConfirmations: boolean

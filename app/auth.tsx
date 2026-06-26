@@ -11,6 +11,7 @@ import { setGuestMode } from '../lib/guest'
 import { useLang } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
+import Constants from 'expo-constants'
 
 type AuthMethod = 'email' | 'phone'
 type Mode = 'signin' | 'signup'
@@ -260,6 +261,8 @@ export default function AuthScreen() {
             <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} />
           </TouchableOpacity>
 
+          <Text style={styles.versionText}>v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -362,4 +365,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg, paddingVertical: Spacing.sm,
   },
   skipText: { ...Typography.body, color: Colors.textSecondary, fontSize: 14 },
+  versionText: {
+    ...Typography.caption,
+    color: Colors.textLight,
+    textAlign: 'center',
+    marginTop: Spacing.lg,
+    fontSize: 11,
+  },
 })
