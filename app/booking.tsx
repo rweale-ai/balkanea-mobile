@@ -260,7 +260,7 @@ export default function BookingScreen() {
 
     // Payment succeeded — create booking record and sync to Salesforce
     try {
-      const newBooking = addBooking({
+      const newBooking = await addBooking({
         hotel,
         room,
         checkin: params.checkin,
