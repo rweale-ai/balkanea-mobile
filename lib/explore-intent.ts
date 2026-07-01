@@ -1,3 +1,15 @@
+let pendingReview: string | null = null
+
+export function setReviewIntent(query: string): void {
+  pendingReview = query
+}
+
+export function consumeReviewIntent(): string | null {
+  const val = pendingReview
+  pendingReview = null
+  return val
+}
+
 let pending: string | null = null
 
 export function setExploreIntent(prompt: string): void {

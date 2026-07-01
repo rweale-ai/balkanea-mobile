@@ -8,13 +8,13 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { VoiceHUD } from '../../components/VoiceHUD'
 import { sendMessage } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
-import { consumeExploreIntent } from '../../lib/explore-intent'
+import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -320,14 +320,8 @@ export default function SearchScreen() {
   }, [])
 
 
-  // Accept a review query passed from hotel-detail via route params
-  const params = useLocalSearchParams<{ reviewQuery?: string }>()
-  useEffect(() => {
-    if (params.reviewQuery) setPendingPrompt(params.reviewQuery)
-  }, [params.reviewQuery])
-
   useFocusEffect(useCallback(() => {
-    const intent = consumeExploreIntent()
+    const intent = consumeExploreIntent() ?? consumeReviewIntent()
     if (intent) setPendingPrompt(intent)
   }, []))
 

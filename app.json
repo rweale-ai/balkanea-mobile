@@ -3,7 +3,7 @@
     "name": "balkanea-mobile",
     "slug": "balkanea-mobile",
     "scheme": "balkanea",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -60,6 +60,15 @@
         }
       ]
     ],
+    "updates": {
+      "url": "https://u.expo.dev/d3e5d449-e88f-49a0-a517-32412c16b100",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "router": {},
       "eas": {

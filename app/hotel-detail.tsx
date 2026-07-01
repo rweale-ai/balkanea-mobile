@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
+import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
@@ -185,12 +186,8 @@ export default function HotelDetailScreen() {
             style={styles.reviewsBtn}
             activeOpacity={0.8}
             onPress={() => {
-              router.push({
-                pathname: '/',
-                params: {
-                  reviewQuery: `What are guests saying about ${hotel.name}? Search for reviews and give me an honest summary.`,
-                },
-              })
+              setReviewIntent(`What are guests saying about ${hotel.name}? Search for reviews and give me an honest summary.`)
+              router.back()
             }}
           >
             <LinearGradient colors={['#FFF4E8', '#FFF8F2'] as const} style={styles.reviewsBtnInner}>
