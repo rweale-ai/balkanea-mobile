@@ -1,0 +1,139 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; }
+
+  /* Header */
+  .header { background: #fff; padding: 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #E5E7EB; }
+  .back-btn { width: 36px; height: 36px; border-radius: 18px; background: #F8F9FA; border: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .header-title { font-size: 17px; font-weight: 700; color: #1A1A2E; }
+
+  /* Hotel summary */
+  .hotel-summary { background: #FFF4E8; padding: 14px 16px; display: flex; gap: 10px; align-items: center; }
+  .hotel-thumb { width: 52px; height: 52px; border-radius: 10px; background: linear-gradient(135deg, #ED8323, #E57757); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+  .hotel-info { flex: 1; }
+  .hotel-name { font-size: 15px; font-weight: 700; color: #1A1A2E; }
+  .hotel-meta { font-size: 12px; color: #ED8323; margin-top: 2px; }
+  .hotel-price { font-size: 17px; font-weight: 800; color: #ED8323; }
+  .hotel-nights { font-size: 11px; color: #6B7280; }
+
+  /* Scroll content */
+  .content { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* Section */
+  .section { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  .section-title { font-size: 13px; font-weight: 700; color: #1A1A2E; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Fields */
+  .field { margin-bottom: 10px; }
+  .field:last-child { margin-bottom: 0; }
+  .label { font-size: 11px; font-weight: 600; color: #6B7280; margin-bottom: 4px; text-transform: uppercase; }
+  .input-wrap { display: flex; align-items: center; background: #F8F9FA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 0 10px; }
+  .input-icon { font-size: 14px; margin-right: 8px; color: #9CA3AF; }
+  .input { flex: 1; padding: 11px 0; font-size: 14px; color: #1A1A2E; background: none; border: none; outline: none; }
+  .input::placeholder { color: #9CA3AF; }
+  .row-fields { display: flex; gap: 8px; }
+  .row-fields .field { flex: 1; }
+
+  /* Card fields */
+  .card-row { display: flex; gap: 8px; }
+  .card-number { flex: 2; }
+  .card-brand { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 10px; }
+  .brand-badge { background: #1A1A8C; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 3px; }
+
+  /* Pay button */
+  .pay-btn { display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(to right, #ED8323, #E57757); border-radius: 12px; padding: 15px; font-size: 17px; font-weight: 700; color: #fff; }
+
+  /* Security note */
+  .security-note { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 11px; color: #9CA3AF; }
+</style>
+</head><body>
+<div class="screen">
+
+  <div class="header">
+    <div class="back-btn">←</div>
+    <div class="header-title">Complete Booking</div>
+  </div>
+
+  <div class="hotel-summary">
+    <div class="hotel-thumb">H</div>
+    <div class="hotel-info">
+      <div class="hotel-name">Grand Palace Hotel Santorini</div>
+      <div class="hotel-meta">Superior Room · Aug 10–15 · 2 guests</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="hotel-price">€875</div>
+      <div class="hotel-nights">5 nights</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Guest Details -->
+    <div class="section">
+      <div class="section-title">Guest Details</div>
+      <div class="row-fields">
+        <div class="field">
+          <div class="label">First Name</div>
+          <div class="input-wrap">
+            <input class="input" placeholder="Ray" value="Ray">
+          </div>
+        </div>
+        <div class="field">
+          <div class="label">Last Name</div>
+          <div class="input-wrap">
+            <input class="input" placeholder="Weale" value="Weale">
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">Email</div>
+        <div class="input-wrap">
+          <span class="input-icon">✉</span>
+          <input class="input" placeholder="your@email.com" value="rweale@marraglobal.com">
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">Phone</div>
+        <div class="input-wrap">
+          <span class="input-icon">📱</span>
+          <input class="input" placeholder="+389 ...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment -->
+    <div class="section">
+      <div class="section-title">Payment</div>
+      <div class="field">
+        <div class="label">Card Number</div>
+        <div class="input-wrap" style="justify-content:space-between;">
+          <input class="input" placeholder="1234 5678 9012 3456" style="flex:1;">
+          <div class="brand-badge">VISA</div>
+        </div>
+      </div>
+      <div class="row-fields">
+        <div class="field">
+          <div class="label">Expiry</div>
+          <div class="input-wrap">
+            <input class="input" placeholder="MM/YY">
+          </div>
+        </div>
+        <div class="field">
+          <div class="label">CVC</div>
+          <div class="input-wrap">
+            <input class="input" placeholder="123">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pay-btn">💳 Pay €875</div>
+    <div class="security-note">🔒 Secured · Your card details are encrypted</div>
+
+  </div>
+</div>
+</body></html>

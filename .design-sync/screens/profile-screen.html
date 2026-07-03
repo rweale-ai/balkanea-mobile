@@ -1,0 +1,107 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; overflow: hidden; }
+
+  .header { background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #E5E7EB; }
+  .back-btn { width: 36px; height: 36px; border-radius: 18px; background: #F8F9FA; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .header-title { font-size: 16px; font-weight: 700; color: #1A1A2E; }
+
+  /* Identity */
+  .identity { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 16px; }
+  .avatar { width: 80px; height: 80px; border-radius: 40px; background: linear-gradient(135deg, #00332A, #001a15); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .user-name { font-size: 20px; font-weight: 700; color: #1A1A2E; }
+  .user-email { font-size: 14px; color: #6B7280; margin-top: 4px; }
+
+  /* Section */
+  .section-label { font-size: 11px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px 6px; }
+  .section-card { background: #fff; border-radius: 12px; margin: 0 16px 14px; padding: 0 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .pref-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 0; }
+  .pref-row + .pref-row { border-top: 1px solid #F3F4F6; }
+  .pref-label { font-size: 15px; color: #1A1A2E; }
+  .pref-value { font-size: 13px; color: #6B7280; }
+
+  /* Lang pill */
+  .lang-pill { display: flex; background: #F3F4F6; border-radius: 999px; padding: 3px; gap: 2px; }
+  .lang-seg { padding: 5px 13px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #6B7280; }
+  .lang-seg-active { background: #fff; color: #1A1A2E; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Currency */
+  .currency-btn { display: flex; align-items: center; gap: 4px; background: #F3F4F6; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; color: #1A1A2E; }
+
+  /* Toggle */
+  .toggle { width: 46px; height: 27px; border-radius: 14px; padding: 2px; display: flex; align-items: center; }
+  .toggle-on { background: #ED8323; justify-content: flex-end; }
+  .toggle-off { background: #D1D5DB; justify-content: flex-start; }
+  .toggle-thumb { width: 22px; height: 22px; border-radius: 11px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+
+  /* Info row */
+  .info-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 0; }
+  .info-row + .info-row { border-top: 1px solid #F3F4F6; }
+  .info-label { font-size: 15px; color: #1A1A2E; }
+  .chevron { font-size: 14px; color: #C4C9D4; }
+
+  /* Sign out */
+  .signout-btn { margin: 4px 16px 0; padding: 14px; border-radius: 12px; border: 1.5px solid #E5E7EB; background: #fff; text-align: center; font-size: 15px; font-weight: 700; color: #1A1A2E; }
+  .version { text-align: center; font-size: 11px; color: #9CA3AF; margin-top: 16px; padding-bottom: 80px; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="back-btn">←</div>
+    <div class="header-title">Profile</div>
+    <div style="width:36px;"></div>
+  </div>
+
+  <div class="identity">
+    <div class="avatar">RW</div>
+    <div class="user-name">Ray Weale</div>
+    <div class="user-email">rweale@marraglobal.com</div>
+  </div>
+
+  <div class="section-label">Preferences</div>
+  <div class="section-card">
+    <div class="pref-row">
+      <span class="pref-label">Language</span>
+      <div class="lang-pill">
+        <div class="lang-seg">МК</div>
+        <div class="lang-seg lang-seg-active">EN</div>
+      </div>
+    </div>
+    <div class="pref-row">
+      <span class="pref-label">Currency</span>
+      <div class="currency-btn">EUR ▾</div>
+    </div>
+  </div>
+
+  <div class="section-label">Notifications</div>
+  <div class="section-card">
+    <div class="pref-row">
+      <span class="pref-label">Booking confirmations</span>
+      <div class="toggle toggle-on"><div class="toggle-thumb"></div></div>
+    </div>
+    <div class="pref-row">
+      <span class="pref-label">Check-in reminders</span>
+      <div class="toggle toggle-on"><div class="toggle-thumb"></div></div>
+    </div>
+    <div class="pref-row">
+      <span class="pref-label">Promo offers</span>
+      <div class="toggle toggle-off"><div class="toggle-thumb"></div></div>
+    </div>
+  </div>
+
+  <div class="section-label">Account</div>
+  <div class="section-card">
+    <div class="info-row"><span class="info-label">Payment History</span><span class="chevron">›</span></div>
+    <div class="info-row"><span class="info-label">Help &amp; Support</span><span class="chevron">›</span></div>
+    <div class="info-row"><span class="info-label">Terms &amp; Conditions</span><span class="chevron">›</span></div>
+    <div class="info-row"><span class="info-label">Privacy Policy</span><span class="chevron">›</span></div>
+  </div>
+
+  <div class="signout-btn">Sign Out</div>
+  <div class="version">v1.0.1</div>
+</div>
+</body></html>

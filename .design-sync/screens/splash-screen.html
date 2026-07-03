@@ -16,10 +16,6 @@
     0%, 100% { opacity: 0.6; }
     50% { opacity: 1; }
   }
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
@@ -33,9 +29,9 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse at 30% 20%, rgba(11,110,79,0.15) 0%, transparent 50%),
-      radial-gradient(ellipse at 70% 80%, rgba(244,160,36,0.08) 0%, transparent 50%),
-      linear-gradient(175deg, #0B6E4F 0%, #094D38 35%, #072F24 70%, #051E17 100%);
+      radial-gradient(ellipse at 30% 20%, rgba(0,51,42,0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(237,131,35,0.12) 0%, transparent 50%),
+      linear-gradient(175deg, #00332A 0%, #001a15 35%, #000f0a 70%, #000705 100%);
   }
 
   .pattern {
@@ -68,7 +64,6 @@
     position: relative;
   }
 
-  /* Simplified logo mark using CSS shapes */
   .logo-mark .shape-left {
     position: absolute;
     width: 44px;
@@ -77,25 +72,6 @@
     border-radius: 12px 12px 12px 22px;
     top: 16px;
     left: 4px;
-  }
-  .logo-mark .shape-curve {
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: none;
-    top: 28px;
-    left: 38px;
-  }
-  .logo-mark .shape-curve::before {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    background: #fff;
-    border-radius: 0 10px 0 0;
-    top: 0;
-    left: 0;
   }
   .logo-mark .shape-circle-sm {
     position: absolute;
@@ -151,13 +127,11 @@
     border-radius: 16px;
     text-align: center;
     cursor: pointer;
-    transition: transform 0.15s;
   }
-  .cta-btn:hover { transform: scale(0.98); }
   .cta-btn-text {
     font-size: 17px;
     font-weight: 700;
-    color: #0B6E4F;
+    color: #ED8323;
     letter-spacing: -0.2px;
   }
 
@@ -189,7 +163,7 @@
     width: 8px;
     height: 8px;
     border-radius: 4px;
-    background: #F4A024;
+    background: #ED8323;
     animation: pulse 2s ease-in-out infinite;
   }
   .mic-text {
@@ -212,7 +186,6 @@
     letter-spacing: 0.5px;
   }
 
-  /* Status bar mockup */
   .status-bar {
     position: absolute;
     top: 0;
@@ -259,7 +232,6 @@
     border-radius: 1px;
   }
 
-  /* iPhone home indicator */
   .home-indicator {
     position: absolute;
     bottom: 12px;
@@ -271,7 +243,6 @@
     border-radius: 3px;
   }
 
-  /* Decorative elements */
   .deco-ring {
     position: absolute;
     width: 300px;
@@ -316,18 +287,18 @@
   </div>
 
   <div class="logo-text">Balkanea</div>
-  <div class="tagline">Discover the Balkans</div>
+  <div class="tagline">Your AI Travel Advisor</div>
 
   <div class="cta-area">
     <div class="cta-btn">
       <div class="cta-btn-text">Start Planning</div>
     </div>
     <div class="cta-secondary">
-      <div class="cta-secondary-text">Talk to Bea</div>
+      <div class="cta-secondary-text">Talk to Nea</div>
     </div>
     <div class="mic-hint">
       <div class="mic-dot"></div>
-      <div class="mic-text">Voice-powered AI travel planner</div>
+      <div class="mic-text">Voice-powered AI travel advisor</div>
     </div>
   </div>
 </div>

@@ -1,0 +1,68 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; min-height: 812px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; }
+
+  .success-icon { font-size: 80px; margin-bottom: 16px; }
+  .heading { font-size: 26px; font-weight: 800; color: #1A1A2E; text-align: center; margin-bottom: 20px; }
+
+  /* Code badge */
+  .code-badge { background: #FFF4E8; border: 1.5px solid #ED8323; border-radius: 14px; padding: 16px 32px; text-align: center; margin-bottom: 20px; width: 100%; }
+  .code-label { font-size: 10px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .code-value { font-size: 26px; font-weight: 800; color: #ED8323; letter-spacing: 2px; }
+
+  /* Summary card */
+  .summary-card { background: #fff; border-radius: 14px; padding: 14px; width: 100%; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .summary-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .summary-row + .summary-row { border-top: 1px solid #F3F4F6; }
+  .summary-icon { font-size: 16px; color: #ED8323; width: 20px; }
+  .summary-text { font-size: 14px; color: #1A1A2E; flex: 1; }
+  .divider { height: 1px; background: #E5E7EB; margin: 8px 0; }
+  .total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 4px; }
+  .total-label { font-size: 15px; font-weight: 700; color: #1A1A2E; }
+  .total-price { font-size: 20px; font-weight: 800; color: #ED8323; }
+
+  /* Buttons */
+  .actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .primary-btn { display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(to right, #ED8323, #E57757); border-radius: 12px; padding: 15px; font-size: 16px; font-weight: 700; color: #fff; }
+  .secondary-btn { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px solid #ED8323; border-radius: 12px; padding: 15px; font-size: 16px; font-weight: 700; color: #ED8323; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="success-icon">✅</div>
+  <div class="heading">Booking Confirmed!</div>
+
+  <div class="code-badge">
+    <div class="code-label">Confirmation Code</div>
+    <div class="code-value">BLK-2026-0012</div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-row">
+      <span class="summary-icon">🏨</span>
+      <span class="summary-text">Caldera Mystique Hotel, Santorini</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-icon">📅</span>
+      <span class="summary-text">10 Aug – 15 Aug 2026</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-icon">🌙</span>
+      <span class="summary-text">5 nights · 2 adults</span>
+    </div>
+    <div class="divider"></div>
+    <div class="total-row">
+      <span class="total-label">Total Paid</span>
+      <span class="total-price">€925</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <div class="primary-btn">⊞ View Dashboard</div>
+    <div class="secondary-btn">🔍 Book Another</div>
+  </div>
+</div>
+</body></html>

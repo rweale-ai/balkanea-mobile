@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   listContent: {
-    paddingBottom: Spacing.xxl,
+    paddingBottom: Spacing.xxxl,
   },
   gridRow: {
     flexDirection: 'row',

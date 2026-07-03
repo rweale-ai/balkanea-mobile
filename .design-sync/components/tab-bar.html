@@ -10,19 +10,19 @@
   .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 4px; }
   .tab svg { width: 22px; height: 22px; }
   .tab-label { font-size: 10px; font-weight: 600; }
-  .tab-active svg { fill: #0B6E4F; }
-  .tab-active .tab-label { color: #0B6E4F; }
+  .tab-active svg { fill: #ED8323; }
+  .tab-active .tab-label { color: #ED8323; }
   .tab-inactive svg { fill: #9CA3AF; }
   .tab-inactive .tab-label { color: #9CA3AF; }
-  .dot { width: 4px; height: 4px; border-radius: 2px; background: #0B6E4F; margin-top: 1px; }
+  .dot { width: 4px; height: 4px; border-radius: 2px; background: #ED8323; margin-top: 1px; }
 
   .category-row { display: flex; gap: 8px; margin-top: 24px; overflow-x: auto; padding-bottom: 4px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500; white-space: nowrap; }
-  .chip-active { background: linear-gradient(to right, #0B6E4F, #094D38); color: #fff; }
+  .chip-active { background: linear-gradient(to right, #ED8323, #E57757); color: #fff; }
   .chip-inactive { background: #fff; border: 1px solid #F3F4F6; color: #6B7280; }
 
   .prompt-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
-  .prompt { background: linear-gradient(to right, #0B6E4F, #094D38); border-radius: 999px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .prompt { background: linear-gradient(to right, #ED8323, #E57757); border-radius: 999px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
   h3 { font-size: 10px; font-weight: 700; color: #6B7280; letter-spacing: 1.5px; text-transform: uppercase; margin: 24px 0 10px; }
 </style>
@@ -32,35 +32,34 @@
 <h3>Tab Bar</h3>
 <div class="tab-bar">
   <div class="tab tab-active">
-    <svg viewBox="0 0 512 512"><path d="M407.7 224l-79-89.2a24 24 0 01-5.7-15.5V56a8 8 0 00-8-8h-16a8 8 0 00-8 8v36.4L260.6 57a24 24 0 00-35.8 0L41.3 268.8A8 8 0 0047.2 280H96v152a24 24 0 0024 24h80a16 16 0 0016-16v-80a8 8 0 018-8h64a8 8 0 018 8v80a16 16 0 0016 16h80a24 24 0 0024-24V280h48.8a8 8 0 005.9-13.2z"/></svg>
-    <span class="tab-label">Plan</span>
+    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    <span class="tab-label">Search</span>
     <div class="dot"></div>
   </div>
   <div class="tab tab-inactive">
-    <svg viewBox="0 0 512 512"><path d="M256 56C145.7 56 56 145.7 56 256s89.7 200 200 200 200-89.7 200-200S366.3 56 256 56zm0 368c-92.6 0-168-75.4-168-168S163.4 88 256 88s168 75.4 168 168-75.4 168-168 168zm-12-296v122.8l85.6 49.4 16-27.7-73.6-42.5V128z"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
     <span class="tab-label">Explore</span>
   </div>
   <div class="tab tab-inactive">
-    <svg viewBox="0 0 512 512"><path d="M336 80H176a48 48 0 00-48 48v16H96a48 48 0 00-48 48v208a48 48 0 0048 48h320a48 48 0 0048-48V192a48 48 0 00-48-48h-32v-16a48 48 0 00-48-48zm-144 64h128v-16H192z"/></svg>
-    <span class="tab-label">My Trips</span>
+    <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.33C18 2.09 15.86 0 13.2 0c-1.42 0-2.66.63-3.54 1.63L9 2.55l-.66-.92C7.46.63 6.22 0 4.8 0 2.14 0 0 2.09 0 4.67c0 .45.11.89.18 1.33H0v2h20V6zm-8.39 12H6V8h2v7.79l3.61-3.18 1.39 1.58-3 2.81zM18 8h-2v10h-2l-3-2.81 1.39-1.58L15.61 17 18 15V8z"/></svg>
+    <span class="tab-label">Dashboard</span>
   </div>
 </div>
 
 <h3>Category Chips</h3>
 <div class="category-row">
-  <span class="chip chip-active">✦ All</span>
-  <span class="chip chip-inactive">🏖 Beach</span>
-  <span class="chip chip-inactive">⛰ Mountain</span>
-  <span class="chip chip-inactive">🏛 Culture</span>
-  <span class="chip chip-inactive">🧗 Adventure</span>
-  <span class="chip chip-inactive">🌿 Nature</span>
+  <span class="chip chip-active">🌍 All</span>
+  <span class="chip chip-inactive">🏖️ Beach</span>
+  <span class="chip chip-inactive">🏙️ City</span>
+  <span class="chip chip-inactive">⛰️ Mountain</span>
+  <span class="chip chip-inactive">🎭 Culture</span>
 </div>
 
 <h3>Quick Prompts</h3>
 <div class="prompt-row">
-  <span class="prompt">Plan a romantic week in the Balkans</span>
-  <span class="prompt">Best destinations for first-time visitors</span>
-  <span class="prompt">Budget-friendly 5-day trip</span>
-  <span class="prompt">Family holiday with beaches</span>
+  <span class="prompt">Find hotels in Santorini</span>
+  <span class="prompt">Best beach destinations</span>
+  <span class="prompt">Budget trips under €100/night</span>
+  <span class="prompt">Family holiday with pool</span>
 </div>
 </body></html>

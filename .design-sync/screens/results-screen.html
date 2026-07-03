@@ -1,0 +1,102 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; overflow: hidden; }
+
+  /* Header */
+  .header { background: #fff; display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px; border-bottom: 1px solid #E5E7EB; }
+  .back-btn { width: 36px; height: 36px; border-radius: 18px; background: #F8F9FA; border: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .header-mid { flex: 1; }
+  .header-title { font-size: 16px; font-weight: 700; color: #1A1A2E; }
+  .header-sub { font-size: 12px; color: #6B7280; margin-top: 1px; }
+  .filter-btn { display: flex; align-items: center; gap: 5px; background: #F8F9FA; border: 1px solid #E5E7EB; border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 700; color: #1A1A2E; flex-shrink: 0; }
+
+  /* Sort chips */
+  .sort-row { display: flex; gap: 8px; padding: 10px 14px; overflow-x: auto; }
+  .sort-chip { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .sort-active { background: #1A1A2E; color: #fff; }
+  .sort-inactive { background: #fff; border: 1px solid #E5E7EB; color: #6B7280; }
+
+  /* Hotel card */
+  .hotel-card { background: #fff; border-radius: 14px; overflow: hidden; margin: 0 14px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .hotel-img { height: 150px; position: relative; }
+  .city-label { position: absolute; top: 10px; left: 12px; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.92); letter-spacing: 0.5px; text-transform: uppercase; }
+  .rating-badge { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.95); border-radius: 999px; padding: 4px 9px; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #1A1A2E; }
+  .hotel-body { padding: 12px 14px; }
+  .name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .hotel-name { font-size: 15px; font-weight: 700; color: #1A1A2E; flex: 1; }
+  .price-col { text-align: right; flex-shrink: 0; }
+  .hotel-price { font-size: 15px; font-weight: 800; color: #ED8323; }
+  .per-night { font-size: 11px; color: #9CA3AF; }
+  .amenity-row { font-size: 12px; color: #6B7280; line-height: 18px; margin-bottom: 5px; }
+  .review-row { font-size: 11px; color: #9CA3AF; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="back-btn">←</div>
+    <div class="header-mid">
+      <div class="header-title">Santorini</div>
+      <div class="header-sub">8 hotels found</div>
+    </div>
+    <div class="filter-btn">⚙ Filters</div>
+  </div>
+
+  <div class="sort-row">
+    <div class="sort-chip sort-active">Recommended</div>
+    <div class="sort-chip sort-inactive">Price ↑</div>
+    <div class="sort-chip sort-inactive">Price ↓</div>
+    <div class="sort-chip sort-inactive">Rating</div>
+  </div>
+
+  <div style="padding-top:4px;">
+    <div class="hotel-card">
+      <div class="hotel-img" style="background:linear-gradient(135deg,#4a90d9,#1565c0);">
+        <span class="city-label">SANTORINI</span>
+        <div class="rating-badge">⭐ 9.2</div>
+      </div>
+      <div class="hotel-body">
+        <div class="name-row">
+          <span class="hotel-name">Caldera Mystique Hotel</span>
+          <div class="price-col"><div class="hotel-price">€185</div><div class="per-night">/night</div></div>
+        </div>
+        <div class="amenity-row">Pool · Sea View · Spa · Breakfast</div>
+        <div class="review-row">5★ · 920 reviews</div>
+      </div>
+    </div>
+
+    <div class="hotel-card">
+      <div class="hotel-img" style="background:linear-gradient(135deg,#e6c48f,#7a5527);">
+        <span class="city-label">OIA</span>
+        <div class="rating-badge">⭐ 8.8</div>
+      </div>
+      <div class="hotel-body">
+        <div class="name-row">
+          <span class="hotel-name">Oia Sunset Villas</span>
+          <div class="price-col"><div class="hotel-price">€142</div><div class="per-night">/night</div></div>
+        </div>
+        <div class="amenity-row">Breakfast · Parking · Restaurant</div>
+        <div class="review-row">4★ · 680 reviews</div>
+      </div>
+    </div>
+
+    <div class="hotel-card">
+      <div class="hotel-img" style="background:linear-gradient(135deg,#8fc6e6,#27567a);">
+        <span class="city-label">FIRA</span>
+        <div class="rating-badge">⭐ 8.5</div>
+      </div>
+      <div class="hotel-body">
+        <div class="name-row">
+          <span class="hotel-name">Fira Blue Cave Resort</span>
+          <div class="price-col"><div class="hotel-price">€98</div><div class="per-night">/night</div></div>
+        </div>
+        <div class="amenity-row">Free WiFi · Pool · Beach Access</div>
+        <div class="review-row">4★ · 440 reviews</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

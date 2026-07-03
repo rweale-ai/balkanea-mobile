@@ -1,0 +1,95 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; overflow: hidden; }
+
+  .header { padding: 16px 16px 10px; display: flex; align-items: flex-start; justify-content: space-between; }
+  .header-text .title { font-size: 28px; font-weight: 800; color: #1A1A2E; letter-spacing: -0.5px; }
+  .header-text .subtitle { font-size: 13px; color: #6B7280; margin-top: 2px; }
+  .avatar-btn { width: 44px; height: 44px; border-radius: 22px; background: linear-gradient(135deg, #00332A, #001a15); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; flex-shrink: 0; }
+
+  .section-title { font-size: 16px; font-weight: 700; color: #1A1A2E; padding: 8px 16px 10px; }
+
+  /* Booking card */
+  .card { background: #fff; border-radius: 16px; margin: 0 16px 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .card-image { height: 140px; position: relative; }
+  .img-bg { position: absolute; inset: 0; }
+  .img-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.55)); }
+  .status-badge { position: absolute; top: 10px; right: 10px; display: flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #fff; }
+  .status-confirmed { background: #10B981; }
+  .status-past { background: rgba(0,0,0,0.4); }
+  .card-hotel-name { position: absolute; bottom: 12px; left: 14px; right: 14px; }
+  .card-hotel-name .name { font-size: 20px; font-weight: 700; color: #fff; }
+  .stars { font-size: 12px; color: #FFD700; margin-top: 2px; }
+
+  .card-body { padding: 12px 14px; }
+  .date-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6B7280; margin-bottom: 8px; }
+  .badge-row { display: flex; align-items: center; justify-content: space-between; }
+  .confirm-badge { background: #FFF4E8; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #ED8323; letter-spacing: 0.3px; }
+  .price { font-size: 17px; font-weight: 800; color: #ED8323; }
+
+  .cancel-row { display: flex; justify-content: flex-end; padding-top: 8px; }
+  .cancel-btn { display: flex; align-items: center; gap: 4px; border: 1px solid #FECACA; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #EF4444; }
+
+  .feedback-btn { display: flex; align-items: center; gap: 6px; background: #FFF4E8; border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 700; color: #ED8323; margin-top: 8px; align-self: flex-start; display: inline-flex; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="header-text">
+      <div class="title">My Trips</div>
+      <div class="subtitle">Manage your bookings</div>
+    </div>
+    <div class="avatar-btn">👤</div>
+  </div>
+
+  <div class="section-title">Upcoming</div>
+
+  <div class="card">
+    <div class="card-image">
+      <div class="img-bg" style="background: linear-gradient(135deg, #4a90d9, #1565c0);"></div>
+      <div class="img-overlay"></div>
+      <div class="status-badge status-confirmed">✓ Confirmed</div>
+      <div class="card-hotel-name">
+        <div class="name">Caldera Mystique Hotel</div>
+        <div class="stars">★★★★★</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="date-row">📅 10 Aug 2026 – 15 Aug 2026 (5 nights)</div>
+      <div class="badge-row">
+        <div class="confirm-badge">BLK-2026-0012</div>
+        <div class="price">€925</div>
+      </div>
+      <div class="cancel-row">
+        <div class="cancel-btn">✕ Cancel</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:4px;">Past</div>
+
+  <div class="card">
+    <div class="card-image">
+      <div class="img-bg" style="background: linear-gradient(135deg, #8b2ee6, #5a0eb3);"></div>
+      <div class="img-overlay"></div>
+      <div class="status-badge status-past">✓ Completed</div>
+      <div class="card-hotel-name">
+        <div class="name">Hôtel Le Marais Paris</div>
+        <div class="stars">★★★★</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="date-row">📅 3 May 2026 – 6 May 2026 (3 nights)</div>
+      <div class="badge-row">
+        <div class="confirm-badge">BLK-2026-0008</div>
+        <div class="price">€612</div>
+      </div>
+      <div class="feedback-btn">✨ How was your trip?</div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,58 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; min-height: 812px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; background: #F8F9FA; }
+
+  .logo { width: 160px; height: 48px; background: linear-gradient(135deg, #ED8323, #E57757); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .logo-text { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  .tagline { font-size: 15px; color: #6B7280; margin-bottom: 48px; }
+
+  .prompt { font-size: 20px; font-weight: 700; color: #1A1A2E; text-align: center; margin-bottom: 8px; }
+  .prompt-sub { font-size: 14px; color: #6B7280; text-align: center; margin-bottom: 32px; }
+
+  .buttons { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+  .lang-btn { display: flex; align-items: center; gap: 14px; background: #fff; border-radius: 16px; padding: 18px 20px; border: 1.5px solid #E5E7EB; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .flag { width: 44px; height: 30px; border-radius: 5px; flex-shrink: 0; }
+  .flag-mk { background: linear-gradient(to bottom, #CE2028 33%, #CE2028); position: relative; }
+  .flag-gb { background: linear-gradient(135deg, #012169, #C8102E); }
+  .lang-info { flex: 1; }
+  .lang-name { font-size: 18px; font-weight: 700; color: #1A1A2E; }
+  .lang-sub { font-size: 13px; color: #6B7280; margin-top: 2px; }
+  .check { font-size: 20px; color: #E5E7EB; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="logo"><span class="logo-text">balkanea</span></div>
+  <div class="tagline">Your AI travel advisor</div>
+
+  <div class="prompt">Choose your language</div>
+  <div class="prompt-sub">You can change this anytime in Profile</div>
+
+  <div class="buttons">
+    <div class="lang-btn">
+      <div class="flag flag-mk" style="background:#CE2028; display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:18px;">🇲🇰</span>
+      </div>
+      <div class="lang-info">
+        <div class="lang-name">Македонски</div>
+        <div class="lang-sub">Македонија</div>
+      </div>
+      <span class="check">›</span>
+    </div>
+
+    <div class="lang-btn">
+      <div class="flag flag-gb" style="background:#012169; display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:18px;">🇬🇧</span>
+      </div>
+      <div class="lang-info">
+        <div class="lang-name">English</div>
+        <div class="lang-sub">United Kingdom</div>
+      </div>
+      <span class="check">›</span>
+    </div>
+  </div>
+</div>
+</body></html>

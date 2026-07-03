@@ -1,0 +1,114 @@
+<!-- @dsCard group="Screens" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; height: 812px; display: flex; flex-direction: column; background: #F8F9FA; overflow: hidden; }
+
+  /* Header */
+  .header { background: #fff; padding: 14px 16px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #E5E7EB; }
+  .header-left { display: flex; flex-direction: column; }
+  .header-title { font-size: 22px; font-weight: 800; color: #1A1A2E; letter-spacing: -0.5px; }
+  .header-sub { font-size: 12px; color: #6B7280; margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .locale-btn { background: #F8F9FA; border: 1px solid #E5E7EB; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #1A1A2E; }
+  .avatar-btn { width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #00332A, #001a15); display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; }
+
+  /* Chat area */
+  .chat-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Nea bubble */
+  .nea-row { display: flex; align-items: flex-start; gap: 8px; }
+  .nea-avatar { width: 30px; height: 30px; border-radius: 15px; background: linear-gradient(135deg, #00332A, #001a15); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; }
+  .nea-bubble { background: #fff; border-radius: 0 16px 16px 16px; padding: 11px 14px; max-width: 280px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); font-size: 14px; color: #1A1A2E; line-height: 20px; }
+
+  /* User bubble */
+  .user-row { display: flex; justify-content: flex-end; }
+  .user-bubble { background: linear-gradient(135deg, #ED8323, #E57757); border-radius: 16px 0 16px 16px; padding: 11px 14px; max-width: 260px; font-size: 14px; color: #fff; line-height: 20px; }
+
+  /* Inline hotel cards */
+  .hotel-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-top: 4px; }
+  .hotel-card { min-width: 200px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.08); flex-shrink: 0; }
+  .hotel-img { height: 90px; background: linear-gradient(135deg, #8fc6e6, #27567a); position: relative; display: flex; align-items: flex-end; padding: 6px 8px; }
+  .hotel-rating { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.95); border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 700; color: #1A1A2E; }
+  .hotel-body { padding: 8px 10px; }
+  .hotel-name { font-size: 13px; font-weight: 700; color: #1A1A2E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hotel-price { font-size: 13px; font-weight: 800; color: #ED8323; margin-top: 2px; }
+  .hotel-meta { font-size: 11px; color: #9CA3AF; }
+  .book-btn { background: linear-gradient(to right, #ED8323, #E57757); color: #fff; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 6px; margin: 6px 10px 8px; text-align: center; }
+
+  /* Voice button area */
+  .voice-row { padding: 8px 16px; display: flex; align-items: center; justify-content: center; }
+  .voice-chip { display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #ED8323, #E57757); border-radius: 999px; padding: 8px 20px; font-size: 13px; color: #fff; font-weight: 600; }
+
+  /* Input bar */
+  .input-bar { background: #fff; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #E5E7EB; }
+  .input-field { flex: 1; background: #F8F9FA; border: 1.5px solid #E5E7EB; border-radius: 22px; padding: 10px 14px; font-size: 14px; color: #1A1A2E; }
+  .send-btn { width: 40px; height: 40px; border-radius: 20px; background: linear-gradient(135deg, #ED8323, #E57757); display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; flex-shrink: 0; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-title">✨ Nea</div>
+      <div class="header-sub">Your AI travel advisor</div>
+    </div>
+    <div class="header-right">
+      <div class="locale-btn">🇲🇰 MKD</div>
+      <div class="avatar-btn">👤</div>
+    </div>
+  </div>
+
+  <div class="chat-area">
+    <div class="nea-row">
+      <div class="nea-avatar">✨</div>
+      <div class="nea-bubble">Здраво! Јас сум Nea, вашиот AI патнички советник. Каде сакате да патувате?</div>
+    </div>
+
+    <div class="user-row">
+      <div class="user-bubble">I want to go to Santorini next month, 2 adults, 5 nights</div>
+    </div>
+
+    <div class="nea-row">
+      <div class="nea-avatar">✨</div>
+      <div style="max-width: 300px;">
+        <div class="nea-bubble">I found 3 great hotels in Santorini for Aug 10–15. Here are my top picks:</div>
+        <div class="hotel-cards">
+          <div class="hotel-card">
+            <div class="hotel-img">
+              <span class="hotel-rating">⭐ 9.2</span>
+            </div>
+            <div class="hotel-body">
+              <div class="hotel-name">Caldera Mystique</div>
+              <div class="hotel-price">€185 <span style="font-size:10px;color:#9CA3AF;font-weight:400;">/night</span></div>
+              <div class="hotel-meta">Pool · Sea view · 5★</div>
+            </div>
+            <div class="book-btn">Book Now</div>
+          </div>
+          <div class="hotel-card">
+            <div class="hotel-img" style="background: linear-gradient(135deg, #e6c48f, #7a5527);">
+              <span class="hotel-rating">⭐ 8.8</span>
+            </div>
+            <div class="hotel-body">
+              <div class="hotel-name">Oia Sunset Villa</div>
+              <div class="hotel-price">€142 <span style="font-size:10px;color:#9CA3AF;font-weight:400;">/night</span></div>
+              <div class="hotel-meta">Breakfast · Spa · 4★</div>
+            </div>
+            <div class="book-btn">Book Now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="voice-row">
+    <div class="voice-chip">🎤 Speak with Nea</div>
+  </div>
+
+  <div class="input-bar">
+    <div class="input-field" style="color:#9CA3AF;">Ask Nea anything…</div>
+    <div class="send-btn">➤</div>
+  </div>
+</div>
+</body></html>

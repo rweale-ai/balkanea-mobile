@@ -1,0 +1,67 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; padding: 24px; }
+
+  .label { font-size: 11px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+  /* Default state */
+  .search-bar { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #E5E7EB; border-radius: 24px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .search-icon { font-size: 16px; color: #9CA3AF; flex-shrink: 0; }
+  .search-text { flex: 1; font-size: 14px; color: #9CA3AF; }
+
+  /* Focused state */
+  .search-bar-focused { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #ED8323; border-radius: 24px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(237,131,35,0.12); }
+  .search-icon-active { font-size: 16px; color: #ED8323; flex-shrink: 0; }
+  .search-text-active { flex: 1; font-size: 14px; color: #1A1A2E; }
+
+  /* With value + clear */
+  .search-bar-value { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #ED8323; border-radius: 24px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(237,131,35,0.12); }
+  .clear-btn { font-size: 16px; color: #9CA3AF; cursor: pointer; flex-shrink: 0; }
+
+  .spec-row { display: flex; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
+  .spec { background: #fff; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .spec-name { font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .spec-val { font-size: 13px; color: #1A1A2E; font-weight: 500; }
+</style>
+</head><body>
+  <div class="label">Default (empty)</div>
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <span class="search-text">Search destinations…</span>
+  </div>
+
+  <div class="label">Focused</div>
+  <div class="search-bar-focused">
+    <span class="search-icon-active">🔍</span>
+    <span class="search-text-active" style="color:#9CA3AF;">Search destinations…</span>
+  </div>
+
+  <div class="label">With value + clear</div>
+  <div class="search-bar-value">
+    <span class="search-icon-active">🔍</span>
+    <span class="search-text-active">Greece</span>
+    <span class="clear-btn">✕</span>
+  </div>
+
+  <div class="spec-row">
+    <div class="spec">
+      <div class="spec-name">Border default</div>
+      <div class="spec-val">#E5E7EB · 1.5px</div>
+    </div>
+    <div class="spec">
+      <div class="spec-name">Border focused</div>
+      <div class="spec-val">#ED8323 · 1.5px</div>
+    </div>
+    <div class="spec">
+      <div class="spec-name">Radius</div>
+      <div class="spec-val">Radius.xl (24px)</div>
+    </div>
+    <div class="spec">
+      <div class="spec-name">Used in</div>
+      <div class="spec-val">Explore tab</div>
+    </div>
+  </div>
+</body></html>

@@ -9,9 +9,9 @@
 
   .trigger-row { display: flex; gap: 16px; align-items: center; margin-bottom: 8px; }
 
-  .trigger { display: inline-flex; align-items: center; gap: 8px; background: #003580; border-radius: 999px; padding: 5px 5px 5px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer; }
+  .trigger { display: inline-flex; align-items: center; gap: 8px; background: #00332A; border-radius: 999px; padding: 5px 5px 5px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer; }
   .trigger-currency { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
-  .flag-circle { width: 28px; height: 28px; border-radius: 14px; background: #002a66; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .flag-circle { width: 28px; height: 28px; border-radius: 14px; background: #001a15; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .flag-circle span { font-size: 20px; line-height: 24px; }
 
   .label { font-size: 11px; color: #6B7280; margin-top: 4px; }
@@ -22,15 +22,15 @@
   .section-label { font-size: 10px; font-weight: 700; color: #6B7280; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; margin-left: 4px; }
 
   .option { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; margin-bottom: 4px; background: #F8F9FA; cursor: pointer; }
-  .option-selected { background: #E8F5F0; border: 1.5px solid #0B6E4F; }
+  .option-selected { background: #FFF4E8; border: 1.5px solid #ED8323; }
   .option-flag { font-size: 22px; }
   .option-label { flex: 1; font-size: 15px; font-weight: 500; color: #1A1A2E; }
-  .option-label-active { color: #0B6E4F; font-weight: 700; }
+  .option-label-active { color: #ED8323; font-weight: 700; }
   .radio { width: 20px; height: 20px; border-radius: 10px; border: 2px solid #E5E7EB; display: flex; align-items: center; justify-content: center; }
-  .radio-filled { border-color: #0B6E4F; }
-  .radio-dot { width: 10px; height: 10px; border-radius: 5px; background: #0B6E4F; }
+  .radio-filled { border-color: #ED8323; }
+  .radio-dot { width: 10px; height: 10px; border-radius: 5px; background: #ED8323; }
 
-  .done-btn { display: block; text-align: center; background: linear-gradient(to right, #0B6E4F, #094D38); border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; color: #fff; margin-top: 8px; }
+  .done-btn { display: block; text-align: center; background: linear-gradient(to right, #ED8323, #E57757); border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; color: #fff; margin-top: 8px; }
 </style>
 </head><body>
 <h2>Locale Selector</h2>
@@ -57,18 +57,18 @@
   <div class="sheet-title">Country & Currency</div>
   <div class="section-label">Country</div>
   <div class="option option-selected">
-    <span class="option-flag">🇺🇸</span>
-    <span class="option-label option-label-active">United States</span>
+    <span class="option-flag">🇲🇰</span>
+    <span class="option-label option-label-active">North Macedonia</span>
     <div class="radio radio-filled"><div class="radio-dot"></div></div>
   </div>
   <div class="option">
-    <span class="option-flag">🇲🇰</span>
-    <span class="option-label">North Macedonia</span>
+    <span class="option-flag">🇬🇧</span>
+    <span class="option-label">United Kingdom</span>
     <div class="radio"></div>
   </div>
   <div class="option">
-    <span class="option-flag">🇭🇷</span>
-    <span class="option-label">Croatia</span>
+    <span class="option-flag">🇺🇸</span>
+    <span class="option-label">United States</span>
     <div class="radio"></div>
   </div>
   <a class="done-btn" href="#">Done</a>

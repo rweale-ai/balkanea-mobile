@@ -7,14 +7,14 @@
   h2 { font-size: 20px; font-weight: 700; color: #1A1A2E; margin-bottom: 16px; }
 
   .card { border-radius: 20px; overflow: hidden; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
-  .header { background: linear-gradient(135deg, #0B6E4F, #094D38); padding: 16px 16px 24px; }
+  .header { background: linear-gradient(135deg, #ED8323, #E57757); padding: 16px 16px 24px; }
   .title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
   .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .badge { background: rgba(255,255,255,0.2); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #fff; }
   .summary { font-size: 14px; color: rgba(255,255,255,0.9); line-height: 20px; }
-  .save-btn { display: inline-block; margin-top: 8px; background: linear-gradient(to right, #F4A024, #E8901A); border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #fff; }
+  .save-btn { display: inline-block; margin-top: 8px; background: rgba(255,255,255,0.2); border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #fff; border: 1px solid rgba(255,255,255,0.4); }
 
-  .toggle { background: #E8F5F0; padding: 10px; text-align: center; font-size: 14px; font-weight: 500; color: #0B6E4F; }
+  .toggle { background: #FFF4E8; padding: 10px; text-align: center; font-size: 14px; font-weight: 500; color: #ED8323; }
 
   .day { background: #F8F9FA; border-radius: 12px; padding: 16px; margin: 8px 16px; border-left: 3px solid; }
   .day-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
@@ -24,7 +24,7 @@
   .activity-name { font-size: 13px; font-weight: 500; color: #1A1A2E; }
   .activity-desc { font-size: 12px; color: #6B7280; }
 
-  .tips { background: #FFF3E0; border-left: 3px solid #F4A024; border-radius: 12px; padding: 16px; margin: 8px 16px 16px; }
+  .tips { background: #FFF3E0; border-left: 3px solid #ED8323; border-radius: 12px; padding: 16px; margin: 8px 16px 16px; }
   .tips-title { font-size: 14px; font-weight: 600; color: #1A1A2E; margin-bottom: 8px; }
   .tip { font-size: 13px; color: #1A1A2E; margin-bottom: 4px; }
 </style>
@@ -32,53 +32,53 @@
 <h2>Trip Card</h2>
 <div class="card">
   <div class="header">
-    <div class="title">5-Day Romantic Kotor Escape</div>
+    <div class="title">5 Nights · Santorini, Greece</div>
     <div class="badges">
-      <span class="badge">5 days</span>
-      <span class="badge">Kotor</span>
-      <span class="badge">€85/night</span>
+      <span class="badge">5 nights</span>
+      <span class="badge">Santorini</span>
+      <span class="badge">€185/night</span>
     </div>
-    <div class="summary">A romantic journey through Montenegro's stunning Bay of Kotor, blending medieval charm with coastal beauty.</div>
-    <div class="save-btn">+ Save to My Trips</div>
+    <div class="summary">Caldera views, infinity pool, and world-class dining at the Mystique Hotel — your perfect island escape.</div>
+    <div class="save-btn">+ View Booking</div>
   </div>
 
-  <div class="toggle">▼ View day-by-day itinerary</div>
+  <div class="toggle">▼ View stay details</div>
 
-  <div class="day" style="border-left-color: #0B6E4F">
-    <div class="day-label" style="color: #0B6E4F">Day 1 — Arrival in Kotor</div>
-    <div class="day-desc">Settle in and explore the old town at your own pace</div>
+  <div class="day" style="border-left-color: #ED8323">
+    <div class="day-label" style="color: #ED8323">Day 1 — Arrival in Santorini</div>
+    <div class="day-desc">Check in and settle at the Caldera Mystique Hotel</div>
     <div class="activity">
-      <div class="activity-icon" style="background: rgba(11,110,79,0.08)">🏛️</div>
+      <div class="activity-icon" style="background: rgba(237,131,35,0.08)">🏨</div>
       <div>
-        <div class="activity-name">Old Town Walking Tour · 2 hours</div>
-        <div class="activity-desc">Discover medieval architecture and hidden squares</div>
+        <div class="activity-name">Hotel Check-in · Superior Caldera View</div>
+        <div class="activity-desc">Infinity pool, breakfast included, sea view terrace</div>
       </div>
     </div>
     <div class="activity">
-      <div class="activity-icon" style="background: rgba(11,110,79,0.08)">🍽️</div>
+      <div class="activity-icon" style="background: rgba(237,131,35,0.08)">🌅</div>
       <div>
-        <div class="activity-name">Dinner at Galion · 2 hours</div>
-        <div class="activity-desc">Waterfront seafood with views of the bay</div>
+        <div class="activity-name">Sunset at Oia · 2 hours</div>
+        <div class="activity-desc">World-famous caldera sunset views</div>
       </div>
     </div>
   </div>
 
-  <div class="day" style="border-left-color: #F4A024">
-    <div class="day-label" style="color: #F4A024">Day 2 — Fortress & Bay</div>
-    <div class="day-desc">Hike the fortress walls then cruise the bay</div>
+  <div class="day" style="border-left-color: #00332A">
+    <div class="day-label" style="color: #00332A">Day 2 — Beach & Spa</div>
+    <div class="day-desc">Relax at the pool, explore Kamari black sand beach</div>
     <div class="activity">
-      <div class="activity-icon" style="background: rgba(244,160,36,0.08)">🧗</div>
+      <div class="activity-icon" style="background: rgba(0,51,42,0.08)">🏖️</div>
       <div>
-        <div class="activity-name">San Giovanni Fortress · 3 hours</div>
-        <div class="activity-desc">1,350 steps to panoramic bay views</div>
+        <div class="activity-name">Kamari Beach · 3 hours</div>
+        <div class="activity-desc">Black volcanic sand beach, crystal-clear waters</div>
       </div>
     </div>
   </div>
 
   <div class="tips">
-    <div class="tips-title">Travel Tips</div>
-    <div class="tip">• Bring comfortable walking shoes for the cobblestones</div>
-    <div class="tip">• Book fortress visits early morning to avoid midday heat</div>
+    <div class="tips-title">Nea's Travel Tips</div>
+    <div class="tip">• Book restaurant tables 2-3 days in advance during peak season</div>
+    <div class="tip">• Take the cable car up from Fira — stunning views of the caldera</div>
   </div>
 </div>
 </body></html>
