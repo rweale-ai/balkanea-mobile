@@ -1,0 +1,152 @@
+<!-- @dsCard group="Flow" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Step 8 — Dashboard: Trip as Container</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; min-height: 844px; position: relative; padding-bottom: 70px; }
+
+  .header { background: #FFFFFF; padding: 54px 16px 14px; border-bottom: 1px solid #E5E7EB; }
+  .header-title { font-size: 24px; font-weight: 800; color: #1A1A2E; }
+  .header-sub { font-size: 13px; color: #6B7280; margin-top: 2px; }
+
+  .body { padding: 16px; }
+  .section-label { font-size: 13px; font-weight: 800; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+  /* Trip card */
+  .trip-card { background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 20px; }
+  .trip-hero { height: 110px; background: linear-gradient(135deg, #4a90d9, #1565c0); position: relative; padding: 16px; }
+  .trip-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,26,46,0.55), transparent); }
+  .trip-name { position: absolute; bottom: 14px; left: 16px; color: #fff; font-size: 20px; font-weight: 800; text-shadow: 0 1px 4px rgba(0,0,0,0.35); }
+  .trip-dates { position: absolute; bottom: 14px; right: 16px; background: rgba(255,255,255,0.92); color: #1A1A2E; border-radius: 999px; padding: 5px 11px; font-size: 11px; font-weight: 700; }
+  .countdown { position: absolute; top: 12px; left: 16px; background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; border-radius: 999px; padding: 5px 11px; font-size: 11px; font-weight: 800; }
+
+  /* Hotel booking summary inside trip */
+  .booking-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #E5E7EB; }
+  .booking-thumb { width: 48px; height: 48px; border-radius: 10px; background: linear-gradient(135deg, #4a90d9, #1565c0); flex-shrink: 0; }
+  .booking-info b { font-size: 14px; font-weight: 800; color: #1A1A2E; display: block; }
+  .booking-info span { font-size: 12px; color: #6B7280; }
+  .status-badge { margin-left: auto; text-align: right; }
+  .confirmed { display: inline-block; background: #10B981; color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.3px; }
+  .conf-code { font-size: 11px; color: #9CA3AF; margin-top: 4px; font-weight: 600; }
+
+  /* Add to trip tiles */
+  .att-header { padding: 13px 16px 4px; font-size: 13px; font-weight: 800; color: #1A1A2E; }
+  .att-sub { padding: 0 16px 10px; font-size: 11px; color: #9CA3AF; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 16px 16px; }
+  .tile { background: #F8F9FA; border: 1px dashed #E5E7EB; border-radius: 12px; padding: 12px 6px; text-align: center; }
+  .tile.nea-linked { background: #FFF4E8; border: 1px solid #FFD4A3; }
+  .tile-icon { font-size: 20px; }
+  .tile-name { font-size: 11px; font-weight: 700; color: #1A1A2E; margin-top: 5px; }
+  .tile-status { font-size: 9px; font-weight: 700; margin-top: 3px; }
+  .tile-status.soon { color: #9CA3AF; }
+  .tile-status.nea { color: #ED8323; }
+
+  /* Ask Nea about trip bar -->
+  .trip-nea { margin: 0 16px 16px; display: flex; align-items: center; gap: 10px; background: #FFF4E8; border: 1px solid #FFD4A3; border-radius: 12px; padding: 11px 13px; }
+  .trip-nea-avatar { width: 28px; height: 28px; border-radius: 14px; background: #00332A; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .trip-nea span { font-size: 12px; font-weight: 700; color: #ED8323; }
+
+  /* Past bookings */
+  .past-card { background: #FFFFFF; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 10px; opacity: 0.85; }
+  .past-thumb { width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, #7db8a8, #3d7a68); }
+  .past-info b { font-size: 13px; font-weight: 700; color: #1A1A2E; display: block; }
+  .past-info span { font-size: 11px; color: #9CA3AF; }
+  .past-badge { margin-left: auto; background: #F8F9FA; border: 1px solid #E5E7EB; color: #6B7280; border-radius: 999px; padding: 3px 9px; font-size: 10px; font-weight: 700; }
+
+  /* Tab bar */
+  .tab-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 62px; background: #FFFFFF; border-top: 1px solid #E5E7EB; display: flex; }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: #9CA3AF; font-weight: 600; }
+  .tab-item.active { color: #ED8323; }
+  .tab-icon { font-size: 20px; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="header-title">Dashboard</div>
+    <div class="header-sub">Your trips and bookings</div>
+  </div>
+
+  <div class="body">
+    <div class="section-label">Upcoming trip</div>
+
+    <div class="trip-card">
+      <div class="trip-hero">
+        <div class="trip-hero-overlay"></div>
+        <div class="countdown">✈️ In 42 days</div>
+        <div class="trip-name">Santorini Trip</div>
+        <div class="trip-dates">14–21 Aug 2026</div>
+      </div>
+
+      <div class="booking-row">
+        <div class="booking-thumb"></div>
+        <div class="booking-info">
+          <b>Caldera Mystique Hotel</b>
+          <span>Superior Caldera View · 7 nights · 2 adults</span>
+        </div>
+        <div class="status-badge">
+          <span class="confirmed">CONFIRMED</span>
+          <div class="conf-code">BLK-8F3K2A</div>
+        </div>
+      </div>
+
+      <div class="att-header">Add to trip</div>
+      <div class="att-sub">Build your whole trip in one place — Nea can help research each one.</div>
+      <div class="tiles">
+        <div class="tile nea-linked">
+          <div class="tile-icon">✈️</div>
+          <div class="tile-name">Flights</div>
+          <div class="tile-status nea">Ask Nea</div>
+        </div>
+        <div class="tile nea-linked">
+          <div class="tile-icon">🍽️</div>
+          <div class="tile-name">Restaurants</div>
+          <div class="tile-status nea">Ask Nea</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🚗</div>
+          <div class="tile-name">Car Rental</div>
+          <div class="tile-status soon">Coming soon</div>
+        </div>
+        <div class="tile nea-linked">
+          <div class="tile-icon">🎭</div>
+          <div class="tile-name">Tours</div>
+          <div class="tile-status nea">Ask Nea</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🛡️</div>
+          <div class="tile-name">Insurance</div>
+          <div class="tile-status soon">Coming soon</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">＋</div>
+          <div class="tile-name">More</div>
+          <div class="tile-status soon">Coming soon</div>
+        </div>
+      </div>
+
+      <div class="trip-nea">
+        <div class="trip-nea-avatar">N</div>
+        <span>Ask Nea to plan your Santorini days →</span>
+      </div>
+    </div>
+
+    <div class="section-label">Past trips</div>
+    <div class="past-card">
+      <div class="past-thumb"></div>
+      <div class="past-info">
+        <b>Ohrid Weekend</b>
+        <span>Villa St. Sofija · 2 nights · May 2026</span>
+      </div>
+      <div class="past-badge">Completed</div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-item"><span class="tab-icon">💬</span>Search</div>
+    <div class="tab-item"><span class="tab-icon">🧭</span>Explore</div>
+    <div class="tab-item active"><span class="tab-icon">🧳</span>Dashboard</div>
+  </div>
+</div>
+</body></html>

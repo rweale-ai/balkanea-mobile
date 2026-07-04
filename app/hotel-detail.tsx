@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
   StyleSheet, SafeAreaView, Share, Platform,
@@ -7,10 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
-import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
-import type { Hotel, RoomType } from '../lib/types'
+import type { Hotel, RoomType, HotelSearchParams } from '../lib/types'
+import { trackViewedHotel } from '../lib/session-store'
+import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
 
 export default function HotelDetailScreen() {
   const router = useRouter()
@@ -27,6 +28,7 @@ export default function HotelDetailScreen() {
   }>()
 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [neaSheetVisible, setNeaSheetVisible] = useState(false)
 
   const hotel = useMemo<Hotel | null>(() => {
     if (!params.hotelId || !params.checkin || !params.checkout) return null
@@ -58,6 +60,32 @@ export default function HotelDetailScreen() {
     : (params.currency || 'EUR') === 'USD' ? '$'
     : (params.currency || 'EUR') === 'GBP' ? '£'
     : params.currency || 'EUR'
+
+  const searchParams = useMemo<HotelSearchParams>(() => ({
+    destination: params.destination || '',
+    checkin: params.checkin || '',
+    checkout: params.checkout || '',
+    adults: parseInt(params.adults || '2', 10),
+    children: parseInt(params.children || '0', 10),
+    rooms: parseInt(params.rooms || '1', 10),
+    currency: params.currency || 'EUR',
+  }), [params.destination, params.checkin, params.checkout, params.adults, params.children, params.rooms, params.currency])
+
+  // Track this hotel in session memory for Nea's compare feature
+  useEffect(() => {
+    if (hotel) trackViewedHotel(hotel, searchParams)
+  }, [hotel?.hotel_id])
+
+  // Pick the recommended room: prefer free cancellation, pick mid-tier if multiple
+  const recommendedRoomId = useMemo(() => {
+    if (!hotel) return null
+    const freeCancel = hotel.room_types.filter(r =>
+      r.cancellation.toLowerCase().includes('free')
+    )
+    if (freeCancel.length === 0) return hotel.room_types[0]?.room_id ?? null
+    const sorted = [...freeCancel].sort((a, b) => a.price_per_night - b.price_per_night)
+    return sorted[Math.floor(sorted.length / 2)].room_id
+  }, [hotel])
 
   if (!hotel) {
     return (
@@ -185,14 +213,11 @@ export default function HotelDetailScreen() {
           <TouchableOpacity
             style={styles.reviewsBtn}
             activeOpacity={0.8}
-            onPress={() => {
-              setReviewIntent(`What are guests saying about ${hotel.name}? Search for reviews and give me an honest summary.`)
-              router.back()
-            }}
+            onPress={() => setNeaSheetVisible(true)}
           >
             <LinearGradient colors={['#FFF4E8', '#FFF8F2'] as const} style={styles.reviewsBtnInner}>
               <Ionicons name="sparkles" size={16} color={Colors.primary} />
-              <Text style={styles.reviewsBtnText}>Ask Nea about reviews</Text>
+              <Text style={styles.reviewsBtnText}>{t.hotel.askNeaAbout}</Text>
               <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
             </LinearGradient>
           </TouchableOpacity>
@@ -217,11 +242,18 @@ export default function HotelDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.hotel.selectRoom}</Text>
           {hotel.room_types.map((room) => (
+            <View key={room.room_id}>
+              {room.room_id === recommendedRoomId && (
+                <View style={styles.neaRecommendBanner}>
+                  <Ionicons name="sparkles" size={13} color={Colors.primary} />
+                  <Text style={styles.neaRecommendText}>{t.hotel.neaRecommends}</Text>
+                </View>
+              )}
             <TouchableOpacity
-              key={room.room_id}
               style={[
                 styles.roomCard,
                 selectedRoomId === room.room_id && styles.roomCardSelected,
+                room.room_id === recommendedRoomId && styles.roomCardRecommended,
               ]}
               onPress={() => setSelectedRoomId(room.room_id)}
               activeOpacity={0.7}
@@ -269,6 +301,7 @@ export default function HotelDetailScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
+            </View>
           ))}
         </View>
 
@@ -299,6 +332,13 @@ export default function HotelDetailScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      <NeaBottomSheet
+        hotel={hotel}
+        searchParams={searchParams}
+        visible={neaSheetVisible}
+        onClose={() => setNeaSheetVisible(false)}
+      />
     </View>
   )
 }
@@ -514,6 +554,26 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  /* Nea recommends banner */
+  neaRecommendBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginBottom: -4,
+    marginLeft: 2,
+  },
+  neaRecommendText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 11,
+  },
+
   /* Room cards */
   roomCard: {
     backgroundColor: Colors.surface,
@@ -526,6 +586,9 @@ const styles = StyleSheet.create({
   },
   roomCardSelected: {
     borderColor: Colors.success,
+  },
+  roomCardRecommended: {
+    borderColor: `${Colors.primary}66`,
   },
   roomHeader: {
     flexDirection: 'row',

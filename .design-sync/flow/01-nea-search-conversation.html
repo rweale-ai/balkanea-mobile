@@ -1,0 +1,175 @@
+<!-- @dsCard group="Flow" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Step 1 — Nea Search Conversation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; min-height: 844px; display: flex; flex-direction: column; position: relative; }
+
+  /* Header */
+  .header { background: #FFFFFF; padding: 54px 16px 12px; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; gap: 12px; }
+  .nea-avatar { width: 40px; height: 40px; border-radius: 20px; background: #00332A; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
+  .header-title { font-size: 17px; font-weight: 800; color: #1A1A2E; }
+  .header-sub { font-size: 12px; color: #10B981; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .dot { width: 6px; height: 6px; border-radius: 3px; background: #10B981; display: inline-block; }
+  .voice-pill { margin-left: auto; background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700; }
+
+  /* Chat */
+  .chat { flex: 1; padding: 14px 16px 120px; display: flex; flex-direction: column; gap: 12px; }
+  .msg-row { display: flex; gap: 8px; align-items: flex-end; }
+  .msg-avatar { width: 28px; height: 28px; border-radius: 14px; background: #00332A; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .bubble-nea { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px 16px 16px 4px; padding: 11px 14px; font-size: 14px; line-height: 20px; color: #1A1A2E; max-width: 290px; }
+  .bubble-user { background: linear-gradient(135deg, #ED8323, #E57757); border-radius: 16px 16px 4px 16px; padding: 11px 14px; font-size: 14px; line-height: 20px; color: #fff; max-width: 280px; margin-left: auto; }
+
+  /* Quick chips */
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; padding-left: 36px; }
+  .chip { background: #FFF4E8; color: #ED8323; border: 1px solid #FFD4A3; border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 600; }
+
+  /* Search summary pill row */
+  .summary-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .s-pill { background: #FFF4E8; color: #ED8323; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
+
+  /* Hotel result cards */
+  .hotel-card { background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-left: 36px; max-width: 300px; }
+  .hc-photo { height: 120px; position: relative; }
+  .hc-photo.p1 { background: linear-gradient(135deg, #4a90d9, #1565c0); }
+  .hc-photo.p2 { background: linear-gradient(135deg, #e8b06a, #c97b3d); }
+  .hc-photo.p3 { background: linear-gradient(135deg, #7db8a8, #3d7a68); }
+  .hc-rating { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.95); border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 800; color: #1A1A2E; }
+  .hc-rating .star { color: #F59E0B; }
+  .hc-price-tag { position: absolute; bottom: 10px; left: 10px; background: rgba(26,26,46,0.75); border-radius: 8px; padding: 5px 9px; }
+  .hc-price-tag b { color: #fff; font-size: 15px; font-weight: 800; }
+  .hc-price-tag span { color: rgba(255,255,255,0.8); font-size: 11px; }
+  .hc-body { padding: 12px 14px 14px; }
+  .hc-name { font-size: 15px; font-weight: 800; color: #1A1A2E; }
+  .hc-loc { font-size: 12px; color: #6B7280; margin-top: 2px; }
+  .hc-amenities { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .hc-am { background: #F8F9FA; border: 1px solid #E5E7EB; border-radius: 999px; padding: 4px 9px; font-size: 11px; color: #6B7280; font-weight: 500; }
+  .hc-cta { margin-top: 10px; background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; text-align: center; border-radius: 12px; padding: 10px; font-size: 13px; font-weight: 700; }
+
+  /* Input bar */
+  .input-bar { position: absolute; bottom: 62px; left: 0; right: 0; background: #FFFFFF; border-top: 1px solid #E5E7EB; padding: 10px 16px; display: flex; gap: 10px; align-items: center; }
+  .input-field { flex: 1; background: #F8F9FA; border: 1px solid #E5E7EB; border-radius: 999px; padding: 11px 16px; font-size: 14px; color: #9CA3AF; }
+  .mic-btn { width: 42px; height: 42px; border-radius: 21px; background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+
+  /* Tab bar */
+  .tab-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 62px; background: #FFFFFF; border-top: 1px solid #E5E7EB; display: flex; }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: #9CA3AF; font-weight: 600; }
+  .tab-item.active { color: #ED8323; }
+  .tab-icon { font-size: 20px; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="nea-avatar">N</div>
+    <div>
+      <div class="header-title">Nea</div>
+      <div class="header-sub"><span class="dot"></span> Your travel advisor</div>
+    </div>
+    <div class="voice-pill">🎙 Voice</div>
+  </div>
+
+  <div class="chat">
+    <!-- Greeting + gathering -->
+    <div class="msg-row">
+      <div class="msg-avatar">N</div>
+      <div class="bubble-nea">Hi Marija! 👋 Where would you like to go? Tell me your destination, dates and budget — or just describe your dream trip.</div>
+    </div>
+
+    <div class="chip-row">
+      <div class="chip">🏖 Beach escape</div>
+      <div class="chip">🏙 City break</div>
+      <div class="chip">⛰ Mountains</div>
+    </div>
+
+    <div class="bubble-user">A beach holiday in Santorini, 14–21 August, 2 adults. Around €200 a night, 4–5 stars.</div>
+
+    <!-- Confirmation of collected params -->
+    <div class="msg-row">
+      <div class="msg-avatar">N</div>
+      <div class="bubble-nea">
+        Perfect — here's what I'm searching:
+        <div class="summary-pills">
+          <span class="s-pill">📍 Santorini</span>
+          <span class="s-pill">📅 14–21 Aug</span>
+          <span class="s-pill">👥 2 adults</span>
+          <span class="s-pill">💶 ≤ €200/night</span>
+          <span class="s-pill">⭐ 4–5★</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results intro -->
+    <div class="msg-row">
+      <div class="msg-avatar">N</div>
+      <div class="bubble-nea">I found 3 great matches near the caldera. All have free cancellation. ✨</div>
+    </div>
+
+    <!-- Hotel card 1 -->
+    <div class="hotel-card">
+      <div class="hc-photo p1">
+        <div class="hc-rating"><span class="star">★</span> 9.2</div>
+        <div class="hc-price-tag"><b>€185</b> <span>/night</span></div>
+      </div>
+      <div class="hc-body">
+        <div class="hc-name">Caldera Mystique Hotel</div>
+        <div class="hc-loc">📍 Oia · 0.3 km from centre</div>
+        <div class="hc-amenities">
+          <span class="hc-am">♾️ Infinity pool</span>
+          <span class="hc-am">🍳 Breakfast</span>
+          <span class="hc-am">🌅 Sea view</span>
+        </div>
+        <div class="hc-cta">View hotel</div>
+      </div>
+    </div>
+
+    <!-- Hotel card 2 -->
+    <div class="hotel-card">
+      <div class="hc-photo p2">
+        <div class="hc-rating"><span class="star">★</span> 8.8</div>
+        <div class="hc-price-tag"><b>€150</b> <span>/night</span></div>
+      </div>
+      <div class="hc-body">
+        <div class="hc-name">Aegean Pearl Resort</div>
+        <div class="hc-loc">📍 Kamari · beachfront</div>
+        <div class="hc-amenities">
+          <span class="hc-am">🏖 Private beach</span>
+          <span class="hc-am">🍽 Half board</span>
+          <span class="hc-am">🛁 Spa</span>
+        </div>
+        <div class="hc-cta">View hotel</div>
+      </div>
+    </div>
+
+    <!-- Hotel card 3 -->
+    <div class="hotel-card">
+      <div class="hc-photo p3">
+        <div class="hc-rating"><span class="star">★</span> 9.0</div>
+        <div class="hc-price-tag"><b>€198</b> <span>/night</span></div>
+      </div>
+      <div class="hc-body">
+        <div class="hc-name">Thera Blue Suites</div>
+        <div class="hc-loc">📍 Fira · 0.5 km from centre</div>
+        <div class="hc-amenities">
+          <span class="hc-am">🏊 Pool</span>
+          <span class="hc-am">🍳 Breakfast</span>
+          <span class="hc-am">🌋 Caldera view</span>
+        </div>
+        <div class="hc-cta">View hotel</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <div class="input-field">Ask Nea anything…</div>
+    <div class="mic-btn">🎙</div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-item active"><span class="tab-icon">💬</span>Search</div>
+    <div class="tab-item"><span class="tab-icon">🧭</span>Explore</div>
+    <div class="tab-item"><span class="tab-icon">🧳</span>Dashboard</div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,140 @@
+<!-- @dsCard group="Flow" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Step 5 — Room Selection</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; min-height: 844px; }
+
+  /* Header */
+  .header { background: #FFFFFF; padding: 54px 16px 12px; border-bottom: 1px solid #E5E7EB; }
+  .header-top { display: flex; align-items: center; gap: 12px; }
+  .back-btn { width: 34px; height: 34px; border-radius: 17px; background: #F8F9FA; border: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .header-title { font-size: 17px; font-weight: 800; color: #1A1A2E; }
+  .context-row { display: flex; gap: 8px; margin-top: 10px; }
+  .ctx-pill { background: #FFF4E8; color: #ED8323; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; }
+
+  .body { padding: 14px 16px 30px; }
+  .hotel-line { font-size: 13px; color: #6B7280; margin-bottom: 12px; }
+  .hotel-line b { color: #1A1A2E; }
+
+  /* Room cards */
+  .room-card { background: #FFFFFF; border-radius: 16px; box-shadow: 0 1px 5px rgba(0,0,0,0.07); margin-bottom: 14px; overflow: hidden; }
+  .room-card.recommended { border: 1.5px solid #ED8323; }
+  .rec-banner { background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; font-size: 11px; font-weight: 800; padding: 6px 14px; letter-spacing: 0.3px; }
+  .rc-body { padding: 14px; }
+  .rc-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .rc-name { font-size: 16px; font-weight: 800; color: #1A1A2E; }
+  .rc-specs { font-size: 12px; color: #6B7280; margin-top: 3px; }
+  .rc-photo { width: 72px; height: 56px; border-radius: 10px; flex-shrink: 0; }
+  .rc-photo.a { background: linear-gradient(135deg, #4a90d9, #1565c0); }
+  .rc-photo.b { background: linear-gradient(135deg, #7db8a8, #3d7a68); }
+  .rc-photo.c { background: linear-gradient(135deg, #e8b06a, #c97b3d); }
+
+  .rc-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .rc-chip { background: #FFF4E8; color: #ED8323; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
+  .rc-cancel { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; }
+  .rc-cancel.free { color: #10B981; font-weight: 600; }
+  .rc-cancel.nonref { color: #EF4444; font-weight: 600; }
+
+  .rc-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #E5E7EB; padding: 12px 14px; }
+  .rc-price b { font-size: 18px; font-weight: 800; color: #ED8323; }
+  .rc-price em { font-style: normal; font-size: 11px; color: #9CA3AF; }
+  .rc-total { font-size: 11px; color: #6B7280; margin-top: 1px; }
+  .rc-book { background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; font-size: 13px; font-weight: 800; padding: 11px 18px; border-radius: 12px; box-shadow: 0 3px 10px rgba(237,131,35,0.3); }
+  .rc-book.outline { background: #FFFFFF; border: 1.5px solid #ED8323; color: #ED8323; box-shadow: none; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="header">
+    <div class="header-top">
+      <div class="back-btn">←</div>
+      <div class="header-title">Select your room</div>
+    </div>
+    <div class="context-row">
+      <span class="ctx-pill">📅 14–21 Aug · 7 nights</span>
+      <span class="ctx-pill">👥 2 adults</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="hotel-line"><b>Caldera Mystique Hotel</b> · Oia, Santorini · ★ 9.2</div>
+
+    <!-- Recommended room -->
+    <div class="room-card recommended">
+      <div class="rec-banner">✨ NEA RECOMMENDS · BEST VALUE FOR COUPLES</div>
+      <div class="rc-body">
+        <div class="rc-top">
+          <div>
+            <div class="rc-name">Superior Caldera View</div>
+            <div class="rc-specs">28 m² · up to 2 guests · king bed · balcony</div>
+          </div>
+          <div class="rc-photo a"></div>
+        </div>
+        <div class="rc-chips">
+          <span class="rc-chip">🍳 Breakfast included</span>
+          <span class="rc-chip">🌅 Caldera view</span>
+        </div>
+        <div class="rc-cancel free">✓ Free cancellation until 7 Aug</div>
+      </div>
+      <div class="rc-footer">
+        <div>
+          <div class="rc-price"><b>€185</b> <em>/night</em></div>
+          <div class="rc-total">€1,295 total · taxes included</div>
+        </div>
+        <div class="rc-book">Book this room</div>
+      </div>
+    </div>
+
+    <!-- Room 2 -->
+    <div class="room-card">
+      <div class="rc-body">
+        <div class="rc-top">
+          <div>
+            <div class="rc-name">Classic Double</div>
+            <div class="rc-specs">22 m² · up to 2 guests · queen bed</div>
+          </div>
+          <div class="rc-photo b"></div>
+        </div>
+        <div class="rc-chips">
+          <span class="rc-chip">🛏 Room only</span>
+        </div>
+        <div class="rc-cancel nonref">✕ Non-refundable · save 15%</div>
+      </div>
+      <div class="rc-footer">
+        <div>
+          <div class="rc-price"><b>€142</b> <em>/night</em></div>
+          <div class="rc-total">€994 total · taxes included</div>
+        </div>
+        <div class="rc-book outline">Book this room</div>
+      </div>
+    </div>
+
+    <!-- Room 3 -->
+    <div class="room-card">
+      <div class="rc-body">
+        <div class="rc-top">
+          <div>
+            <div class="rc-name">Deluxe Suite · Private Pool</div>
+            <div class="rc-specs">42 m² · up to 3 guests · terrace · plunge pool</div>
+          </div>
+          <div class="rc-photo c"></div>
+        </div>
+        <div class="rc-chips">
+          <span class="rc-chip">🍽 Half board</span>
+          <span class="rc-chip">🏊 Private pool</span>
+        </div>
+        <div class="rc-cancel free">✓ Free cancellation until 7 Aug</div>
+      </div>
+      <div class="rc-footer">
+        <div>
+          <div class="rc-price"><b>€310</b> <em>/night</em></div>
+          <div class="rc-total">€2,170 total · taxes included</div>
+        </div>
+        <div class="rc-book outline">Book this room</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

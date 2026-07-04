@@ -1,0 +1,106 @@
+<!-- @dsCard group="Flow" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Step 4/7 — Nea Comparison Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; min-height: 700px; padding: 20px 16px; }
+
+  .msg-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 12px; }
+  .msg-avatar { width: 26px; height: 26px; border-radius: 13px; background: #00332A; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .bubble-user { background: linear-gradient(135deg, #ED8323, #E57757); border-radius: 16px 16px 4px 16px; padding: 10px 13px; font-size: 13px; line-height: 19px; color: #fff; max-width: 270px; margin-left: auto; margin-bottom: 12px; }
+  .bubble-nea { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px 16px 16px 4px; padding: 11px 13px; font-size: 13px; line-height: 19px; color: #1A1A2E; max-width: 292px; }
+
+  /* Comparison card */
+  .compare-card { background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; margin-left: 34px; }
+  .cc-header { background: #FFF4E8; padding: 10px 14px; font-size: 12px; font-weight: 800; color: #ED8323; letter-spacing: 0.3px; }
+
+  .cc-hotels { display: flex; }
+  .cc-hotel { flex: 1; padding: 12px 10px 8px; text-align: center; }
+  .cc-hotel + .cc-hotel { border-left: 1px solid #E5E7EB; }
+  .cc-photo { height: 64px; border-radius: 10px; margin-bottom: 8px; }
+  .cc-photo.a { background: linear-gradient(135deg, #4a90d9, #1565c0); }
+  .cc-photo.b { background: linear-gradient(135deg, #e8b06a, #c97b3d); }
+  .cc-name { font-size: 13px; font-weight: 800; color: #1A1A2E; line-height: 16px; }
+  .cc-rating { display: inline-block; margin-top: 4px; background: #FFF4E8; color: #ED8323; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 800; }
+
+  .cc-rows { border-top: 1px solid #E5E7EB; }
+  .cc-row { display: flex; border-bottom: 1px solid #E5E7EB; }
+  .cc-row:last-child { border-bottom: none; }
+  .cc-cell { flex: 1; padding: 9px 10px; font-size: 12px; color: #1A1A2E; text-align: center; line-height: 16px; }
+  .cc-cell + .cc-cell { border-left: 1px solid #E5E7EB; }
+  .cc-label { background: #F8F9FA; font-size: 10px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.4px; padding: 4px 14px; }
+  .win { color: #10B981; font-weight: 700; }
+  .price-strong { font-weight: 800; color: #ED8323; }
+
+  .cc-verdict { background: #FFF4E8; margin: 10px 12px; border-radius: 12px; padding: 10px 12px; font-size: 12px; line-height: 18px; color: #1A1A2E; }
+  .cc-verdict b { color: #ED8323; }
+
+  .cc-ctas { display: flex; gap: 8px; padding: 4px 12px 14px; }
+  .cc-btn { flex: 1; text-align: center; border-radius: 12px; padding: 10px; font-size: 12px; font-weight: 800; }
+  .cc-btn.primary { background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; box-shadow: 0 3px 10px rgba(237,131,35,0.3); }
+  .cc-btn.secondary { background: #FFFFFF; border: 1.5px solid #ED8323; color: #ED8323; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="bubble-user">Which one is better for couples?</div>
+
+  <div class="msg-row">
+    <div class="msg-avatar">N</div>
+    <div class="bubble-nea">Great question — here's how they stack up side by side: 👇</div>
+  </div>
+
+  <div class="compare-card">
+    <div class="cc-header">⇄ HOTEL COMPARISON · 14–21 AUG · 2 ADULTS</div>
+
+    <div class="cc-hotels">
+      <div class="cc-hotel">
+        <div class="cc-photo a"></div>
+        <div class="cc-name">Caldera Mystique</div>
+        <div class="cc-rating">★ 9.2</div>
+      </div>
+      <div class="cc-hotel">
+        <div class="cc-photo b"></div>
+        <div class="cc-name">Aegean Pearl</div>
+        <div class="cc-rating">★ 8.8</div>
+      </div>
+    </div>
+
+    <div class="cc-rows">
+      <div class="cc-label">Price · 7 nights</div>
+      <div class="cc-row">
+        <div class="cc-cell"><span class="price-strong">€185</span>/night<br>€1,295 total</div>
+        <div class="cc-cell"><span class="price-strong">€150</span>/night<br><span class="win">€1,050 total ✓</span></div>
+      </div>
+      <div class="cc-label">Beach</div>
+      <div class="cc-row">
+        <div class="cc-cell">Amoudi Bay<br>12 min walk (steps)</div>
+        <div class="cc-cell"><span class="win">Beachfront ✓</span><br>black-sand beach</div>
+      </div>
+      <div class="cc-label">Couples vibe</div>
+      <div class="cc-row">
+        <div class="cc-cell"><span class="win">Adults-only ✓</span><br>sunset terrace, spa</div>
+        <div class="cc-cell">Family-friendly<br>livelier, busier pool</div>
+      </div>
+      <div class="cc-label">Meals</div>
+      <div class="cc-row">
+        <div class="cc-cell">Breakfast incl.<br>rated 9.4</div>
+        <div class="cc-cell">Half board incl.<br>rated 8.1</div>
+      </div>
+      <div class="cc-label">Cancellation</div>
+      <div class="cc-row">
+        <div class="cc-cell"><span class="win">Free until 7 Aug ✓</span></div>
+        <div class="cc-cell"><span class="win">Free until 10 Aug ✓</span></div>
+      </div>
+    </div>
+
+    <div class="cc-verdict">💡 <b>Nea's take:</b> For a romantic trip, <b>Caldera Mystique</b> wins — adults-only, sunset views and the best-rated breakfast on the island. Choose Aegean Pearl if beach access and budget matter more.</div>
+
+    <div class="cc-ctas">
+      <div class="cc-btn primary">Book Caldera Mystique</div>
+      <div class="cc-btn secondary">Book Aegean Pearl</div>
+    </div>
+  </div>
+</div>
+</body></html>

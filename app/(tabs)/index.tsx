@@ -82,12 +82,14 @@ function Caret() {
 
 // ── Inline hotel card (prototype horizontal thumbnail style) ───────
 function InlineHotelCard({
-  hotel, currency, onPress,
+  hotel, currency, onPress, isTopPick = false,
 }: {
   hotel: Hotel
   currency: CurrencyCode
   onPress: () => void
+  isTopPick?: boolean
 }) {
+  const { t } = useLang()
   const price = currency === 'EUR'
     ? `€${hotel.price_per_night}`
     : `${Math.round(hotel.price_per_night * 61.5).toLocaleString('en-US')} ден`
@@ -106,6 +108,12 @@ function InlineHotelCard({
 
       {/* Details */}
       <View style={s.hotelBody}>
+        {isTopPick && (
+          <View style={s.topPickBadge}>
+            <Ionicons name="sparkles" size={9} color={Colors.primary} />
+            <Text style={s.topPickText}>{t.chat.topPick}</Text>
+          </View>
+        )}
         <Text style={s.hotelName} numberOfLines={1}>{hotel.name}</Text>
         <View style={s.hotelMeta}>
           <Ionicons name="star" size={10} color={Colors.star} />
@@ -211,11 +219,12 @@ function MessageBubble({
             const label = t.chat.viewAll.replace('{{count}}', String(total))
             return (
               <View key={i} style={s.hotelBlock}>
-                {block.hotels.slice(0, 3).map(h => (
+                {block.hotels.slice(0, 3).map((h, idx) => (
                   <InlineHotelCard
                     key={h.hotel_id}
                     hotel={h}
                     currency={currency}
+                    isTopPick={idx === 0}
                     onPress={() => onHotelPress(h, block.searchParams)}
                   />
                 ))}
@@ -777,6 +786,23 @@ const s = StyleSheet.create({
     padding: Spacing.sm + 4,
     justifyContent: 'center',
     gap: 3,
+  },
+  topPickBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+  },
+  topPickText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 9,
   },
   hotelName: {
     ...Typography.bodyMedium,

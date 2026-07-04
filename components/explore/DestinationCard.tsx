@@ -42,10 +42,12 @@ export function DestinationCard({ destination, variant, onPress }: Props) {
               <Text style={styles.rating}>{destination.rating}</Text>
               <Text style={styles.reviews}>({destination.reviewCount.toLocaleString()})</Text>
             </View>
-            <View style={styles.explorePill}>
-              <Text style={styles.exploreText}>Find hotels</Text>
-              <Ionicons name="arrow-forward" size={12} color="#fff" />
-            </View>
+            {isHero && (
+              <View style={styles.explorePill}>
+                <Text style={styles.exploreText}>Find hotels</Text>
+                <Ionicons name="arrow-forward" size={12} color="#fff" />
+              </View>
+            )}
           </View>
         </View>
       </Animated.View>

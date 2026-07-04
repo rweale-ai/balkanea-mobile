@@ -1,0 +1,114 @@
+<!-- @dsCard group="Flow" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Flow Overview — Nea Booking Journey</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F9FA; }
+  .screen { max-width: 390px; margin: 0 auto; background: #F8F9FA; padding: 24px 16px 40px; }
+
+  .title { font-size: 20px; font-weight: 800; color: #1A1A2E; }
+  .subtitle { font-size: 13px; color: #6B7280; margin: 4px 0 22px; line-height: 19px; }
+
+  .step { display: flex; gap: 12px; }
+  .step-rail { display: flex; flex-direction: column; align-items: center; }
+  .step-num { width: 32px; height: 32px; border-radius: 16px; background: linear-gradient(135deg, #ED8323, #E57757); color: #fff; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 3px 8px rgba(237,131,35,0.3); }
+  .step-num.loop { background: #FFF4E8; color: #ED8323; border: 1.5px solid #FFD4A3; box-shadow: none; }
+  .rail-line { width: 2px; flex: 1; background: #E5E7EB; margin: 4px 0; min-height: 22px; }
+  .step-card { flex: 1; background: #FFFFFF; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.06); padding: 12px 14px; margin-bottom: 6px; }
+  .step-title { font-size: 14px; font-weight: 800; color: #1A1A2E; }
+  .step-screen { display: inline-block; background: #FFF4E8; color: #ED8323; border-radius: 999px; padding: 2px 9px; font-size: 10px; font-weight: 800; margin-left: 6px; vertical-align: 1px; }
+  .step-desc { font-size: 12px; color: #6B7280; line-height: 17px; margin-top: 4px; }
+  .step-desc b { color: #1A1A2E; }
+  .step-note { margin-top: 7px; background: #F8F9FA; border-left: 3px solid #ED8323; border-radius: 0 8px 8px 0; padding: 6px 10px; font-size: 11px; color: #6B7280; line-height: 16px; }
+  .step-note b { color: #ED8323; }
+
+  .loop-arrow { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px 44px; font-size: 11px; font-weight: 700; color: #ED8323; }
+
+  .legend { margin-top: 18px; background: #FFFFFF; border-radius: 14px; padding: 13px 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.06); }
+  .legend-title { font-size: 12px; font-weight: 800; color: #1A1A2E; margin-bottom: 8px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6B7280; margin-bottom: 5px; }
+  .lg-dot { width: 10px; height: 10px; border-radius: 5px; flex-shrink: 0; }
+</style>
+</head><body>
+<div class="screen">
+  <div class="title">Nea Booking Journey</div>
+  <div class="subtitle">End-to-end flow: conversational search → hotel evaluation with Nea in context → comparison → booking → trip container. Nea is reachable at every step.</div>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">1</div><div class="rail-line"></div></div>
+    <div class="step-card">
+      <div class="step-title">Collect & search <span class="step-screen">SEARCH TAB</span></div>
+      <div class="step-desc">Nea gathers <b>destination, dates, guests, budget, style, stars</b> conversationally (text or voice), confirms with summary pills, then shows <b>2–3 hotel cards inline</b>.</div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">2</div><div class="rail-line"></div></div>
+    <div class="step-card">
+      <div class="step-title">Hotel Detail <span class="step-screen">HOTEL DETAIL</span></div>
+      <div class="step-desc">Photo strip, rating badge, location + distances, date pills, amenities, room options, cancellation policy. Sticky <b>"Select your room"</b> CTA.</div>
+      <div class="step-note"><b>Session memory:</b> opening a hotel silently adds it to the "viewed hotels" list Nea can compare later.</div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">3</div><div class="rail-line"></div></div>
+    <div class="step-card">
+      <div class="step-title">Ask Nea in context <span class="step-screen">BOTTOM SHEET</span></div>
+      <div class="step-desc"><b>Bottom sheet</b> over Hotel Detail (no navigation away). Nea opens with a review summary: score, count, positives, watch-outs.</div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">4</div><div class="rail-line"></div></div>
+    <div class="step-card">
+      <div class="step-title">Clarify & compare <span class="step-screen">BOTTOM SHEET</span></div>
+      <div class="step-desc">Follow-ups: beach distance, breakfast, couples fit. If other hotels were viewed, a <b>"Compare with…" chip</b> appears → side-by-side comparison card with Nea's verdict.</div>
+    </div>
+  </div>
+
+  <!-- Loop back arrow -->
+  <div class="loop-arrow">↺ Back to chat → view another hotel (repeats 2–4, builds comparison set)</div>
+
+  <!-- Step 5 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">5</div><div class="rail-line"></div></div>
+    <div class="step-card">
+      <div class="step-title">Room selection <span class="step-screen">ROOM SELECT</span></div>
+      <div class="step-desc">All room types: size, guests, meal plan, cancellation, price/night + <b>total for stay</b>. "Nea recommends" banner on best-fit room. <b>"Book this room"</b> per card.</div>
+    </div>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">6</div><div class="rail-line"></div></div>
+    <div class="step-card">
+      <div class="step-title">Booking form → confirmed <span class="step-screen">BOOKING</span></div>
+      <div class="step-desc">Guest details pre-filled when logged in → payment → <b>Booking Confirmed</b> with confirmation code (existing screens, unchanged).</div>
+    </div>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="step">
+    <div class="step-rail"><div class="step-num">7</div></div>
+    <div class="step-card">
+      <div class="step-title">Trip container <span class="step-screen">DASHBOARD</span></div>
+      <div class="step-desc">Booking becomes a <b>Trip card</b> ("Santorini Trip · Aug 2026"): hotel summary + <b>Add to trip</b> tiles — Flights, Restaurants, Car Rental, Tours, Insurance. Tiles link to Nea or show "Coming soon".</div>
+      <div class="step-note"><b>Retention hook:</b> the trip is the container for the whole travel experience — every future vertical plugs in here.</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-title">Key patterns</div>
+    <div class="legend-row"><span class="lg-dot" style="background:linear-gradient(135deg,#ED8323,#E57757);"></span> Orange gradient = primary action / user turn</div>
+    <div class="legend-row"><span class="lg-dot" style="background:#FFF4E8;border:1px solid #FFD4A3;"></span> Orange-light = Nea affordances, chips, badges</div>
+    <div class="legend-row"><span class="lg-dot" style="background:#00332A;"></span> Dark green = Nea avatar only</div>
+    <div class="legend-row"><span class="lg-dot" style="background:#10B981;"></span> Green = confirmed / free cancellation</div>
+  </div>
+</div>
+</body></html>
