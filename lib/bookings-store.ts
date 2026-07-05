@@ -149,6 +149,13 @@ function today(): string {
   return new Date().toISOString().split('T')[0]
 }
 
+// Guards against bookings whose checkin never got a real date (e.g. Nea's
+// search tool call omitted it) — an empty/invalid string would otherwise
+// sort as "before" every real date and silently land in Past.
+function isValidDate(d: string): boolean {
+  return !!d && !isNaN(new Date(d).getTime())
+}
+
 // ── Public API ──────────────────────────────────────────────────────
 
 export async function addBooking(
@@ -217,12 +224,12 @@ export function getBooking(id: string): Booking | undefined {
 
 export function getUpcomingBookings(): Booking[] {
   const t = today()
-  return cache.filter(b => b.status === 'confirmed' && b.checkin >= t)
+  return cache.filter(b => b.status === 'confirmed' && (!isValidDate(b.checkin) || b.checkin >= t))
 }
 
 export function getPastBookings(): Booking[] {
   const t = today()
-  return cache.filter(b => b.checkin < t || b.status === 'cancelled')
+  return cache.filter(b => (isValidDate(b.checkin) && b.checkin < t) || b.status === 'cancelled')
 }
 
 export function subscribeToBookings(listener: (bookings: Booking[]) => void): () => void {

@@ -203,6 +203,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
   )
 
   return (
+    <>
     <Modal
       visible={visible}
       transparent
@@ -365,13 +366,14 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
           </KeyboardAvoidingView>
         </Animated.View>
       </View>
-      <VoiceHUD
-        transcript={transcript}
-        agentTalking={agentTalking}
-        callStatus={callStatus}
-        onEndCall={handleVoicePress}
-      />
     </Modal>
+    <VoiceHUD
+      transcript={transcript}
+      agentTalking={agentTalking}
+      callStatus={callStatus}
+      onEndCall={handleVoicePress}
+    />
+    </>
   )
 }
 

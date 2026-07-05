@@ -99,6 +99,7 @@ export default function ExploreScreen() {
         </View>
       ) : (
         <FlatList
+          style={styles.list}
           data={pairs}
           keyExtractor={(_, i) => i.toString()}
           renderItem={renderGridPair}
@@ -169,6 +170,9 @@ const styles = StyleSheet.create({
   },
   chipLabelActive: {
     color: '#fff',
+  },
+  list: {
+    flex: 1,
   },
   listContent: {
     paddingBottom: Spacing.xxxl,
