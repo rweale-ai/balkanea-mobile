@@ -96,6 +96,12 @@ function generateHotels(params: HotelSearchParams): Hotel[] {
     .sort((a, b) => a.price_per_night - b.price_per_night)
 }
 
+// This must only ever query RateHawk's B2C-approved hotel file — a separate,
+// limited set Christian maintains for online booking — never the full B2B
+// inventory Balkanea staff browse directly in RateHawk's own platform (see
+// project memory: balkanea-mobile booking flow, call with Jasmina
+// 2026-06-30). The simulated fallback below stands in for that B2C file
+// until real sandbox/production RateHawk credentials are available.
 export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {

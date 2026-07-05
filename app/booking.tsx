@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import React, { useState, useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   SafeAreaView, TextInput, Alert, Platform, Image,
@@ -10,13 +10,16 @@ import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { addBooking } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
-import { confirmPayment } from '../lib/stripe'
+import { chargeCard } from '../lib/bank-payment'
+import { lockRoom, reconfirmBooking } from '../lib/ratehawk'
+import type { RoomLock } from '../lib/ratehawk'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type PayState = 'idle' | 'processing' | 'declined' | 'network'
+type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network'
+type LockState = 'locking' | 'held' | 'renewing'
 type CardBrand = 'visa' | 'mc' | null
 
 // ── Card capture handle (PAN stays here, never lifted) ─────────────
@@ -32,8 +35,8 @@ interface CardCaptureProps {
   onValidChange: (valid: boolean) => void
 }
 
-// Demo test number that triggers a decline in lib/stripe.ts.
-// In production this component is replaced by the Stripe SDK CardField.
+// Demo test number that triggers a decline in lib/bank-payment.ts.
+// In production this component is replaced by the bank's own card-capture SDK.
 const DECLINE_SUFFIX = '0002'
 
 const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
@@ -190,6 +193,11 @@ export default function BookingScreen() {
   const [cardReady, setCardReady] = useState(false)
   const cardRef = useRef<CardCaptureHandle>(null)
 
+  // ── RateHawk room lock (holds the room before the guest pays) ────
+  const [lock, setLock] = useState<RoomLock | null>(null)
+  const [lockState, setLockState] = useState<LockState>('locking')
+  const [holdSeconds, setHoldSeconds] = useState(0)
+
   const currency = params.currency ?? 'EUR'
   const isMKD = currency === 'MKD'
   const MKD_RATE = 61.5
@@ -222,6 +230,39 @@ export default function BookingScreen() {
     ))
   }, [params.checkin, params.checkout])
 
+  // Hold the room with RateHawk as soon as the guest reaches this screen —
+  // payment can't start until a lock exists (see lib/ratehawk.ts).
+  useEffect(() => {
+    if (!hotel || !room) return
+    let cancelled = false
+    setLockState('locking')
+    lockRoom(hotel.hotel_id, room.room_id).then(l => {
+      if (cancelled) return
+      setLock(l)
+      setLockState('held')
+    })
+    return () => { cancelled = true }
+  }, [hotel?.hotel_id, room?.room_id])
+
+  // Countdown the hold; silently renew it if it runs out before payment.
+  useEffect(() => {
+    if (!lock) return
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((lock.expiresAt - Date.now()) / 1000))
+      setHoldSeconds(remaining)
+      if (remaining === 0 && hotel && room && lockState !== 'renewing') {
+        setLockState('renewing')
+        lockRoom(hotel.hotel_id, room.room_id).then(l => {
+          setLock(l)
+          setLockState('held')
+        })
+      }
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [lock, hotel, room, lockState])
+
   if (!hotel || !room) {
     return (
       <SafeAreaView style={s.safe}>
@@ -236,18 +277,20 @@ export default function BookingScreen() {
     )
   }
 
-  const canPay = cardReady && !!fullName.trim() && !!email.trim() && payState === 'idle'
+  const canPay = cardReady && !!fullName.trim() && !!email.trim() && payState === 'idle' && lockState === 'held'
   const payLabel = t.booking.payNow + ' ' + formatPrice(room.total_price)
+  const busy = payState === 'processing' || payState === 'confirming'
+  const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
 
   const handlePay = async () => {
-    if (!canPay) return
+    if (!canPay || !lock) return
 
     if (!fullName.trim()) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
 
     setPayState('processing')
 
-    const result = await confirmPayment({
+    const result = await chargeCard({
       amount: isMKD ? Math.round(room.total_price * MKD_RATE) : room.total_price,
       currency: isMKD ? 'MKD' : 'EUR',
       simulateDecline: cardRef.current?.isDeclineDemo() ?? false,
@@ -258,7 +301,11 @@ export default function BookingScreen() {
       return
     }
 
-    // Payment succeeded — create booking record and sync to Salesforce
+    // Bank charge succeeded — tell RateHawk the hold is now a real booking
+    // before creating the local record and syncing to Salesforce.
+    setPayState('confirming')
+    await reconfirmBooking(lock.lockId)
+
     try {
       const newBooking = await addBooking({
         hotel,
@@ -303,7 +350,7 @@ export default function BookingScreen() {
     <SafeAreaView style={s.safe}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity style={s.headerBack} onPress={() => router.back()} disabled={payState === 'processing'}>
+        <TouchableOpacity style={s.headerBack} onPress={() => router.back()} disabled={busy}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{t.booking.completeBooking}</Text>
@@ -347,7 +394,7 @@ export default function BookingScreen() {
               placeholder="Marko Petrov"
               placeholderTextColor={Colors.textLight}
               autoCapitalize="words"
-              editable={payState !== 'processing'}
+              editable={!busy}
             />
           </Field>
           <Field label={t.booking.emailAddress} icon="mail-outline">
@@ -360,7 +407,7 @@ export default function BookingScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              editable={payState !== 'processing'}
+              editable={!busy}
             />
           </Field>
           <Field label={t.booking.phoneNumber} icon="call-outline">
@@ -371,7 +418,7 @@ export default function BookingScreen() {
               placeholder="+389 70 123 456"
               placeholderTextColor={Colors.textLight}
               keyboardType="phone-pad"
-              editable={payState !== 'processing'}
+              editable={!busy}
             />
           </Field>
         </View>
@@ -379,11 +426,29 @@ export default function BookingScreen() {
         {/* ── Payment ─────────────────────────────────────────── */}
         <View style={s.payHeader}>
           <Text style={s.sectionTitle}>{t.booking.payTitle}</Text>
-          <View style={s.stripeTag}>
+          <View style={s.secureTag}>
             <Ionicons name="lock-closed" size={11} color={Colors.success} />
-            <Text style={s.stripeTagText}>{t.booking.securedStripe}</Text>
+            <Text style={s.secureTagText}>{t.booking.securedPayment}</Text>
           </View>
         </View>
+
+        {/* Room hold status */}
+        {(lockState === 'locking' || lockState === 'renewing') && (
+          <View style={s.holdBanner}>
+            <Ionicons name="time-outline" size={14} color={Colors.primary} />
+            <Text style={s.holdBannerText}>
+              {lockState === 'locking' ? t.booking.holdingRoom : t.booking.renewingHold}
+            </Text>
+          </View>
+        )}
+        {lockState === 'held' && (
+          <View style={s.holdBanner}>
+            <Ionicons name="lock-closed-outline" size={14} color={Colors.success} />
+            <Text style={s.holdBannerText}>
+              {t.booking.roomHeld.replace('{{time}}', holdLabel)}
+            </Text>
+          </View>
+        )}
 
         {/* Declined banner */}
         {payState === 'declined' && (
@@ -407,7 +472,7 @@ export default function BookingScreen() {
         {/* Card capture — PAN stays inside this component */}
         <CardCapture
           ref={cardRef}
-          disabled={payState === 'processing'}
+          disabled={busy}
           onValidChange={setCardReady}
         />
 
@@ -428,11 +493,11 @@ export default function BookingScreen() {
             end={{ x: 1, y: 0 }}
             style={s.payBtnGradient}
           >
-            {payState === 'processing' ? (
+            {busy ? (
               <>
                 <Ionicons name="reload" size={18} color={Colors.textSecondary} />
                 <Text style={[s.payBtnText, { color: Colors.textSecondary }]}>
-                  {t.booking.processing}
+                  {payState === 'confirming' ? t.booking.confirming : t.booking.processing}
                 </Text>
               </>
             ) : (
@@ -553,16 +618,35 @@ const s = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
   },
-  stripeTag: {
+  secureTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  stripeTagText: {
+  secureTagText: {
     ...Typography.caption,
     color: Colors.success,
     fontWeight: '600',
     fontSize: 11,
+  },
+
+  // Room hold banner
+  holdBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.sm - 1,
+  },
+  holdBannerText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '600',
+    fontSize: 12,
   },
 
   // Error banners

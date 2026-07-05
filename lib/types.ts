@@ -70,7 +70,7 @@ export interface Booking {
   rooms: number
   total_price: number
   currency: string
-  status: 'confirmed' | 'cancelled' | 'pending'
+  status: 'locked' | 'confirmed' | 'cancelled' | 'pending'
   booked_at: string
   confirmation_code: string
   guest_name: string
