@@ -8,8 +8,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import {
   getUpcomingBookings, getPastBookings,
-  cancelBooking, subscribeToBookings,
+  cancelBooking, subscribeToBookings, isValidDate, addBooking,
 } from '../../lib/bookings-store'
+import { searchHotelsSync } from '../../lib/hotels'
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
 import { setReviewIntent } from '../../lib/explore-intent'
@@ -218,6 +219,34 @@ export default function DashboardScreen() {
     router.push(`/booking-detail?id=${id}`)
   }, [router])
 
+  // TEMPORARY — lets us verify the past/upcoming dashboard split on device.
+  // Remove once that's confirmed working.
+  const handleAddTestPastBooking = useCallback(async () => {
+    const checkinDate = new Date()
+    checkinDate.setDate(checkinDate.getDate() - 10)
+    const checkoutDate = new Date(checkinDate)
+    checkoutDate.setDate(checkoutDate.getDate() + 3)
+    const checkin = checkinDate.toISOString().split('T')[0]
+    const checkout = checkoutDate.toISOString().split('T')[0]
+
+    const results = searchHotelsSync({
+      destination: 'santorini', checkin, checkout, adults: 2, children: 0, rooms: 1, currency: 'EUR',
+    })
+    const hotel = results[0]
+    const room = hotel.room_types[0]
+
+    await addBooking({
+      hotel, room, checkin, checkout,
+      guests: { adults: 2, children: 0 },
+      rooms: 1,
+      total_price: room.total_price,
+      currency: 'EUR',
+      guest_name: 'Test Guest',
+      guest_email: 'test@example.com',
+      guest_phone: '',
+    })
+  }, [])
+
   const isEmpty = upcoming.length === 0 && past.length === 0
 
   if (isEmpty) {
@@ -235,6 +264,9 @@ export default function DashboardScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity onPress={handleAddTestPastBooking} style={styles.testBtn}>
+            <Text style={styles.testBtnText}>🧪 Add test past booking (temporary)</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyVisual}>
@@ -278,6 +310,9 @@ export default function DashboardScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+        <TouchableOpacity onPress={handleAddTestPastBooking} style={styles.testBtn}>
+          <Text style={styles.testBtnText}>🧪 Add test past booking (temporary)</Text>
+        </TouchableOpacity>
       </View>
       <SectionList
         sections={sections}
@@ -287,10 +322,11 @@ export default function DashboardScreen() {
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionTitle}>{section.title}</Text>
         )}
-        renderItem={({ item }) => {
-          const today = new Date().toISOString().split('T')[0]
-          const isPast = item.checkout < today
-          if (isPast) {
+        renderItem={({ item, section }) => {
+          // Trust the section the item is already sorted into (from
+          // getUpcomingBookings/getPastBookings) instead of re-deriving
+          // "past" from a raw date-string comparison here too.
+          if (section.title === t.dashboard.past) {
             return <BookingCard booking={item} onPress={handlePress} onCancel={handleCancel} />
           }
           return <TripCard booking={item} onPress={handlePress} onCancel={handleCancel} />
@@ -316,7 +352,7 @@ function BookingCard({
   const isConfirmed = booking.status === 'confirmed'
   const isCancelled = booking.status === 'cancelled'
   const today = new Date().toISOString().split('T')[0]
-  const isPast = booking.checkout < today
+  const isPast = isValidDate(booking.checkout) && booking.checkout < today
 
   return (
     <TouchableOpacity
@@ -421,6 +457,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  testBtn: {
+    marginTop: Spacing.sm,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+  },
+  testBtnText: {
+    ...Typography.caption,
+    color: '#92400E',
+    fontWeight: '600',
+    fontSize: 11,
   },
   headerRow: {
     flexDirection: 'row',

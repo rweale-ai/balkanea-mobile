@@ -6,10 +6,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { getBooking, cancelBooking, subscribeToBookings } from '../lib/bookings-store'
+import { getBooking, cancelBooking, subscribeToBookings, isValidDate } from '../lib/bookings-store'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
-import type { Booking } from '../lib/types'
+import type { Booking, HotelSearchParams } from '../lib/types'
+import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
 
 const BALKANEA_PHONE = '+38923100200'
 
@@ -45,6 +46,17 @@ export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
 
   const [booking, setBooking] = useState<Booking | undefined>(() => (id ? getBooking(id) : undefined))
+  const [neaSheetVisible, setNeaSheetVisible] = useState(false)
+
+  const searchParams = useMemo<HotelSearchParams>(() => ({
+    destination: booking?.hotel.address.split(',')[0] ?? '',
+    checkin: booking?.checkin ?? '',
+    checkout: booking?.checkout ?? '',
+    adults: booking?.guests.adults ?? 2,
+    children: booking?.guests.children ?? 0,
+    rooms: booking?.rooms ?? 1,
+    currency: booking?.currency ?? 'EUR',
+  }), [booking])
 
   // Keep in sync with cancellation updates from trips.tsx or anywhere else
   useEffect(() => {
@@ -69,8 +81,8 @@ export default function BookingDetailScreen() {
   const today = new Date().toISOString().split('T')[0]
   const isConfirmed = booking?.status === 'confirmed'
   const isCancelled = booking?.status === 'cancelled'
-  const isPast = !isConfirmed && !isCancelled
-  const isUpcoming = isConfirmed && !!booking && booking.checkin >= today
+  const isUpcoming = isConfirmed && !!booking && (!isValidDate(booking.checkin) || booking.checkin >= today)
+  const isPast = isConfirmed && !isUpcoming
 
   // Status badge
   const statusLabel = isCancelled
@@ -179,6 +191,19 @@ export default function BookingDetailScreen() {
             />
           </View>
 
+          {/* ── Ask Nea about this hotel ──────────────────────────── */}
+          <TouchableOpacity
+            style={s.neaBtn}
+            activeOpacity={0.8}
+            onPress={() => setNeaSheetVisible(true)}
+          >
+            <LinearGradient colors={['#FFF4E8', '#FFF8F2'] as const} style={s.neaBtnInner}>
+              <Ionicons name="sparkles" size={16} color={Colors.primary} />
+              <Text style={s.neaBtnText}>{t.hotel.askNeaAbout}</Text>
+              <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
           {/* ── Price breakdown ──────────────────────────────────── */}
           <Text style={s.sectionTitle}>{t.bookingDetail.priceBreakdown}</Text>
           <View style={s.detailCard}>
@@ -226,6 +251,13 @@ export default function BookingDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <NeaBottomSheet
+        hotel={booking.hotel}
+        searchParams={searchParams}
+        visible={neaSheetVisible}
+        onClose={() => setNeaSheetVisible(false)}
+      />
     </SafeAreaView>
   )
 }
@@ -346,6 +378,25 @@ const s = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     ...Shadows.sm,
+  },
+  neaBtn: {
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
+    ...Shadows.sm,
+  },
+  neaBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 4,
+  },
+  neaBtnText: {
+    ...Typography.bodyMedium,
+    color: Colors.primary,
+    fontWeight: '700',
+    flex: 1,
   },
   detailRow: {
     flexDirection: 'row',

@@ -151,8 +151,10 @@ function today(): string {
 
 // Guards against bookings whose checkin never got a real date (e.g. Nea's
 // search tool call omitted it) — an empty/invalid string would otherwise
-// sort as "before" every real date and silently land in Past.
-function isValidDate(d: string): boolean {
+// sort as "before" every real date and silently land in Past. Exported so
+// every screen that buckets bookings by date (trips.tsx, booking-detail.tsx)
+// uses the same rule instead of re-deriving it (and drifting out of sync).
+export function isValidDate(d: string): boolean {
   return !!d && !isNaN(new Date(d).getTime())
 }
 
