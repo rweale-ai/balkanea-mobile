@@ -60,30 +60,31 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        speed: 14,
-        bounciness: 4,
-      }).start()
       if (!loadedRef.current) {
         loadedRef.current = true
         loadReviewSummary()
       }
     } else {
       Keyboard.dismiss()
-      Animated.timing(slideAnim, {
-        toValue: 600,
-        useNativeDriver: true,
-        duration: 220,
-      }).start(() => {
-        setHistory([])
-        setStreamingText('')
-        setInputText('')
-        loadedRef.current = false
-      })
+      slideAnim.setValue(600)
+      setHistory([])
+      setStreamingText('')
+      setInputText('')
+      loadedRef.current = false
     }
   }, [visible])
+
+  // Fired only after the native Modal has actually presented — starting the
+  // slide-up animation from the `visible` effect above races the native
+  // mount on-device (invisible on web, where useNativeDriver is ignored).
+  const handleModalShow = useCallback(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 14,
+      bounciness: 4,
+    }).start()
+  }, [slideAnim])
 
   const loadReviewSummary = async () => {
     setLoading(true)
@@ -210,6 +211,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
+      onShow={handleModalShow}
     >
       <View style={styles.container}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
