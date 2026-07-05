@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
-  StyleSheet, SafeAreaView, Share, Platform,
+  StyleSheet, SafeAreaView, Share, Platform, NativeSyntheticEvent, NativeScrollEvent, Dimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
-import type { Hotel, RoomType, HotelSearchParams } from '../lib/types'
+import type { Hotel, HotelSearchParams } from '../lib/types'
 import { trackViewedHotel } from '../lib/session-store'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
 
@@ -27,8 +27,9 @@ export default function HotelDetailScreen() {
     destination: string
   }>()
 
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [neaSheetVisible, setNeaSheetVisible] = useState(false)
+  const [photoIndex, setPhotoIndex] = useState(0)
+  const photoScrollRef = useRef<ScrollView>(null)
 
   const hotel = useMemo<Hotel | null>(() => {
     if (!params.hotelId || !params.checkin || !params.checkout) return null
@@ -43,11 +44,6 @@ export default function HotelDetailScreen() {
     })
     return results.find(h => h.hotel_id === params.hotelId) || null
   }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency])
-
-  const selectedRoom = useMemo<RoomType | null>(() => {
-    if (!hotel || !selectedRoomId) return null
-    return hotel.room_types.find(r => r.room_id === selectedRoomId) || null
-  }, [hotel, selectedRoomId])
 
   const nights = useMemo(() => {
     if (!params.checkin || !params.checkout) return 1
@@ -76,17 +72,6 @@ export default function HotelDetailScreen() {
     if (hotel) trackViewedHotel(hotel, searchParams)
   }, [hotel?.hotel_id])
 
-  // Pick the recommended room: prefer free cancellation, pick mid-tier if multiple
-  const recommendedRoomId = useMemo(() => {
-    if (!hotel) return null
-    const freeCancel = hotel.room_types.filter(r =>
-      r.cancellation.toLowerCase().includes('free')
-    )
-    if (freeCancel.length === 0) return hotel.room_types[0]?.room_id ?? null
-    const sorted = [...freeCancel].sort((a, b) => a.price_per_night - b.price_per_night)
-    return sorted[Math.floor(sorted.length / 2)].room_id
-  }, [hotel])
-
   if (!hotel) {
     return (
       <SafeAreaView style={styles.container}>
@@ -111,13 +96,11 @@ export default function HotelDetailScreen() {
     }
   }
 
-  const handleBook = () => {
-    if (!selectedRoom) return
+  const handleSelectRoom = () => {
     router.push({
-      pathname: '/booking',
+      pathname: '/room-selection',
       params: {
         hotelId: hotel.hotel_id,
-        roomId: selectedRoom.room_id,
         checkin: params.checkin,
         checkout: params.checkout,
         adults: params.adults,
@@ -132,27 +115,57 @@ export default function HotelDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Image */}
+        {/* Hero Photo Carousel */}
         <View style={styles.heroContainer}>
-          <Image
-            source={{ uri: hotel.images[0] }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
+          <ScrollView
+            ref={photoScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / Dimensions.get('window').width)
+              if (idx !== photoIndex) setPhotoIndex(idx)
+            }}
+            scrollEventThrottle={32}
+          >
+            {hotel.images.map((uri, i) => (
+              <Image
+                key={i}
+                source={{ uri }}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
           <LinearGradient
             colors={Gradients.heroOverlay}
             style={StyleSheet.absoluteFill}
+            pointerEvents="none"
           />
-          <SafeAreaView style={styles.heroOverlay}>
+          <SafeAreaView style={styles.heroOverlay} pointerEvents="box-none">
             <View style={styles.heroTopRow}>
               <TouchableOpacity style={styles.heroButton} onPress={() => router.back()}>
                 <Ionicons name="arrow-back" size={22} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.heroButton} onPress={handleShare}>
-                <Ionicons name="share-outline" size={22} color="#fff" />
-              </TouchableOpacity>
+              <View style={styles.heroTopRight}>
+                {hotel.images.length > 1 && (
+                  <View style={styles.photoCount}>
+                    <Text style={styles.photoCountText}>{photoIndex + 1} / {hotel.images.length}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.heroButton} onPress={handleShare}>
+                  <Ionicons name="share-outline" size={22} color="#fff" />
+                </TouchableOpacity>
+              </View>
             </View>
           </SafeAreaView>
+          {hotel.images.length > 1 && (
+            <View style={styles.photoDots}>
+              {hotel.images.map((_, i) => (
+                <View key={i} style={[styles.photoDot, i === photoIndex && styles.photoDotActive]} />
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Hotel Info */}
@@ -239,96 +252,40 @@ export default function HotelDetailScreen() {
         </View>
 
         {/* Room Selection */}
-        <View style={styles.section}>
+        <TouchableOpacity style={styles.section} onPress={handleSelectRoom} activeOpacity={0.8}>
           <Text style={styles.sectionTitle}>{t.hotel.selectRoom}</Text>
-          {hotel.room_types.map((room) => (
-            <View key={room.room_id}>
-              {room.room_id === recommendedRoomId && (
-                <View style={styles.neaRecommendBanner}>
-                  <Ionicons name="sparkles" size={13} color={Colors.primary} />
-                  <Text style={styles.neaRecommendText}>{t.hotel.neaRecommends}</Text>
-                </View>
-              )}
-            <TouchableOpacity
-              style={[
-                styles.roomCard,
-                selectedRoomId === room.room_id && styles.roomCardSelected,
-                room.room_id === recommendedRoomId && styles.roomCardRecommended,
-              ]}
-              onPress={() => setSelectedRoomId(room.room_id)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.roomHeader}>
-                <Text style={styles.roomName}>{room.name}</Text>
-                {selectedRoomId === room.room_id && (
-                  <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
-                )}
-              </View>
-
-              <View style={styles.roomDetails}>
-                <View style={styles.roomDetail}>
-                  <Ionicons name="bed-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.roomDetailText}>{room.beds}</Text>
-                </View>
-                <View style={styles.roomDetail}>
-                  <Ionicons name="people-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.roomDetailText}>{t.hotel.maxGuests.replace('{{count}}', String(room.max_guests))}</Text>
-                </View>
-                <View style={styles.roomDetail}>
-                  <Ionicons name="restaurant-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.roomDetailText}>{room.meal_plan}</Text>
-                </View>
-                <View style={styles.roomDetail}>
-                  <Ionicons
-                    name={room.cancellation.toLowerCase().includes('free') ? 'checkmark-circle-outline' : 'close-circle-outline'}
-                    size={14}
-                    color={room.cancellation.toLowerCase().includes('free') ? Colors.success : Colors.error}
-                  />
-                  <Text style={[
-                    styles.roomDetailText,
-                    { color: room.cancellation.toLowerCase().includes('free') ? Colors.success : Colors.textSecondary },
-                  ]}>{room.cancellation}</Text>
-                </View>
-              </View>
-
-              <View style={styles.roomPricing}>
-                <Text style={styles.roomPricePerNight}>
-                  {currencySymbol}{room.price_per_night}
-                  <Text style={styles.roomPriceUnit}> {t.hotel.perNight}</Text>
-                </Text>
-                <Text style={styles.roomTotalPrice}>
-                  {t.hotel.total}: {currencySymbol}{room.total_price}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          <View style={styles.roomTeaser}>
+            <View style={styles.roomTeaserText}>
+              <Text style={styles.roomTeaserCount}>
+                {hotel.room_types.length} {hotel.room_types.length === 1 ? 'room type' : 'room types'} available
+              </Text>
+              <Text style={styles.roomTeaserFrom}>
+                {t.hotel.fromPrice} {currencySymbol}{hotel.price_per_night} {t.hotel.perNight}
+              </Text>
             </View>
-          ))}
-        </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+          </View>
+        </TouchableOpacity>
 
         {/* Bottom spacer for fixed button */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Fixed Book Button */}
+      {/* Fixed Select Room Button */}
       <View style={styles.bookBar}>
         <TouchableOpacity
-          style={[styles.bookButton, !selectedRoom && styles.bookButtonDisabled]}
-          onPress={handleBook}
-          disabled={!selectedRoom}
+          style={styles.bookButton}
+          onPress={handleSelectRoom}
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={selectedRoom ? Gradients.primaryFade : [Colors.textLight, Colors.textLight]}
+            colors={Gradients.primaryFade}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.bookGradient}
           >
-            <Ionicons name="card-outline" size={20} color="#fff" />
-            <Text style={styles.bookButtonText}>
-              {selectedRoom
-                ? t.hotel.bookFor.replace('{{price}}', `${currencySymbol}${selectedRoom.total_price}`)
-                : t.hotel.selectRoom}
-            </Text>
+            <Ionicons name="bed-outline" size={20} color="#fff" />
+            <Text style={styles.bookButtonText}>{t.hotel.selectRoom}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -409,7 +366,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heroImage: {
-    width: '100%',
+    width: Dimensions.get('window').width,
     height: '100%',
   },
   heroOverlay: {
@@ -422,6 +379,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Platform.OS === 'android' ? Spacing.xl : Spacing.sm,
   },
+  heroTopRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   heroButton: {
     width: 40,
     height: 40,
@@ -429,6 +391,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  photoCount: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 6,
+  },
+  photoCountText: {
+    ...Typography.caption,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  photoDots: {
+    position: 'absolute',
+    bottom: Spacing.sm,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  photoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  photoDotActive: {
+    width: 16,
+    backgroundColor: '#fff',
   },
 
   /* Hotel info */
@@ -554,86 +546,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  /* Nea recommends banner */
-  neaRecommendBanner: {
+  /* Room teaser */
+  roomTeaser: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm + 2,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    marginBottom: -4,
-    marginLeft: 2,
-  },
-  neaRecommendText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '700',
-    fontSize: 11,
-  },
-
-  /* Room cards */
-  roomCard: {
+    justifyContent: 'space-between',
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    borderWidth: 2,
-    borderColor: Colors.border,
     ...Shadows.sm,
   },
-  roomCardSelected: {
-    borderColor: Colors.success,
-  },
-  roomCardRecommended: {
-    borderColor: `${Colors.primary}66`,
-  },
-  roomHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  roomName: {
-    ...Typography.h3,
-    color: Colors.text,
+  roomTeaserText: {
     flex: 1,
   },
-  roomDetails: {
-    marginTop: Spacing.sm,
-    gap: Spacing.xs,
-  },
-  roomDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  roomDetailText: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  roomPricing: {
-    marginTop: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingTop: Spacing.sm,
-  },
-  roomPricePerNight: {
-    ...Typography.h3,
-    color: Colors.primary,
-  },
-  roomPriceUnit: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontWeight: '400',
-  },
-  roomTotalPrice: {
+  roomTeaserCount: {
     ...Typography.bodyMedium,
     color: Colors.text,
+    fontWeight: '700',
+  },
+  roomTeaserFrom: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 
   /* Reviews button */
@@ -673,9 +609,6 @@ const styles = StyleSheet.create({
   bookButton: {
     borderRadius: Radius.md,
     overflow: 'hidden',
-  },
-  bookButtonDisabled: {
-    opacity: 0.6,
   },
   bookGradient: {
     flexDirection: 'row',

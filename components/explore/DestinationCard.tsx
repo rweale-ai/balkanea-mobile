@@ -40,14 +40,14 @@ export function DestinationCard({ destination, variant, onPress }: Props) {
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={12} color={Colors.star} />
               <Text style={styles.rating}>{destination.rating}</Text>
-              <Text style={styles.reviews}>({destination.reviewCount.toLocaleString()})</Text>
+              {isHero && (
+                <Text style={styles.reviews}>({destination.reviewCount.toLocaleString()})</Text>
+              )}
             </View>
-            {isHero && (
-              <View style={styles.explorePill}>
-                <Text style={styles.exploreText}>Find hotels</Text>
-                <Ionicons name="arrow-forward" size={12} color="#fff" />
-              </View>
-            )}
+            <View style={[styles.explorePill, !isHero && styles.explorePillCompact]}>
+              {isHero && <Text style={styles.exploreText}>Find hotels</Text>}
+              <Ionicons name="arrow-forward" size={12} color="#fff" />
+            </View>
           </View>
         </View>
       </Animated.View>
@@ -105,6 +105,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 1,
   },
   rating: {
     ...Typography.bodyMedium,
@@ -124,6 +125,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     gap: 4,
+    flexShrink: 0,
+  },
+  explorePillCompact: {
+    paddingHorizontal: 7,
+    paddingVertical: 5,
   },
   exploreText: {
     ...Typography.caption,

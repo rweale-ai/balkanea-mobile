@@ -6,13 +6,35 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import type { Hotel, HotelSearchParams } from '../../lib/types'
+import { useRouter } from 'expo-router'
+import type { Hotel, HotelSearchParams, ChatMessage } from '../../lib/types'
 import { sendMessage } from '../../lib/claude'
 import { getViewedHotels } from '../../lib/session-store'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
+import { HotelComparisonCard } from './HotelComparisonCard'
+import { VoiceHUD } from '../VoiceHUD'
+import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
+import type { CallStatus, TranscriptEntry } from '../../lib/voice'
 
-type SheetMsg = { role: 'user' | 'assistant'; content: string }
+type SheetMsg =
+  | { role: 'user' | 'assistant'; content: string }
+  | { role: 'compare'; hotelA: Hotel; hotelB: Hotel; nights: number; verdict: string; loadingVerdict?: boolean }
+
+function nightsBetween(checkin: string, checkout: string): number {
+  return Math.max(1, Math.round(
+    (new Date(checkout).getTime() - new Date(checkin).getTime()) / 86400000
+  ))
+}
+
+function toApiHistory(msgs: SheetMsg[]): ChatMessage[] {
+  return msgs.map((m, i) => ({
+    id: String(i),
+    timestamp: new Date(),
+    role: m.role === 'compare' ? 'assistant' as const : m.role,
+    content: m.role === 'compare' ? m.verdict : m.content,
+  }))
+}
 
 interface Props {
   hotel: Hotel
@@ -21,13 +43,17 @@ interface Props {
   onClose: () => void
 }
 
-export function NeaBottomSheet({ hotel, visible, onClose }: Props) {
+export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props) {
   const { t, lang } = useLang()
+  const router = useRouter()
   // history[0] is the hidden initial user query; displayed messages start at index 1
   const [history, setHistory] = useState<SheetMsg[]>([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [callStatus, setCallStatus] = useState<CallStatus>('idle')
+  const [agentTalking, setAgentTalking] = useState(false)
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
   const slideAnim = useRef(new Animated.Value(600)).current
   const listRef = useRef<FlatList<SheetMsg>>(null)
   const loadedRef = useRef(false)
@@ -65,7 +91,7 @@ export function NeaBottomSheet({ hotel, visible, onClose }: Props) {
     const msgs: SheetMsg[] = [{ role: 'user', content: initialQuery }]
     let streamed = ''
     try {
-      const resp = await sendMessage(msgs as any, token => {
+      const resp = await sendMessage(toApiHistory(msgs), token => {
         streamed += token
         setStreamingText(streamed)
       }, lang)
@@ -88,7 +114,7 @@ export function NeaBottomSheet({ hotel, visible, onClose }: Props) {
     setLoading(true)
     let streamed = ''
     try {
-      const resp = await sendMessage(newHistory as any, token => {
+      const resp = await sendMessage(toApiHistory(newHistory), token => {
         streamed += token
         setStreamingText(streamed)
       }, lang)
@@ -101,15 +127,74 @@ export function NeaBottomSheet({ hotel, visible, onClose }: Props) {
     }
   }, [history, loading, lang])
 
-  const handleCompare = useCallback((other: Hotel) => {
-    sendUserMessage(`Compare ${hotel.name} and ${other.name}. Which would you recommend and why?`)
-  }, [hotel.name, sendUserMessage])
+  const handleCompare = useCallback(async (other: Hotel) => {
+    if (loading) return
+    Keyboard.dismiss()
+    const nights = nightsBetween(searchParams.checkin, searchParams.checkout)
+    const priorHistory = history
+    const displayMsg: SheetMsg = { role: 'user', content: `${t.hotel.compareWith} ${other.name.split(' ')[0]}?` }
+    setHistory(prev => [...prev, displayMsg])
+    setLoading(true)
+    let streamed = ''
+    try {
+      const prompt = `Compare ${hotel.name} and ${other.name} for this trip in 2-3 short sentences. Give a clear, confident verdict on which is the better choice and why.`
+      const resp = await sendMessage([...toApiHistory(priorHistory), { id: 'compare-prompt', timestamp: new Date(), role: 'user', content: prompt }], token => {
+        streamed += token
+        setStreamingText(streamed)
+      }, lang)
+      setHistory(prev => [...prev, { role: 'compare', hotelA: hotel, hotelB: other, nights, verdict: resp.content }])
+    } catch {
+      setHistory(prev => [...prev, { role: 'assistant', content: 'Sorry, I had trouble comparing these. Please try again.' }])
+    } finally {
+      setStreamingText('')
+      setLoading(false)
+    }
+  }, [hotel, history, loading, lang, searchParams, t])
+
+  const handleBookFromCompare = useCallback((h: Hotel) => {
+    onClose()
+    router.push({
+      pathname: '/hotel-detail',
+      params: {
+        hotelId: h.hotel_id,
+        checkin: searchParams.checkin,
+        checkout: searchParams.checkout,
+        adults: String(searchParams.adults),
+        children: String(searchParams.children),
+        rooms: String(searchParams.rooms),
+        currency: searchParams.currency,
+        destination: searchParams.destination,
+      },
+    })
+  }, [onClose, router, searchParams])
+
+  const handleVoicePress = useCallback(async () => {
+    if (callStatus === 'active' || callStatus === 'connecting') {
+      setCallStatus('ending')
+      stopVoiceCall()
+      setAgentTalking(false)
+      setTranscript([])
+      return
+    }
+    await startVoiceCall(lang, {
+      onStatusChange: setCallStatus,
+      onAgentTalking: setAgentTalking,
+      onTranscriptUpdate: setTranscript,
+      onError: () => {
+        setCallStatus('idle')
+        setAgentTalking(false)
+        setTranscript([])
+      },
+    })
+  }, [callStatus, lang])
 
   const displayMessages = useMemo((): SheetMsg[] => {
     const base = history.length > 1 ? history.slice(1) : []
     if (streamingText) return [...base, { role: 'assistant', content: streamingText }]
     return base
   }, [history, streamingText])
+
+  const showSuggestions = history.length === 2 && !loading && !streamingText
 
   // Refresh viewed hotels list each time sheet opens (visible changes to true)
   const otherViewed = useMemo(
@@ -189,24 +274,67 @@ export function NeaBottomSheet({ hotel, visible, onClose }: Props) {
                 keyExtractor={(_, i) => String(i)}
                 contentContainerStyle={styles.msgList}
                 onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-                renderItem={({ item }) => (
-                  <View style={[
-                    styles.bubble,
-                    item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
-                  ]}>
-                    <Text style={[
-                      styles.bubbleText,
-                      item.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAssistant,
+                renderItem={({ item }) => {
+                  if (item.role === 'compare') {
+                    return (
+                      <HotelComparisonCard
+                        hotelA={item.hotelA}
+                        hotelB={item.hotelB}
+                        nights={item.nights}
+                        currency={searchParams.currency}
+                        verdict={item.verdict}
+                        onBook={handleBookFromCompare}
+                      />
+                    )
+                  }
+                  return (
+                    <View style={[
+                      styles.bubble,
+                      item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
                     ]}>
-                      {item.content}
-                    </Text>
-                  </View>
-                )}
+                      <Text style={[
+                        styles.bubbleText,
+                        item.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAssistant,
+                      ]}>
+                        {item.content}
+                      </Text>
+                    </View>
+                  )
+                }}
               />
+            )}
+
+            {/* Suggested questions — shown right after the opening review summary */}
+            {showSuggestions && (
+              <View style={styles.suggestRow}>
+                {[t.hotel.suggestBeach, t.hotel.suggestCouples].map(chip => (
+                  <TouchableOpacity
+                    key={chip}
+                    style={styles.suggestChip}
+                    onPress={() => sendUserMessage(chip)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.suggestChipText}>{chip}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
 
             {/* Input row */}
             <View style={[styles.inputRow, Platform.OS === 'android' && styles.inputRowAndroid]}>
+              <TouchableOpacity
+                style={styles.micBtn}
+                onPress={handleVoicePress}
+                activeOpacity={0.8}
+              >
+                <LinearGradient colors={Gradients.primaryFade} style={styles.sendGrad}>
+                  <Ionicons
+                    name={callStatus === 'active' ? 'stop-circle' : 'mic'}
+                    size={16}
+                    color="#fff"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
               <TextInput
                 style={styles.input}
                 value={inputText}
@@ -237,6 +365,12 @@ export function NeaBottomSheet({ hotel, visible, onClose }: Props) {
           </KeyboardAvoidingView>
         </Animated.View>
       </View>
+      <VoiceHUD
+        transcript={transcript}
+        agentTalking={agentTalking}
+        callStatus={callStatus}
+        onEndCall={handleVoicePress}
+      />
     </Modal>
   )
 }
@@ -319,6 +453,33 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+  },
+  suggestRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  suggestChip: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: `${Colors.primary}55`,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  suggestChipText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  micBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   compareChip: {
     flexDirection: 'row',
