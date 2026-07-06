@@ -157,6 +157,27 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     })
   }, [onClose, router, searchParams])
 
+  const handleViewHotelFromVoice = useCallback((h: Hotel) => {
+    stopVoiceCall()
+    setCallStatus('idle')
+    setAgentTalking(false)
+    setTranscript([])
+    onClose()
+    router.push({
+      pathname: '/hotel-detail',
+      params: {
+        hotelId: h.hotel_id,
+        checkin: searchParams.checkin,
+        checkout: searchParams.checkout,
+        adults: String(searchParams.adults),
+        children: String(searchParams.children),
+        rooms: String(searchParams.rooms),
+        currency: searchParams.currency,
+        destination: searchParams.destination,
+      },
+    })
+  }, [onClose, router, searchParams])
+
   const handleVoicePress = useCallback(async () => {
     if (callStatus === 'active' || callStatus === 'connecting') {
       setCallStatus('ending')
@@ -378,6 +399,8 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       agentTalking={agentTalking}
       callStatus={callStatus}
       onEndCall={handleVoicePress}
+      hotel={hotel}
+      onViewHotel={handleViewHotelFromVoice}
     />
     </>
   )

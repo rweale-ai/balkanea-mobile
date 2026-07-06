@@ -5,8 +5,10 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import { getBooking, cancelBooking, subscribeToBookings, isValidDate } from '../lib/bookings-store'
+import { getItinerary } from '../lib/itinerary-store'
+import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Booking, HotelSearchParams } from '../lib/types'
@@ -47,6 +49,13 @@ export default function BookingDetailScreen() {
 
   const [booking, setBooking] = useState<Booking | undefined>(() => (id ? getBooking(id) : undefined))
   const [neaSheetVisible, setNeaSheetVisible] = useState(false)
+  const [itinerary, setItinerary] = useState(() => (id ? getItinerary(id) : undefined))
+
+  // Refresh whenever this screen regains focus — an itinerary saved from
+  // the chat tab should show up immediately on returning here.
+  useFocusEffect(useCallback(() => {
+    if (id) setItinerary(getItinerary(id))
+  }, [id]))
 
   const searchParams = useMemo<HotelSearchParams>(() => ({
     destination: booking?.hotel.address.split(',')[0] ?? '',
@@ -116,6 +125,19 @@ export default function BookingDetailScreen() {
   const handleContact = useCallback(() => {
     Linking.openURL(`tel:${BALKANEA_PHONE}`)
   }, [])
+
+  const handleRefineItinerary = useCallback(() => {
+    if (!booking) return
+    const city = booking.hotel.address?.split(',')[0] ?? booking.hotel.name
+    const prior = itinerary?.content
+      ? `\n\nHere's what we planned before:\n${itinerary.content}`
+      : ''
+    setReviewIntent(
+      `I've already booked my hotel in ${city} (confirmation ${booking.confirmation_code}). I'd like to continue refining my trip itinerary.${prior}`,
+      booking.id,
+    )
+    router.navigate('/')
+  }, [booking, itinerary, router])
 
   // ── Not found ──────────────────────────────────────────────────
   if (!booking) {
@@ -207,6 +229,21 @@ export default function BookingDetailScreen() {
               <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
             </LinearGradient>
           </TouchableOpacity>
+
+          {/* ── Saved itinerary ────────────────────────────────────── */}
+          {itinerary && (
+            <View style={s.itineraryCard}>
+              <View style={s.itineraryHeader}>
+                <Ionicons name="map-outline" size={16} color={Colors.primary} />
+                <Text style={s.itineraryTitle}>{t.bookingDetail.savedItinerary}</Text>
+              </View>
+              <Text style={s.itineraryPreview} numberOfLines={4}>{itinerary.content}</Text>
+              <TouchableOpacity style={s.itineraryBtn} activeOpacity={0.8} onPress={handleRefineItinerary}>
+                <Text style={s.itineraryBtnText}>{t.bookingDetail.viewRefineItinerary}</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* ── Price breakdown ──────────────────────────────────── */}
           <Text style={s.sectionTitle}>{t.bookingDetail.priceBreakdown}</Text>
@@ -401,6 +438,43 @@ const s = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '700',
     flex: 1,
+  },
+  itineraryCard: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  itineraryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  itineraryTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.text,
+    fontWeight: '700',
+  },
+  itineraryPreview: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  itineraryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  itineraryBtnText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 13,
   },
   detailRow: {
     flexDirection: 'row',

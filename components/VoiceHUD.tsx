@@ -136,43 +136,6 @@ const wv = StyleSheet.create({
   bar: { width: 3.5, height: 36, borderRadius: 2, backgroundColor: C.cyan },
 })
 
-// ── Hotel card ────────────────────────────────────────────────────────────────
-function HotelCard({ hotel, anim }: { hotel: Hotel; anim: Animated.Value }) {
-  return (
-    <Animated.View style={[hc.card, { transform: [{ translateX: anim }] }]}>
-      <Text style={hc.badge}>RECOMMENDED</Text>
-      <Text style={hc.name} numberOfLines={2}>{hotel.name}</Text>
-      <Text style={hc.stars}>{'★'.repeat(hotel.stars)}{'☆'.repeat(5 - hotel.stars)}</Text>
-      <Text style={hc.price}>€{hotel.price_per_night} <Text style={hc.perNight}>/ night</Text></Text>
-      <View style={hc.amenities}>
-        {hotel.amenities.slice(0, 3).map(a => (
-          <Text key={a} style={hc.amenity}>· {a}</Text>
-        ))}
-      </View>
-    </Animated.View>
-  )
-}
-
-const hc = StyleSheet.create({
-  card: {
-    position: 'absolute',
-    right: 16,
-    top: '32%',
-    width: 190,
-    backgroundColor: C.panel,
-    borderWidth: 1,
-    borderColor: C.cyanDim,
-    borderRadius: 10,
-    padding: 14,
-  },
-  badge:    { fontSize: 8, color: C.cyan, fontWeight: '700', letterSpacing: 1.8, marginBottom: 6 },
-  name:     { fontSize: 14, color: C.white, fontWeight: '700', marginBottom: 4, lineHeight: 18 },
-  stars:    { fontSize: 11, color: '#FFD700', marginBottom: 6 },
-  price:    { fontSize: 16, color: C.cyan, fontWeight: '700', marginBottom: 8 },
-  perNight: { fontSize: 11, color: C.grey, fontWeight: '400' },
-  amenities:{ gap: 3 },
-  amenity:  { fontSize: 11, color: C.grey },
-})
 
 // ── Main VoiceHUD ─────────────────────────────────────────────────────────────
 export interface VoiceHUDProps {
@@ -180,9 +143,17 @@ export interface VoiceHUDProps {
   agentTalking: boolean
   callStatus: CallStatus
   onEndCall: () => void
+  // The hotel already known to be under discussion (e.g. a call started
+  // from that hotel's review sheet) — always shown, no matching needed.
+  hotel?: Hotel | null
+  // Hotels the user has actually viewed this session — matched by name
+  // against what Nea says, so the HUD can surface a hotel she brings up
+  // mid-conversation even when one wasn't known up front.
+  viewedHotels?: Hotel[]
+  onViewHotel?: (hotel: Hotel) => void
 }
 
-export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: VoiceHUDProps) {
+export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall, hotel, viewedHotels, onViewHotel }: VoiceHUDProps) {
   const isActive = callStatus === 'active' || callStatus === 'connecting'
   const [modalVisible, setModalVisible] = useState(false)
 
@@ -222,28 +193,41 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
     }
   }, [opA, opB])
 
-  // Hotel card slide
-  const [hotel, setHotel] = useState<Hotel | null>(null)
-  const hotelX = useRef(new Animated.Value(W)).current
-  const hotelTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const slideInHotel = useCallback((h: Hotel) => {
-    if (hotelTimer.current) clearTimeout(hotelTimer.current)
-    setHotel(h)
-    hotelX.setValue(W)
-    Animated.spring(hotelX, { toValue: 0, tension: 60, friction: 9, useNativeDriver: true }).start()
-    hotelTimer.current = setTimeout(() => {
-      Animated.timing(hotelX, { toValue: W, duration: 450, useNativeDriver: true }).start()
-    }, 6500)
-  }, [hotelX])
-
-  // Clean up hotel timer on unmount
-  useEffect(() => () => { if (hotelTimer.current) clearTimeout(hotelTimer.current) }, [])
+  // Hotel context — either passed in directly (the hotel review sheet
+  // always knows which hotel is under discussion) or matched from the
+  // transcript against hotels the user has actually viewed this session.
+  const [matchedHotel, setMatchedHotel] = useState<Hotel | null>(hotel ?? null)
+  const hotelImgIndex = useRef(0)
+  const hotelImgTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Active destination tracking
   const [destination, setDestination] = useState<Destination | null>(null)
   const lastDestId  = useRef<string | null>(null)
   const lastHotelId = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (hotel) {
+      lastHotelId.current = hotel.hotel_id
+      setMatchedHotel(hotel)
+    }
+  }, [hotel])
+
+  // Cycle through the active hotel's photos in the background while it's
+  // the focus of the conversation.
+  useEffect(() => {
+    if (hotelImgTimer.current) { clearInterval(hotelImgTimer.current); hotelImgTimer.current = null }
+    if (!matchedHotel || matchedHotel.images.length === 0) return
+    hotelImgIndex.current = 0
+    crossfadeTo(matchedHotel.images[0])
+    if (matchedHotel.images.length > 1) {
+      hotelImgTimer.current = setInterval(() => {
+        hotelImgIndex.current = (hotelImgIndex.current + 1) % matchedHotel.images.length
+        crossfadeTo(matchedHotel.images[hotelImgIndex.current])
+      }, 6000)
+    }
+    return () => { if (hotelImgTimer.current) clearInterval(hotelImgTimer.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedHotel?.hotel_id])
 
   // Transcript entity detection
   useEffect(() => {
@@ -256,10 +240,18 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
     if (det && det.id !== lastDestId.current) {
       lastDestId.current = det.id
       setDestination(det)
-      crossfadeTo(det.imageUrl)
+      if (!matchedHotel) crossfadeTo(det.imageUrl)
     }
 
-  }, [transcript, crossfadeTo, slideInHotel])
+    if (!hotel && viewedHotels && viewedHotels.length > 0) {
+      const lower = text.toLowerCase()
+      const match = viewedHotels.find(h => lower.includes(h.name.toLowerCase()))
+      if (match && match.hotel_id !== lastHotelId.current) {
+        lastHotelId.current = match.hotel_id
+        setMatchedHotel(match)
+      }
+    }
+  }, [transcript, crossfadeTo, hotel, viewedHotels, matchedHotel])
 
   // Displayed transcript text — last agent utterance, trimmed to 220 chars
   const lastAgentContent = [...transcript].reverse().find(e => e.role === 'agent')?.content ?? ''
@@ -291,12 +283,12 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
         <View style={s.topBar}>
           <View style={s.destBlock}>
             <Text style={s.scanLabel}>
-              {destination ? 'DESTINATION IDENTIFIED' : 'NEA · AI TRAVEL GUIDE'}
+              {matchedHotel ? 'NOW VIEWING' : destination ? 'DESTINATION IDENTIFIED' : 'NEA · AI TRAVEL GUIDE'}
             </Text>
-            <Text style={s.destName}>
-              {destination ? destination.name : 'Balkans Explorer'}
+            <Text style={s.destName} numberOfLines={2}>
+              {matchedHotel ? matchedHotel.name : destination ? destination.name : 'Balkans Explorer'}
             </Text>
-            {destination && (
+            {!matchedHotel && destination && (
               <>
                 <Text style={s.destCountry}>{destination.country}</Text>
                 <Text style={s.destTagline}>{destination.tagline}</Text>
@@ -306,8 +298,16 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
           <LiveDot />
         </View>
 
-        {/* Hotel card */}
-        {hotel && <HotelCard hotel={hotel} anim={hotelX} />}
+        {/* View & book the hotel currently under discussion */}
+        {matchedHotel && onViewHotel && (
+          <TouchableOpacity
+            style={s.hotelBtn}
+            activeOpacity={0.85}
+            onPress={() => onViewHotel(matchedHotel)}
+          >
+            <Text style={s.hotelBtnText}>View & Book →</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Bottom panel — waveform + transcript + end call */}
         <View style={s.bottomPanel}>
@@ -379,6 +379,21 @@ const s = StyleSheet.create({
     fontSize: 12,
     color: C.cyan,
     fontStyle: 'italic',
+  },
+  hotelBtn: {
+    alignSelf: 'flex-start',
+    marginLeft: 24,
+    marginTop: 4,
+    backgroundColor: C.cyan,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  hotelBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#04141F',
+    letterSpacing: 0.3,
   },
 
   // Bottom panel

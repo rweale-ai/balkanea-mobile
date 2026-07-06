@@ -17,6 +17,7 @@ import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib
 import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
 import { describeTravelProfile } from '../../lib/travel-profile'
 import { saveItinerary } from '../../lib/itinerary-store'
+import { getViewedHotels } from '../../lib/session-store'
 import { FormattedText } from '../../components/planner/FormattedText'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
@@ -466,6 +467,16 @@ export default function SearchScreen() {
     }, describeTravelProfile())
   }, [callStatus, lang, t])
 
+  const handleSaveItinerary = useCallback(() => {
+    if (!activeBookingId) return
+    const transcript = messages
+      .filter(m => m.content.trim().length > 0)
+      .map(m => `${m.role === 'user' ? 'You' : 'Nea'}: ${m.content}`)
+      .join('\n\n')
+    saveItinerary(activeBookingId, transcript)
+    Alert.alert(t.chat.itinerarySavedTitle, t.chat.itinerarySavedBody)
+  }, [activeBookingId, messages, t])
+
   const handleHotelPress = useCallback((hotel: Hotel, params?: HotelSearchParams) => {
     router.push({
       pathname: '/hotel-detail',
@@ -481,6 +492,15 @@ export default function SearchScreen() {
       },
     })
   }, [currency, router])
+
+  const handleViewHotelFromVoice = useCallback((hotel: Hotel) => {
+    setCallStatus('ending')
+    stopVoiceCall()
+    setAgentTalking(false)
+    setTranscript([])
+    const params = getViewedHotels().find(v => v.hotel.hotel_id === hotel.hotel_id)?.params
+    handleHotelPress(hotel, params)
+  }, [handleHotelPress])
 
   type ListItem = { key: string } & (
     | { kind: 'message'; message: ChatMessage }
@@ -564,6 +584,15 @@ export default function SearchScreen() {
 
         {/* Composer */}
         <View style={s.composerWrap}>
+          {activeBookingId && messages.some(m => m.role === 'assistant' && m.content.trim().length > 0) && (
+            <TouchableOpacity
+              style={s.saveItineraryBtn}
+              activeOpacity={0.8}
+              onPress={handleSaveItinerary}
+            >
+              <Text style={s.saveItineraryText}>{t.chat.saveItinerary}</Text>
+            </TouchableOpacity>
+          )}
           <View style={s.composerCard}>
             <TextInput
               ref={inputRef}
@@ -616,6 +645,8 @@ export default function SearchScreen() {
         agentTalking={agentTalking}
         callStatus={callStatus}
         onEndCall={handleVoicePress}
+        viewedHotels={getViewedHotels().map(v => v.hotel)}
+        onViewHotel={handleViewHotelFromVoice}
       />
     </SafeAreaView>
   )
@@ -921,6 +952,20 @@ const s = StyleSheet.create({
   composerWrap: {
     paddingHorizontal: Spacing.sm,
     paddingBottom: Platform.OS === 'ios' ? 4 : Spacing.sm,
+  },
+  saveItineraryBtn: {
+    alignSelf: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    marginBottom: Spacing.sm,
+  },
+  saveItineraryText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 13,
   },
   composerCard: {
     backgroundColor: Colors.surface,
