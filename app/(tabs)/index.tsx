@@ -16,6 +16,8 @@ import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
 import { describeTravelProfile } from '../../lib/travel-profile'
+import { saveItinerary } from '../../lib/itinerary-store'
+import { FormattedText } from '../../components/planner/FormattedText'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -207,10 +209,11 @@ function MessageBubble({
           if (block.type === 'text') {
             return (
               <View key={i}>
-                <Text style={s.textAssistant}>
-                  {block.content}
-                  {message.streaming && i === blocks.length - 1 && <Caret />}
-                </Text>
+                <FormattedText
+                  text={block.content}
+                  style={s.textAssistant}
+                  trailing={message.streaming && i === blocks.length - 1 ? <Caret /> : null}
+                />
               </View>
             )
           }
@@ -310,6 +313,9 @@ export default function SearchScreen() {
   const [country, setCountry] = useState<CountryCode>(() => appLang === 'mk' ? 'mk' : 'gb')
   const [currency, setCurrency] = useState<CurrencyCode>(() => appLang === 'mk' ? 'MKD' : 'EUR')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  // Set when this chat was opened from a booking's "Ask Nea to plan" flow —
+  // lets the user save the itinerary Nea produces back onto that booking.
+  const [activeBookingId, setActiveBookingId] = useState<string | null>(null)
 
   // Keep country in sync if language changes from profile/auth while app is open
   useEffect(() => {
@@ -331,8 +337,16 @@ export default function SearchScreen() {
 
 
   useFocusEffect(useCallback(() => {
-    const intent = consumeExploreIntent() ?? consumeReviewIntent()
-    if (intent) setPendingPrompt(intent)
+    const exploreText = consumeExploreIntent()
+    if (exploreText) {
+      setPendingPrompt(exploreText)
+      return
+    }
+    const review = consumeReviewIntent()
+    if (review) {
+      setPendingPrompt(review.text)
+      setActiveBookingId(review.bookingId ?? null)
+    }
   }, []))
 
   useEffect(() => {

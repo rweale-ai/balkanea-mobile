@@ -14,6 +14,7 @@ import { describeTravelProfile } from '../../lib/travel-profile'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import { HotelComparisonCard } from './HotelComparisonCard'
+import { FormattedText } from '../planner/FormattedText'
 import { VoiceHUD } from '../VoiceHUD'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry } from '../../lib/voice'
@@ -294,12 +295,16 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
                       styles.bubble,
                       item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
                     ]}>
-                      <Text style={[
-                        styles.bubbleText,
-                        item.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAssistant,
-                      ]}>
-                        {item.content}
-                      </Text>
+                      {item.role === 'user' ? (
+                        <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
+                          {item.content}
+                        </Text>
+                      ) : (
+                        <FormattedText
+                          text={item.content}
+                          style={[styles.bubbleText, styles.bubbleTextAssistant]}
+                        />
+                      )}
                     </View>
                   )
                 }}

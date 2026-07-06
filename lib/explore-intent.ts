@@ -1,10 +1,15 @@
-let pendingReview: string | null = null
-
-export function setReviewIntent(query: string): void {
-  pendingReview = query
+export interface ReviewIntent {
+  text: string
+  bookingId?: string
 }
 
-export function consumeReviewIntent(): string | null {
+let pendingReview: ReviewIntent | null = null
+
+export function setReviewIntent(query: string, bookingId?: string): void {
+  pendingReview = { text: query, bookingId }
+}
+
+export function consumeReviewIntent(): ReviewIntent | null {
   const val = pendingReview
   pendingReview = null
   return val

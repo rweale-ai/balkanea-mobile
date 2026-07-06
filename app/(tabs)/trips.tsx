@@ -53,15 +53,16 @@ function TripCard({
   const currencySymbol = booking.currency === 'EUR' ? '€' : booking.currency === 'USD' ? '$' : booking.currency
 
   const handleAskNea = useCallback((type: string) => {
+    const already = `I've already booked my hotel in ${city} (confirmation ${booking.confirmation_code}), staying ${formatDate(booking.checkin)} to ${formatDate(booking.checkout)} (${nights} ${nights === 1 ? 'night' : 'nights'}). Please don't ask me about hotels — that's decided.`
     const messages: Record<string, string> = {
-      flights: `I'm going to ${city} on ${formatDate(booking.checkin)}. Can you help me find flights from Skopje?`,
-      restaurants: `I'm visiting ${city} from ${formatDate(booking.checkin)} to ${formatDate(booking.checkout)}. What are the best restaurants I should try?`,
-      tours: `I'm going to ${city} for ${nights} nights starting ${formatDate(booking.checkin)}. What tours and activities should I book?`,
-      plan: `I'm going to ${city} from ${formatDate(booking.checkin)} to ${formatDate(booking.checkout)} for ${nights} nights. Can you help me plan my trip — top restaurants, must-see sights, and daily itinerary?`,
+      flights: `${already} Can you help me find flights from Skopje?`,
+      restaurants: `${already} What are the best restaurants I should try?`,
+      tours: `${already} What tours and activities should I book?`,
+      plan: `${already} Help me plan my trip — top restaurants, must-see sights, and a daily itinerary.`,
     }
-    setReviewIntent(messages[type] ?? messages.plan)
+    setReviewIntent(messages[type] ?? messages.plan, booking.id)
     router.navigate('/')
-  }, [city, booking.checkin, booking.checkout, nights, router])
+  }, [city, booking.checkin, booking.checkout, booking.confirmation_code, booking.id, nights, router])
 
   const tripTiles = [
     { key: 'flights', icon: 'airplane' as const, label: t.dashboard.flights, active: true },
