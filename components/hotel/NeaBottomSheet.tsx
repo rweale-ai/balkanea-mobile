@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router'
 import type { Hotel, HotelSearchParams, ChatMessage } from '../../lib/types'
 import { sendMessage } from '../../lib/claude'
 import { getViewedHotels } from '../../lib/session-store'
+import { describeTravelProfile } from '../../lib/travel-profile'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import { HotelComparisonCard } from './HotelComparisonCard'
@@ -160,9 +161,21 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       setCallStatus('ending')
       stopVoiceCall()
       setAgentTalking(false)
-      setTranscript([])
+      // Fold the voice conversation into this sheet's own chat so it
+      // reads as one continuous conversation with Nea.
+      setTranscript(prevTranscript => {
+        if (prevTranscript.length > 0) {
+          const asSheetMsgs: SheetMsg[] = prevTranscript.map(entry => ({
+            role: entry.role === 'agent' ? 'assistant' as const : 'user' as const,
+            content: entry.content,
+          }))
+          setHistory(prev => [...prev, ...asSheetMsgs])
+        }
+        return []
+      })
       return
     }
+    const tripContext = `${describeTravelProfile()}; currently looking at ${hotel.name}`
     await startVoiceCall(lang, {
       onStatusChange: setCallStatus,
       onAgentTalking: setAgentTalking,
@@ -172,8 +185,8 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
         setAgentTalking(false)
         setTranscript([])
       },
-    })
-  }, [callStatus, lang])
+    }, tripContext)
+  }, [callStatus, lang, hotel.name])
 
   const displayMessages = useMemo((): SheetMsg[] => {
     const base = history.length > 1 ? history.slice(1) : []

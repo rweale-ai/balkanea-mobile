@@ -15,6 +15,7 @@ import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
+import { describeTravelProfile } from '../../lib/travel-profile'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -414,7 +415,20 @@ export default function SearchScreen() {
       setCallStatus('ending')
       stopVoiceCall()
       setAgentTalking(false)
-      setTranscript([])
+      // Fold the voice conversation into the visible text chat so
+      // returning to chat continues seamlessly with the same context.
+      setTranscript(prevTranscript => {
+        if (prevTranscript.length > 0) {
+          const asChatMessages: ChatMessage[] = prevTranscript.map((entry, i) => ({
+            id: `voice-${Date.now()}-${i}`,
+            role: entry.role === 'agent' ? 'assistant' as const : 'user' as const,
+            content: entry.content,
+            timestamp: new Date(),
+          }))
+          setMessages(prev => [...prev, ...asChatMessages])
+        }
+        return []
+      })
       return
     }
     await startVoiceCall(lang, {
@@ -435,7 +449,7 @@ export default function SearchScreen() {
           timestamp: new Date(),
         }])
       },
-    })
+    }, describeTravelProfile())
   }, [callStatus, lang, t])
 
   const handleHotelPress = useCallback((hotel: Hotel, params?: HotelSearchParams) => {

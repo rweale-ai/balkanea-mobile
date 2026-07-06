@@ -2,18 +2,22 @@ import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 
 const isExpoGo = Constants.appOwnership === 'expo'
+const isNative = Platform.OS !== 'web' && !isExpoGo
 
-if (Platform.OS !== 'web' && !isExpoGo) {
+// retell-client-js-sdk is built on livekit-client, a browser-only SDK.
+// @livekit/react-native's registerGlobals() swaps in LiveKit's own WebRTC
+// bindings (a react-native-webrtc fork) plus native iOS audio-session
+// management — without it, remote audio plays but the local mic track is
+// never correctly captured/published on native.
+if (isNative) {
   try {
-    const webrtc = require('react-native-webrtc')
-    if (webrtc && typeof webrtc.registerGlobals === 'function') {
-      webrtc.registerGlobals()
-    }
+    const { registerGlobals } = require('@livekit/react-native')
+    registerGlobals()
     if (typeof globalThis.window === 'undefined') {
       (globalThis as any).window = globalThis
     }
   } catch (e) {
-    console.log('WebRTC not available — voice disabled on native')
+    console.log('LiveKit native globals not available — voice disabled on native')
   }
 }
 
@@ -43,7 +47,7 @@ async function getClient() {
   return client
 }
 
-async function createWebCallToken(agentId: string): Promise<string> {
+async function createWebCallToken(agentId: string, tripContext?: string): Promise<string> {
   const apiKey = process.env.EXPO_PUBLIC_RETELL_API_KEY
   if (!apiKey) throw new Error('EXPO_PUBLIC_RETELL_API_KEY not set — add to .env')
   const res = await fetch('https://api.retellai.com/v2/create-web-call', {
@@ -52,7 +56,10 @@ async function createWebCallToken(agentId: string): Promise<string> {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ agent_id: agentId }),
+    body: JSON.stringify({
+      agent_id: agentId,
+      retell_llm_dynamic_variables: { trip_context: tripContext || 'Nothing yet' },
+    }),
   })
   if (!res.ok) throw new Error(`Retell token error: ${res.status}`)
   const data = await res.json()
@@ -71,10 +78,15 @@ export interface VoiceCallHandlers {
   onTranscriptUpdate?: (transcript: TranscriptEntry[]) => void
 }
 
-export async function startVoiceCall(lang: AgentLang, handlers: VoiceCallHandlers): Promise<void> {
+export async function startVoiceCall(lang: AgentLang, handlers: VoiceCallHandlers, tripContext?: string): Promise<void> {
   handlers.onStatusChange('connecting')
   try {
-    const token = await createWebCallToken(AGENTS[lang])
+    if (isNative) {
+      const { AudioSession } = await import('@livekit/react-native')
+      await AudioSession.startAudioSession()
+    }
+
+    const token = await createWebCallToken(AGENTS[lang], tripContext)
     const c = await getClient()
 
     c.on('call_started', () => handlers.onStatusChange('active'))
@@ -100,4 +112,9 @@ export async function startVoiceCall(lang: AgentLang, handlers: VoiceCallHandler
 
 export function stopVoiceCall(): void {
   client?.stopCall()
+  if (isNative) {
+    import('@livekit/react-native')
+      .then(({ AudioSession }) => AudioSession.stopAudioSession())
+      .catch(() => {})
+  }
 }

@@ -3,7 +3,7 @@
     "name": "balkanea-mobile",
     "slug": "balkanea-mobile",
     "scheme": "balkanea",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -50,6 +50,7 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
+      "@livekit/react-native-expo-plugin",
       "@config-plugins/react-native-webrtc",
       [
         "expo-notifications",

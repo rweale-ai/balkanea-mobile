@@ -23,9 +23,10 @@ AI-first outbound hotel booking app for Balkan locals travelling internationally
 
 ## Retell voice agents (Balkanea workspace)
 - **API key:** stored in Vercel env / set locally as `EXPO_PUBLIC_RETELL_API_KEY` in .env
-- **English (Nea EN):** agent_88718b83329c3417f0b1dce5b5 | LLM: llm_430bff8cc2cd3159ff96c0ec8fd3
-- **Macedonian (Nea MK):** agent_4eff660016ae3f4aaa688f1742 | LLM: llm_365990f1ab000ebb38fdc34b7100
-- Voice works on web (WebRTC). Native has polyfill + graceful error handling.
+- **English (Nea EN):** agent_88718b83329c3417f0b1dce5b5 | LLM: llm_430bff8cc2cd3159ff96c0ec8fd3 — isolated conversational persona, only tool is `end_call`. Safe to edit for mobile-only changes.
+- **Macedonian (Nea MK):** agent_4eff660016ae3f4aaa688f1742 | LLM: llm_365990f1ab000ebb38fdc34b7100 — **CAUTION (found 2026-07-05): this LLM's `general_prompt` is actually the live balkanea-lead-webhook website chatbot** (tools call `balkanea-lead-webhook.vercel.app/api/search-hotels` and `/api/create-lead` directly, prompt is English-language lead-capture flow, not a Macedonian voice persona). Do not edit its prompt for mobile-app-only changes without confirming with Ray first — it likely affects balkanea.com's live chat widget too. The mobile app may need its own dedicated MK voice LLM.
+- Voice uses `retell-client-js-sdk` (built on browser-only `livekit-client`). On native, `lib/voice.ts` registers `@livekit/react-native` + `@livekit/react-native-webrtc` (not vanilla `react-native-webrtc`) and explicitly starts/stops an `AudioSession` around each call — required for the local mic track to actually publish on iOS (remote audio playback works without it, mic capture doesn't).
+- `startVoiceCall(lang, handlers, tripContext?)` passes `tripContext` as a Retell `retell_llm_dynamic_variables.trip_context` value, interpolated into the EN prompt via `{{trip_context}}` — lets a voice call pick up where a text conversation left off instead of re-asking known details.
 
 ## Current state (June 2026)
 - **Search tab:** Nea chat UI with hotel search. Natural language or voice — Nea finds hotels, shows results as cards, allows booking.

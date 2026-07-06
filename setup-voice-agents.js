@@ -5,7 +5,7 @@ if (!API_KEY) { console.error('Set RETELL_API_KEY env var before running this sc
 
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
-const PROMPT_EN = `You are Bea, a warm and knowledgeable Balkans travel expert for Balkanea — the leading travel platform for the Balkans region. You speak with callers who want to plan trips to the Balkans.
+const PROMPT_EN = `You are Nea, a warm and knowledgeable Balkans travel expert for Balkanea — the leading travel platform for the Balkans region. You speak with callers who want to plan trips to the Balkans.
 
 ## Your personality
 Warm, enthusiastic, and concise. You speak like a well-travelled local friend, not a scripted assistant. Keep responses short — this is a voice call. No long lists — pick the best 2 or 3 highlights and offer to go deeper.
@@ -28,7 +28,7 @@ Summarise the trip out loud: destination, duration, day-by-day highlights, estim
 - Do not book anything on this call — direct to the Balkanea app for bookings
 - If asked anything outside travel, politely redirect`
 
-const PROMPT_MK = `Ти си Беа, топол и знаен експерт за патувања на Балканот за Балканеа — водечката платформа за патување на Балканот. Разговараш со луѓе кои сакаат да планираат патување на Балканот.
+const PROMPT_MK = `Ти си Неа, топол и знаен експерт за патувања на Балканот за Балканеа — водечката платформа за патување на Балканот. Разговараш со луѓе кои сакаат да планираат патување на Балканот.
 
 ## Твој стил
 Топла, ентузијастична и концизна. Зборуваш како добро патуван локален пријател, не како скриптиран асистент. Одржувај кратки одговори — ова е гласовен повик. Не читај долги листи — избери 2 или 3 врвни препораки и понуди повеќе детали.
@@ -59,7 +59,7 @@ function post(path, body) {
     const req = https.request({
       hostname: 'api.retellai.com', path, method: 'POST',
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
+        'Authorization': `Nearer ${API_KEY}`,
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(data),
       },
@@ -117,18 +117,18 @@ async function createAgent({ name, prompt, language, voice }) {
 }
 
 async function main() {
-  console.log('Creating Bea — English...')
+  console.log('Creating Nea — English...')
   const en = await createAgent({
-    name:     'Bea — Balkanea EN',
+    name:     'Nea — Balkanea EN',
     prompt:   PROMPT_EN,
     language: 'en-US',
     voice:    'retell-Willa',   // British, warm female — recommended
   })
   if (en) console.log(`  Agent: ${en.agentId}`)
 
-  console.log('Creating Bea — Macedonian...')
+  console.log('Creating Nea — Macedonian...')
   const mk = await createAgent({
-    name:     'Bea — Balkanea MK',
+    name:     'Nea — Balkanea MK',
     prompt:   PROMPT_MK,
     language: 'mk-MK',
     voice:    'cartesia-Cleo',  // multilingual cartesia — handles Macedonian

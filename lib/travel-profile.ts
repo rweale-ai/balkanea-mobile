@@ -36,3 +36,16 @@ export function clearTravelProfile(): void {
   cache = {}
   persist()
 }
+
+// Plain-English summary for handing off context to Retell voice calls via
+// a dynamic variable — the LLM reads prose, not a raw params object.
+export function describeTravelProfile(): string {
+  const p = getTravelProfile()
+  const parts: string[] = []
+  if (p.destination) parts.push(`destination: ${p.destination}`)
+  if (p.checkin && p.checkout) parts.push(`dates: ${p.checkin} to ${p.checkout}`)
+  if (p.adults) parts.push(`${p.adults} adult${p.adults === 1 ? '' : 's'}`)
+  if (p.children) parts.push(`${p.children} child${p.children === 1 ? '' : 'ren'}`)
+  if (p.maxPricePerNight) parts.push(`budget up to ${p.maxPricePerNight}/night`)
+  return parts.length > 0 ? parts.join(', ') : 'Nothing yet'
+}
