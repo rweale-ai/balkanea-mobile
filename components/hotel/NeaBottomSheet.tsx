@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, KeyboardAvoidingView, Platform,
+  StyleSheet, KeyboardAvoidingView, Platform, Dimensions,
   ActivityIndicator, ScrollView, Keyboard,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -271,6 +271,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
             ) : (
               <FlatList
                 ref={listRef}
+                style={styles.msgListFlex}
                 data={displayMessages}
                 keyExtractor={(_, i) => String(i)}
                 contentContainerStyle={styles.msgList}
@@ -387,7 +388,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
-    maxHeight: '78%',
+    // A definite height (not a percentage maxHeight) — Yoga can otherwise
+    // collapse a flex:1 child (the FlatList below) to zero height inside a
+    // content-sized ancestor, leaving only the dark backdrop visible.
+    height: Math.round(Dimensions.get('window').height * 0.78),
     ...Shadows.lg,
   },
   kav: {
@@ -511,6 +515,9 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textSecondary,
     fontSize: 13,
+  },
+  msgListFlex: {
+    flex: 1,
   },
   msgList: {
     padding: Spacing.md,

@@ -5,6 +5,7 @@ import { View, Text } from 'react-native'
 import { onAuthStateChange, getSession } from '../lib/auth'
 import { isGuest, onGuestChange } from '../lib/guest'
 import { hasChosenLanguage, useLang } from '../lib/i18n'
+import { checkVersionGate } from '../lib/version-gate'
 import type { AuthSession } from '../lib/auth'
 
 export function ErrorBoundary({ error }: { error: Error }) {
@@ -26,11 +27,14 @@ export default function RootLayout() {
   const router = useRouter()
 
   useEffect(() => {
-    Promise.all([
-      getSession(),
-      hasChosenLanguage(),
-    ]).then(([s, lc]) => {
+    checkVersionGate().then(() =>
+      Promise.all([
+        getSession(),
+        hasChosenLanguage(),
+      ])
+    ).then(([s, lc]) => {
       setSession(s)
+      setGuest(isGuest())
       setLangChosen(lc)
       setReady(true)
     })
