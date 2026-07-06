@@ -269,7 +269,7 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
 
   const statusLabel = callStatus === 'connecting'
     ? 'CONNECTING…'
-    : agentTalking ? 'BEA SPEAKING' : 'LISTENING'
+    : agentTalking ? 'NEA SPEAKING' : 'LISTENING'
 
   return (
     <Modal visible={modalVisible} transparent statusBarTranslucent animationType="none">
@@ -291,7 +291,7 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall }: Vo
         <View style={s.topBar}>
           <View style={s.destBlock}>
             <Text style={s.scanLabel}>
-              {destination ? 'DESTINATION IDENTIFIED' : 'BEA · AI TRAVEL GUIDE'}
+              {destination ? 'DESTINATION IDENTIFIED' : 'NEA · AI TRAVEL GUIDE'}
             </Text>
             <Text style={s.destName}>
               {destination ? destination.name : 'Balkans Explorer'}

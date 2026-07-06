@@ -185,6 +185,10 @@ export default function BookingDetailScreen() {
             <DetailRow label={t.bookingDetail.checkOut} value={formatDate(booking.checkout)} />
             <DetailRow label={t.bookingDetail.roomType} value={booking.room.name} />
             <DetailRow
+              label={t.bookingDetail.guests}
+              value={`${booking.guests.adults} ${t.bookingDetail.adults}${booking.guests.children > 0 ? `, ${booking.guests.children} ${t.bookingDetail.children}` : ''}`}
+            />
+            <DetailRow
               label={t.bookingDetail.mealPlan}
               value={booking.room.meal_plan}
               last

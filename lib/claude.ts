@@ -1,6 +1,7 @@
 import type { ChatMessage, PlannerResponse, HotelSearchParams } from './types'
 import { searchHotelsSync } from './hotels'
 import { fetchAllKnowledge } from './knowledge'
+import { getTravelProfile, saveTravelProfile } from './travel-profile'
 
 // ── System prompts ─────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ When a user asks about hotel reviews, what guests think about a hotel, or needs 
 3. How many people
 4. Budget feel (budget / mid-range / luxury)
 5. Any preferences (beach, city, all-inclusive, etc.)
+If any of this is already given under "Known traveler details" below, do NOT ask for it again — use it directly and only ask about what's still missing.
 
 ## When you have enough info to search for hotels:
 Write your reply naturally — 2-3 warm sentences. Then on its own line:
@@ -85,9 +87,18 @@ export async function sendMessage(
     ? '\n\n## LANGUAGE\nThe user has selected Macedonian. ALWAYS reply in Macedonian (Cyrillic script) regardless of what language the user types in.'
     : '\n\n## LANGUAGE\nAlways reply in English.'
 
-  const system = `${BASE_SYSTEM_PROMPT}${langInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
+  const profile = getTravelProfile()
+  const profileInstruction = Object.keys(profile).length > 0
+    ? `\n\n## Known traveler details (from a previous conversation — do not ask for these again)\n${JSON.stringify(profile)}`
+    : ''
 
-  return runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
+  const system = `${BASE_SYSTEM_PROMPT}${langInstruction}${profileInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
+
+  const result = await runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
+  if (result.type === 'hotels' && result.searchParams) {
+    saveTravelProfile(result.searchParams)
+  }
+  return result
 }
 
 // Feedback conversation — different system prompt, no hotel search tools
@@ -322,6 +333,9 @@ async function simulateResponse(
   for (let i = 0; i < prose.length; i += 2) {
     onToken(prose.slice(i, i + 2))
     await new Promise<void>(r => setTimeout(r, 16))
+  }
+  if (reply.type === 'hotels' && reply.searchParams) {
+    saveTravelProfile(reply.searchParams)
   }
   return reply
 }

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, KeyboardAvoidingView, Platform, Animated,
+  StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, ScrollView, Keyboard,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -54,7 +54,6 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
   const [callStatus, setCallStatus] = useState<CallStatus>('idle')
   const [agentTalking, setAgentTalking] = useState(false)
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
-  const slideAnim = useRef(new Animated.Value(600)).current
   const listRef = useRef<FlatList<SheetMsg>>(null)
   const loadedRef = useRef(false)
 
@@ -66,25 +65,12 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       }
     } else {
       Keyboard.dismiss()
-      slideAnim.setValue(600)
       setHistory([])
       setStreamingText('')
       setInputText('')
       loadedRef.current = false
     }
   }, [visible])
-
-  // Fired only after the native Modal has actually presented — starting the
-  // slide-up animation from the `visible` effect above races the native
-  // mount on-device (invisible on web, where useNativeDriver is ignored).
-  const handleModalShow = useCallback(() => {
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      speed: 14,
-      bounciness: 4,
-    }).start()
-  }, [slideAnim])
 
   const loadReviewSummary = async () => {
     setLoading(true)
@@ -208,14 +194,13 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="slide"
       statusBarTranslucent
       onRequestClose={onClose}
-      onShow={handleModalShow}
     >
       <View style={styles.container}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+        <View style={styles.sheet}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.kav}
@@ -366,7 +351,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
-        </Animated.View>
+        </View>
       </View>
     </Modal>
     <VoiceHUD
