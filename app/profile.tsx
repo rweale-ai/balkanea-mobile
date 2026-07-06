@@ -13,10 +13,15 @@ import { useLang, setLang } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import Constants from 'expo-constants'
+import * as Updates from 'expo-updates'
 
 const NOTIF_KEY = 'balkanea_notif_prefs'
 const CURRENCY_KEY = 'balkanea_currency'
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0'
+// Distinguishes which OTA update is actually running — the app version
+// number alone doesn't change between OTA pushes, which made "did the
+// update actually apply?" hard to verify from the device.
+const UPDATE_LABEL = Updates.updateId ? Updates.updateId.slice(0, 8) : 'embedded'
 
 type NotifPrefs = {
   bookingConfirmations: boolean
@@ -344,7 +349,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {/* ── Version ────────────────────────────────────────── */}
-        <Text style={s.version}>{t.profile.version} {APP_VERSION}</Text>
+        <Text style={s.version}>{t.profile.version} {APP_VERSION} · {UPDATE_LABEL}</Text>
       </ScrollView>
     </SafeAreaView>
   )
