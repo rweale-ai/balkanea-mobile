@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  SafeAreaView, TextInput, Alert, Platform, Image,
+  SafeAreaView, TextInput, Alert, Platform, Image, KeyboardAvoidingView,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -91,6 +91,8 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               keyboardType="number-pad"
               maxLength={19}
               editable={!disabled}
+              textContentType="creditCardNumber"
+              autoComplete="cc-number"
             />
             {brand === 'visa' && (
               <Text style={s.brandVisa}>VISA</Text>
@@ -118,6 +120,8 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               keyboardType="number-pad"
               maxLength={7}
               editable={!disabled}
+              textContentType="creditCardExpiration"
+              autoComplete="cc-exp"
             />
           </View>
           <View style={s.halfDivider} />
@@ -133,6 +137,8 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               maxLength={4}
               secureTextEntry
               editable={!disabled}
+              textContentType="creditCardSecurityCode"
+              autoComplete="cc-csc"
             />
           </View>
         </View>
@@ -357,6 +363,10 @@ export default function BookingScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      <KeyboardAvoidingView
+        style={s.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.scrollContent}
@@ -395,6 +405,8 @@ export default function BookingScreen() {
               placeholderTextColor={Colors.textLight}
               autoCapitalize="words"
               editable={!busy}
+              textContentType="name"
+              autoComplete="name"
             />
           </Field>
           <Field label={t.booking.emailAddress} icon="mail-outline">
@@ -408,6 +420,8 @@ export default function BookingScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               editable={!busy}
+              textContentType="emailAddress"
+              autoComplete="email"
             />
           </Field>
           <Field label={t.booking.phoneNumber} icon="call-outline">
@@ -419,6 +433,8 @@ export default function BookingScreen() {
               placeholderTextColor={Colors.textLight}
               keyboardType="phone-pad"
               editable={!busy}
+              textContentType="telephoneNumber"
+              autoComplete="tel"
             />
           </Field>
         </View>
@@ -511,6 +527,7 @@ export default function BookingScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
@@ -537,6 +554,7 @@ function Field({ label, icon, children }: {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  keyboardAvoid: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.md },
 
