@@ -116,12 +116,12 @@ export default function AuthScreen() {
             {/* Social login */}
             <View style={styles.socialRow}>
               <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}
-                onPress={async () => { try { await signInWithGoogle() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? 'Google sign-in failed') } }}>
+                onPress={async () => { try { await signInWithGoogle() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? t.auth.googleSignInFailed) } }}>
                 <Text style={styles.googleIcon}>G</Text>
                 <Text style={styles.socialText}>{t.auth.google}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}
-                onPress={async () => { try { await signInWithApple() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? 'Apple sign-in failed') } }}>
+                onPress={async () => { try { await signInWithApple() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? t.auth.appleSignInFailed) } }}>
                 <Ionicons name="logo-apple" size={18} color={Colors.text} />
                 <Text style={styles.socialText}>{t.auth.apple}</Text>
               </TouchableOpacity>

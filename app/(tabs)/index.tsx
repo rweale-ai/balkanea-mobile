@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { VoiceHUD } from '../../components/VoiceHUD'
-import { sendMessage } from '../../lib/claude'
+import { sendMessage, summarizeItinerary } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
@@ -37,39 +37,6 @@ function NeaIcon({ size = 17 }: { size?: number }) {
 }
 
 // ── Typing dots ────────────────────────────────────────────────────
-function TypingDots() {
-  const dots = [
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-  ]
-  useEffect(() => {
-    dots.forEach((d, i) => {
-      Animated.loop(Animated.sequence([
-        Animated.delay(i * 180),
-        Animated.timing(d, { toValue: 1, duration: 280, useNativeDriver: true }),
-        Animated.timing(d, { toValue: 0, duration: 280, useNativeDriver: true }),
-        Animated.delay((2 - i) * 180),
-      ])).start()
-    })
-  }, [])
-  return (
-    <View style={s.dotsRow}>
-      <LinearGradient colors={Gradients.primaryFade} style={s.dotsAvatar}>
-        <NeaIcon size={14} />
-      </LinearGradient>
-      <View style={s.dotsBubble}>
-        {dots.map((d, i) => (
-          <Animated.View key={i} style={[s.dot, {
-            opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-            transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
-          }]} />
-        ))}
-      </View>
-    </View>
-  )
-}
-
 // ── Streaming caret ────────────────────────────────────────────────
 function Caret() {
   const opacity = useRef(new Animated.Value(1)).current
@@ -130,7 +97,7 @@ function InlineHotelCard({
           {hotel.amenities.slice(0, 3).join(' · ')}
         </Text>
         <Text style={s.hotelPrice}>
-          {price} <Text style={s.hotelPerNight}>/ night</Text>
+          {price} <Text style={s.hotelPerNight}>{t.chat.perNight}</Text>
         </Text>
       </View>
     </TouchableOpacity>
@@ -306,6 +273,7 @@ export default function SearchScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [savingItinerary, setSavingItinerary] = useState(false)
   const [callStatus, setCallStatus] = useState<CallStatus>('idle')
   const [agentTalking, setAgentTalking] = useState(false)
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
@@ -467,15 +435,17 @@ export default function SearchScreen() {
     }, describeTravelProfile())
   }, [callStatus, lang, t])
 
-  const handleSaveItinerary = useCallback(() => {
-    if (!activeBookingId) return
-    const transcript = messages
-      .filter(m => m.content.trim().length > 0)
-      .map(m => `${m.role === 'user' ? 'You' : 'Nea'}: ${m.content}`)
-      .join('\n\n')
-    saveItinerary(activeBookingId, transcript)
-    Alert.alert(t.chat.itinerarySavedTitle, t.chat.itinerarySavedBody)
-  }, [activeBookingId, messages, t])
+  const handleSaveItinerary = useCallback(async () => {
+    if (!activeBookingId || savingItinerary) return
+    setSavingItinerary(true)
+    try {
+      const summary = await summarizeItinerary(messages, appLang)
+      saveItinerary(activeBookingId, summary)
+      Alert.alert(t.chat.itinerarySavedTitle, t.chat.itinerarySavedBody)
+    } finally {
+      setSavingItinerary(false)
+    }
+  }, [activeBookingId, savingItinerary, messages, appLang, t])
 
   const handleHotelPress = useCallback((hotel: Hotel, params?: HotelSearchParams) => {
     router.push({
@@ -502,26 +472,17 @@ export default function SearchScreen() {
     handleHotelPress(hotel, params)
   }, [handleHotelPress])
 
-  type ListItem = { key: string } & (
-    | { kind: 'message'; message: ChatMessage }
-    | { kind: 'typing' }
-  )
+  type ListItem = { key: string; kind: 'message'; message: ChatMessage }
 
-  const listData: ListItem[] = [
-    ...messages.map(m => ({ key: m.id, kind: 'message' as const, message: m })),
-    ...(loading ? [{ key: '__typing', kind: 'typing' as const }] : []),
-  ]
+  const listData: ListItem[] = messages.map(m => ({ key: m.id, kind: 'message' as const, message: m }))
 
-  const renderItem = useCallback(({ item }: { item: ListItem }) => {
-    if (item.kind === 'typing') return <TypingDots />
-    return (
-      <MessageBubble
-        message={item.message}
-        currency={currency}
-        onHotelPress={handleHotelPress}
-      />
-    )
-  }, [currency, handleHotelPress])
+  const renderItem = useCallback(({ item }: { item: ListItem }) => (
+    <MessageBubble
+      message={item.message}
+      currency={currency}
+      onHotelPress={handleHotelPress}
+    />
+  ), [currency, handleHotelPress])
 
   const hasMessages = messages.length > 0
 
@@ -589,8 +550,11 @@ export default function SearchScreen() {
               style={s.saveItineraryBtn}
               activeOpacity={0.8}
               onPress={handleSaveItinerary}
+              disabled={savingItinerary}
             >
-              <Text style={s.saveItineraryText}>{t.chat.saveItinerary}</Text>
+              <Text style={s.saveItineraryText}>
+                {savingItinerary ? t.chat.savingItinerary : t.chat.saveItinerary}
+              </Text>
             </TouchableOpacity>
           )}
           <View style={s.composerCard}>
@@ -789,33 +753,6 @@ const s = StyleSheet.create({
     marginLeft: 2,
     verticalAlign: 'middle',
   } as any,
-
-  // Typing dots
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-    gap: 10,
-  },
-  dotsAvatar: {
-    width: 30, height: 30, borderRadius: 15,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  dotsBubble: {
-    flexDirection: 'row',
-    gap: 5,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.sm + 6,
-    paddingVertical: 14,
-    ...Shadows.sm,
-  },
-  dot: {
-    width: 7, height: 7,
-    borderRadius: 4,
-    backgroundColor: Colors.textLight,
-  },
 
   // Inline hotel cards (inside Nea message)
   hotelBlock: {

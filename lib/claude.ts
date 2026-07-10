@@ -127,6 +127,51 @@ export async function sendFeedbackMessage(
   return runMessageLoop(apiKey, FEEDBACK_SYSTEM_PROMPT, messages, onToken, [])
 }
 
+// ── Itinerary summarization ──────────────────────────────────────────
+
+const ITINERARY_SYSTEM_PROMPT = (language: 'mk' | 'en') => `You distill a travel-planning chat between a traveler and Nea, an AI travel advisor, into a short, clean itinerary summary.
+
+${language === 'mk' ? 'Reply in Macedonian (Cyrillic script).' : 'Reply in English.'}
+
+Include only what was actually decided or agreed on: destination, dates, number of travelers, hotel/room if chosen, and any restaurants, tours, or sights the traveler confirmed interest in. Write one short line per item, each prefixed with one relevant emoji (📍 destination, 📅 dates, 👥 travelers, 🏨 hotel, 🍽️ restaurants, 🎟️ tours/activities, 📌 other confirmed plans). Do not include greetings, questions, back-and-forth, or anything still undecided. If nothing concrete was agreed yet, reply with one short sentence saying so — do not invent details.`
+
+// Distills a chat transcript into a clean, saveable itinerary — not the raw conversation.
+export async function summarizeItinerary(
+  messages: ChatMessage[],
+  language: 'mk' | 'en' = 'en',
+): Promise<string> {
+  const transcript = messages
+    .filter(m => m.content.trim().length > 0)
+    .map(m => `${m.role === 'user' ? 'Traveler' : 'Nea'}: ${m.content}`)
+    .join('\n\n')
+
+  const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
+  if (!apiKey) return transcript // demo mode — no key to summarize with
+
+  try {
+    const res = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 400,
+        system: ITINERARY_SYSTEM_PROMPT(language),
+        messages: [{ role: 'user', content: transcript }],
+      }),
+    })
+    if (!res.ok) return transcript
+    const data = await res.json()
+    const text: string | undefined = data.content?.[0]?.text?.trim()
+    return text || transcript
+  } catch {
+    return transcript
+  }
+}
+
 // ── Core streaming loop ────────────────────────────────────────────
 
 // Handles pause_turn from web search by looping up to 5 iterations.

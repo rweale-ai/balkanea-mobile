@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import type { Booking } from './types'
+import { getT } from './i18n'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -25,11 +26,13 @@ export async function scheduleBookingNotifications(booking: Booking): Promise<vo
   const granted = await requestNotificationPermissions()
   if (!granted) return
 
+  const t = getT()
+
   // Immediate booking confirmation
   await Notifications.scheduleNotificationAsync({
     identifier: `confirm-${booking.id}`,
     content: {
-      title: 'Booking Confirmed',
+      title: t.notifications.bookingConfirmedTitle,
       body: `${booking.hotel.name} · ${booking.confirmation_code}`,
       data: { bookingId: booking.id, screen: 'booking-detail' },
     },
@@ -45,8 +48,8 @@ export async function scheduleBookingNotifications(booking: Booking): Promise<vo
     await Notifications.scheduleNotificationAsync({
       identifier: `checkin-${booking.id}`,
       content: {
-        title: 'Check-in Tomorrow',
-        body: `${booking.hotel.name} — your trip starts tomorrow. Have a great trip!`,
+        title: t.notifications.checkinTomorrowTitle,
+        body: t.notifications.checkinTomorrowBody.replace('{{hotel}}', booking.hotel.name),
         data: { bookingId: booking.id, screen: 'booking-detail' },
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: dayBefore },

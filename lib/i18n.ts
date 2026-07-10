@@ -48,6 +48,12 @@ export function useLang() {
   return { t: translations[lang], lang, setLang: changeLang, ready }
 }
 
+/** For non-component code (e.g. scheduling local notifications) that needs
+ * the current language's strings without the useLang() hook. */
+export function getT() {
+  return translations[_lang]
+}
+
 const en = {
   auth: {
     tagline: 'Your personal travel advisor',
@@ -94,6 +100,8 @@ const en = {
     error: 'Error',
     invalidCode: 'Invalid code',
     enterSixDigit: 'Please enter the 6-digit code.',
+    googleSignInFailed: 'Google sign-in failed',
+    appleSignInFailed: 'Apple sign-in failed',
   },
   booking: {
     completeBooking: 'Confirm & pay',
@@ -135,6 +143,7 @@ const en = {
     bookAnother: 'Book another stay',
     total: 'Total',
     nights: 'nights',
+    goHome: 'Go Home',
   },
   hotel: {
     notFound: 'Hotel not found',
@@ -229,6 +238,7 @@ const en = {
     reviews: 'reviews',
     topPick: "Nea's top pick",
     saveItinerary: '💾 Save itinerary to booking',
+    savingItinerary: 'Saving…',
     itinerarySavedTitle: 'Saved!',
     itinerarySavedBody: 'Your itinerary was saved to this booking. You can view or refine it anytime from Trips.',
   },
@@ -272,6 +282,13 @@ const en = {
     save: 'Save',
     cancel: 'Cancel',
     notAdmin: 'Admin access only',
+    saving: 'Saving…',
+    missingFields: 'Missing fields',
+    missingFieldsBody: 'Title and content are required.',
+    failedToSave: 'Failed to save.',
+    deleteEntryTitle: 'Delete entry',
+    deleteConfirm: 'Delete "{{title}}"? This cannot be undone.',
+    deleteAction: 'Delete',
   },
   payments: {
     title: 'Payment history',
@@ -300,6 +317,7 @@ const en = {
     signOutConfirm: 'Are you sure you want to sign out?',
     signOutAction: 'Sign out',
     cancel: 'Cancel',
+    knowledgeBaseAdmin: 'Knowledge Base (Admin)',
   },
   results: {
     hotelsFound: '{{count}} hotels found',
@@ -353,6 +371,19 @@ const en = {
     notFoundSub: 'This booking may have been removed.',
     goBack: 'Go back',
   },
+  notifications: {
+    bookingConfirmedTitle: 'Booking Confirmed',
+    checkinTomorrowTitle: 'Check-in Tomorrow',
+    checkinTomorrowBody: '{{hotel}} — your trip starts tomorrow. Have a great trip!',
+  },
+  common: {
+    error: 'Error',
+    somethingWentWrong: 'Something went wrong. Please try again.',
+    retry: 'Retry',
+    cancel: 'Cancel',
+    live: 'LIVE',
+    endCall: 'END CALL',
+  },
 }
 
 const mk: typeof en = {
@@ -401,6 +432,8 @@ const mk: typeof en = {
     error: 'Грешка',
     invalidCode: 'Невалиден код',
     enterSixDigit: 'Внесете го 6-цифрениот код.',
+    googleSignInFailed: 'Најавата преку Google не успеа',
+    appleSignInFailed: 'Најавата преку Apple не успеа',
   },
   booking: {
     completeBooking: 'Потврди и плати',
@@ -442,6 +475,7 @@ const mk: typeof en = {
     bookAnother: 'Резервирај друг престој',
     total: 'Вкупно',
     nights: 'ноќи',
+    goHome: 'Оди дома',
   },
   hotel: {
     notFound: 'Хотелот не е пронајден',
@@ -536,6 +570,7 @@ const mk: typeof en = {
     reviews: 'оценки',
     topPick: 'Препорака на Неа',
     saveItinerary: '💾 Зачувај го планот во резервацијата',
+    savingItinerary: 'Се зачувува…',
     itinerarySavedTitle: 'Зачувано!',
     itinerarySavedBody: 'Планот е зачуван во оваа резервација. Можеш да го погледнеш или промениш во секое време од Резервации.',
   },
@@ -579,6 +614,13 @@ const mk: typeof en = {
     save: 'Зачувај',
     cancel: 'Откажи',
     notAdmin: 'Само за администратори',
+    saving: 'Се зачувува…',
+    missingFields: 'Недостасуваат полиња',
+    missingFieldsBody: 'Насловот и содржината се задолжителни.',
+    failedToSave: 'Зачувувањето не успеа.',
+    deleteEntryTitle: 'Избриши запис',
+    deleteConfirm: 'Избриши „{{title}}“? Ова не може да се поврати.',
+    deleteAction: 'Избриши',
   },
   payments: {
     title: 'Историја на плаќања',
@@ -607,6 +649,7 @@ const mk: typeof en = {
     signOutConfirm: 'Дали сте сигурни дека сакате да се одјавите?',
     signOutAction: 'Одјави се',
     cancel: 'Откажи',
+    knowledgeBaseAdmin: 'База на знаење (Админ)',
   },
   results: {
     hotelsFound: '{{count}} хотели пронајдени',
@@ -659,6 +702,19 @@ const mk: typeof en = {
     notFound: 'Резервацијата не е пронајдена',
     notFoundSub: 'Оваа резервација можеби е избришана.',
     goBack: 'Назад',
+  },
+  notifications: {
+    bookingConfirmedTitle: 'Резервацијата е потврдена',
+    checkinTomorrowTitle: 'Пристигнување утре',
+    checkinTomorrowBody: '{{hotel}} — твоето патување започнува утре. Пријатно патување!',
+  },
+  common: {
+    error: 'Грешка',
+    somethingWentWrong: 'Нешто тргна наопаку. Обиди се повторно.',
+    retry: 'Обиди се повторно',
+    cancel: 'Откажи',
+    live: 'ВО ТЕК',
+    endCall: 'ПРЕКИНИ ПОВИК',
   },
 }
 

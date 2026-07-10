@@ -11,6 +11,7 @@ import {
 import { findDestination, type Destination } from '../lib/destinations'
 import type { Hotel } from '../lib/types'
 import type { CallStatus, TranscriptEntry } from '../lib/voice'
+import { useLang } from '../lib/i18n'
 
 const { width: W } = Dimensions.get('window')
 
@@ -58,6 +59,7 @@ const cb = StyleSheet.create({
 
 // ── Live indicator ────────────────────────────────────────────────────────────
 function LiveDot() {
+  const { t } = useLang()
   const blink = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
@@ -74,7 +76,7 @@ function LiveDot() {
   return (
     <View style={live.row}>
       <Animated.View style={[live.dot, { opacity: blink }]} />
-      <Text style={live.label}>LIVE</Text>
+      <Text style={live.label}>{t.common.live}</Text>
     </View>
   )
 }
@@ -154,6 +156,7 @@ export interface VoiceHUDProps {
 }
 
 export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall, hotel, viewedHotels, onViewHotel }: VoiceHUDProps) {
+  const { t } = useLang()
   const isActive = callStatus === 'active' || callStatus === 'connecting'
   const [modalVisible, setModalVisible] = useState(false)
 
@@ -325,7 +328,7 @@ export function VoiceHUD({ transcript, agentTalking, callStatus, onEndCall, hote
           )}
 
           <TouchableOpacity style={s.endBtn} onPress={onEndCall} activeOpacity={0.8}>
-            <Text style={s.endBtnText}>END CALL</Text>
+            <Text style={s.endBtnText}>{t.common.endCall}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>

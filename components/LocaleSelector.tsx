@@ -9,6 +9,7 @@ import {
   type CountryCode, type CurrencyCode,
 } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography } from '../constants/theme'
+import { useLang } from '../lib/i18n'
 
 const { height: SCREEN_H } = Dimensions.get('window')
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function LocaleSelector({ country, currency, onCountryChange, onCurrencyChange }: Props) {
+  const { t } = useLang()
   const [countryOpen, setCountryOpen] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
 
@@ -50,7 +52,7 @@ export function LocaleSelector({ country, currency, onCountryChange, onCurrencyC
         <View style={styles.sheet}>
           <View style={styles.handleBar}><View style={styles.handle} /></View>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Language</Text>
+            <Text style={styles.sheetTitle}>{t.profile.language}</Text>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setCountryOpen(false)}>
               <Ionicons name="close" size={22} color={Colors.text} />
             </TouchableOpacity>
@@ -90,7 +92,7 @@ export function LocaleSelector({ country, currency, onCountryChange, onCurrencyC
         <View style={styles.sheet}>
           <View style={styles.handleBar}><View style={styles.handle} /></View>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Currency</Text>
+            <Text style={styles.sheetTitle}>{t.profile.currency}</Text>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setCurrencyOpen(false)}>
               <Ionicons name="close" size={22} color={Colors.text} />
             </TouchableOpacity>

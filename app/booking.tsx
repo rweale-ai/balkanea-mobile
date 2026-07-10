@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  SafeAreaView, TextInput, Alert, Platform, Image, KeyboardAvoidingView,
+  SafeAreaView, TextInput, Alert, Platform, Image, KeyboardAvoidingView, Keyboard,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -45,6 +45,8 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
     const [card, setCard] = useState('')
     const [exp, setExp] = useState('')
     const [cvc, setCvc] = useState('')
+    const expRef = useRef<TextInput>(null)
+    const cvcRef = useRef<TextInput>(null)
 
     const digits = card.replace(/\s/g, '')
     const brand: CardBrand = digits.startsWith('4') ? 'visa' : digits.startsWith('5') ? 'mc' : null
@@ -61,6 +63,7 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
       const next = valid !== (d.length >= 15 && exp.length >= 5 && cvc.length >= 3)
       setCard(spaced)
       if (next !== undefined) onValidChange(d.length >= 15 && exp.length >= 5 && cvc.length >= 3)
+      if (d.length === 16) expRef.current?.focus()
     }
 
     const handleExp = (raw: string) => {
@@ -68,12 +71,14 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
       const formatted = d.length > 2 ? d.slice(0, 2) + ' / ' + d.slice(2) : d
       setExp(formatted)
       onValidChange(digits.length >= 15 && formatted.length >= 5 && cvc.length >= 3)
+      if (d.length === 4) cvcRef.current?.focus()
     }
 
     const handleCvc = (raw: string) => {
       const d = raw.replace(/\D/g, '').slice(0, 4)
       setCvc(d)
       onValidChange(digits.length >= 15 && exp.length >= 5 && d.length >= 3)
+      if (d.length === 4) Keyboard.dismiss()
     }
 
     return (
@@ -93,6 +98,9 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               editable={!disabled}
               textContentType="creditCardNumber"
               autoComplete="cc-number"
+              returnKeyType="next"
+              onSubmitEditing={() => expRef.current?.focus()}
+              blurOnSubmit={false}
             />
             {brand === 'visa' && (
               <Text style={s.brandVisa}>VISA</Text>
@@ -112,6 +120,7 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
           <View style={s.halfField}>
             <Text style={s.cardLabel}>{t.booking.expiry}</Text>
             <TextInput
+              ref={expRef}
               style={[s.cardInput, s.halfInput]}
               value={exp}
               onChangeText={handleExp}
@@ -122,12 +131,16 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               editable={!disabled}
               textContentType="creditCardExpiration"
               autoComplete="cc-exp"
+              returnKeyType="next"
+              onSubmitEditing={() => cvcRef.current?.focus()}
+              blurOnSubmit={false}
             />
           </View>
           <View style={s.halfDivider} />
           <View style={s.halfField}>
             <Text style={s.cardLabel}>{t.booking.cvc}</Text>
             <TextInput
+              ref={cvcRef}
               style={[s.cardInput, s.halfInput]}
               value={cvc}
               onChangeText={handleCvc}
@@ -139,6 +152,8 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               editable={!disabled}
               textContentType="creditCardSecurityCode"
               autoComplete="cc-csc"
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
         </View>
@@ -160,13 +175,13 @@ const CardCapture = forwardRef<CardCaptureHandle, CardCaptureProps>(
               style={s.devBtn}
               onPress={() => { setCard('4242 4242 4242 4242'); setExp('12 / 27'); setCvc('123'); onValidChange(true) }}
             >
-              <Text style={[s.devBtnText, { color: Colors.success }]}>Fill test card</Text>
+              <Text style={[s.devBtnText, { color: Colors.success }]}>{t.booking.useTest}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={s.devBtn}
               onPress={() => { setCard('4000 0000 0000 0002'); setExp('12 / 27'); setCvc('123'); onValidChange(true) }}
             >
-              <Text style={[s.devBtnText, { color: Colors.error }]}>Decline card</Text>
+              <Text style={[s.devBtnText, { color: Colors.error }]}>{t.booking.useDecline}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -236,6 +251,9 @@ export default function BookingScreen() {
     ))
   }, [params.checkin, params.checkout])
 
+  const adults = parseInt(params.adults ?? '2', 10)
+  const children = parseInt(params.children ?? '0', 10)
+
   // Hold the room with RateHawk as soon as the guest reaches this screen —
   // payment can't start until a lock exists (see lib/ratehawk.ts).
   useEffect(() => {
@@ -274,9 +292,9 @@ export default function BookingScreen() {
       <SafeAreaView style={s.safe}>
         <View style={s.errorWrap}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.textLight} />
-          <Text style={s.errorText}>Booking details not found</Text>
+          <Text style={s.errorText}>{t.bookingDetail.notFound}</Text>
           <TouchableOpacity style={s.errorBtn} onPress={() => router.back()}>
-            <Text style={s.errorBtnText}>Go back</Text>
+            <Text style={s.errorBtnText}>{t.bookingDetail.goBack}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -346,7 +364,7 @@ export default function BookingScreen() {
       router.replace({ pathname: '/booking-confirmed', params: { id: newBooking.id } })
     } catch {
       setPayState('idle')
-      Alert.alert('Error', 'Something went wrong. Please try again.')
+      Alert.alert(t.common.error, t.common.somethingWentWrong)
     }
   }
 
@@ -385,6 +403,9 @@ export default function BookingScreen() {
             <Text style={s.summaryRoom} numberOfLines={1}>{room.name}</Text>
             <Text style={s.summaryDates}>
               {params.checkin} → {params.checkout} · {nights} {t.booking.nights}
+            </Text>
+            <Text style={s.summaryGuests}>
+              {adults} {t.bookingDetail.adults}{children > 0 ? `, ${children} ${t.bookingDetail.children}` : ''}
             </Text>
           </View>
           <View style={s.summaryPriceCol}>
@@ -480,7 +501,7 @@ export default function BookingScreen() {
             <Ionicons name="wifi-outline" size={16} color="#92400E" />
             <Text style={[s.errorBannerText, s.networkBannerText]}>{t.booking.networkErr}</Text>
             <TouchableOpacity onPress={handleRetry} style={s.retryBtn}>
-              <Text style={s.retryText}>Retry</Text>
+              <Text style={s.retryText}>{t.common.retry}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -598,6 +619,7 @@ const s = StyleSheet.create({
   summaryHotel: { ...Typography.bodyMedium, color: Colors.text, fontWeight: '700', fontSize: 15 },
   summaryRoom: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
   summaryDates: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
+  summaryGuests: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
   summaryPriceCol: { alignItems: 'flex-end', flexShrink: 0 },
   summaryPrice: { ...Typography.h2, color: Colors.primary },
   summaryTaxes: { ...Typography.caption, color: Colors.textLight, fontSize: 10, marginTop: 2 },

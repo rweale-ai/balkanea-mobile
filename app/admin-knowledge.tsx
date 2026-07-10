@@ -44,7 +44,7 @@ function EntryForm({
 
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Missing fields', 'Title and content are required.')
+      Alert.alert(t.adminKnowledge.missingFields, t.adminKnowledge.missingFieldsBody)
       return
     }
     setSaving(true)
@@ -56,7 +56,7 @@ function EntryForm({
       }
       onSave()
     } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'Failed to save.')
+      Alert.alert(t.common.error, e?.message ?? t.adminKnowledge.failedToSave)
     } finally {
       setSaving(false)
     }
@@ -101,7 +101,7 @@ function EntryForm({
         </TouchableOpacity>
         <TouchableOpacity style={f.saveWrap} onPress={handleSave} disabled={saving} activeOpacity={0.85}>
           <LinearGradient colors={Gradients.primaryFade} style={f.saveBtn}>
-            <Text style={f.saveText}>{saving ? 'Saving…' : t.adminKnowledge.save}</Text>
+            <Text style={f.saveText}>{saving ? t.adminKnowledge.saving : t.adminKnowledge.save}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -161,28 +161,32 @@ export default function AdminKnowledgeScreen() {
   }, [])
 
   const handleDelete = (entry: KnowledgeEntry) => {
-    Alert.alert('Delete entry', `Delete "${entry.title}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteKnowledgeEntry(entry.id); await loadAll() }
-        catch (e: any) { Alert.alert('Error', e?.message) }
-      }},
-    ])
+    Alert.alert(
+      t.adminKnowledge.deleteEntryTitle,
+      t.adminKnowledge.deleteConfirm.replace('{{title}}', entry.title),
+      [
+        { text: t.adminKnowledge.cancel, style: 'cancel' },
+        { text: t.adminKnowledge.deleteAction, style: 'destructive', onPress: async () => {
+          try { await deleteKnowledgeEntry(entry.id); await loadAll() }
+          catch (e: any) { Alert.alert(t.common.error, e?.message) }
+        }},
+      ]
+    )
   }
 
   const handleToggleActive = async (entry: KnowledgeEntry) => {
     try { await updateKnowledgeEntry(entry.id, { active: !entry.active }); await loadAll() }
-    catch (e: any) { Alert.alert('Error', e?.message) }
+    catch (e: any) { Alert.alert(t.common.error, e?.message) }
   }
 
   const handlePromote = async (item: FeedbackEntry) => {
     try { await promoteFeedback(item.id, item); await loadAll() }
-    catch (e: any) { Alert.alert('Error', e?.message) }
+    catch (e: any) { Alert.alert(t.common.error, e?.message) }
   }
 
   const handleReject = async (item: FeedbackEntry) => {
     try { await rejectFeedback(item.id); await loadAll() }
-    catch (e: any) { Alert.alert('Error', e?.message) }
+    catch (e: any) { Alert.alert(t.common.error, e?.message) }
   }
 
   if (authorized === null) return null

@@ -39,9 +39,9 @@ export default function BookingConfirmedScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.textLight} />
-          <Text style={styles.errorText}>Booking not found</Text>
+          <Text style={styles.errorText}>{t.bookingDetail.notFound}</Text>
           <TouchableOpacity style={styles.errorBtn} onPress={() => router.replace('/(tabs)')}>
-            <Text style={styles.errorBtnText}>Go Home</Text>
+            <Text style={styles.errorBtnText}>{t.bookingConfirmed.goHome}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -81,13 +81,20 @@ export default function BookingConfirmedScreen() {
 
           <View style={styles.summaryRow}>
             <Ionicons name="moon-outline" size={16} color={Colors.primary} />
-            <Text style={styles.summaryText}>{nights} night{nights !== 1 ? 's' : ''}</Text>
+            <Text style={styles.summaryText}>{nights} {t.bookingConfirmed.nights}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Ionicons name="people-outline" size={16} color={Colors.primary} />
+            <Text style={styles.summaryText}>
+              {booking.guests.adults} {t.bookingDetail.adults}{booking.guests.children > 0 ? `, ${booking.guests.children} ${t.bookingDetail.children}` : ''}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Paid</Text>
+            <Text style={styles.totalLabel}>{t.bookingDetail.totalPaid}</Text>
             <Text style={styles.totalPrice}>{currencySymbol}{booking.total_price}</Text>
           </View>
         </View>

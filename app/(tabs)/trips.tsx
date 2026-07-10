@@ -424,7 +424,7 @@ function BookingCard({
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="close-outline" size={14} color={Colors.error} />
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t.dashboard.cancelAction}</Text>
             </TouchableOpacity>
           </View>
         )}

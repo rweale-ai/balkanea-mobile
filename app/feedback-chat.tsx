@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, KeyboardAvoidingView, Platform, Animated,
+  StyleSheet, KeyboardAvoidingView, Platform,
   SafeAreaView, Alert,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -13,37 +13,6 @@ import { getUser } from '../lib/auth'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Gradients, Shadows } from '../constants/theme'
 import type { ChatMessage } from '../lib/types'
-
-// ── Typing dots ────────────────────────────────────────────────────
-
-function TypingDots() {
-  const dots = [useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current]
-  useEffect(() => {
-    dots.forEach((d, i) => {
-      Animated.loop(Animated.sequence([
-        Animated.delay(i * 180),
-        Animated.timing(d, { toValue: 1, duration: 280, useNativeDriver: true }),
-        Animated.timing(d, { toValue: 0, duration: 280, useNativeDriver: true }),
-        Animated.delay((2 - i) * 180),
-      ])).start()
-    })
-  }, [])
-  return (
-    <View style={s.dotsRow}>
-      <LinearGradient colors={Gradients.primaryFade} style={s.dotsAvatar}>
-        <Ionicons name="sparkles" size={14} color="#fff" />
-      </LinearGradient>
-      <View style={s.dotsBubble}>
-        {dots.map((d, i) => (
-          <Animated.View key={i} style={[s.dot, {
-            opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-            transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
-          }]} />
-        ))}
-      </View>
-    </View>
-  )
-}
 
 // ── Main screen ────────────────────────────────────────────────────
 
@@ -195,7 +164,6 @@ export default function FeedbackChatScreen() {
           renderItem={renderItem}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
-          ListFooterComponent={loading ? <TypingDots /> : null}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         />
 
@@ -277,10 +245,6 @@ const s = StyleSheet.create({
   neaCol: { flex: 1 },
   textNea: { ...Typography.body, color: Colors.text, lineHeight: 23 },
 
-  dotsRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm, gap: 10 },
-  dotsAvatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  dotsBubble: { flexDirection: 'row', gap: 5, backgroundColor: Colors.surface, borderRadius: Radius.lg, paddingHorizontal: Spacing.sm + 6, paddingVertical: 14, ...Shadows.sm },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.textLight },
 
   savedBanner: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,

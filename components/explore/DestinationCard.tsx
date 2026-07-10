@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import type { Destination } from '../../lib/types'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
+import { useLang } from '../../lib/i18n'
 
 interface Props {
   destination: Destination
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function DestinationCard({ destination, variant, onPress }: Props) {
+  const { t } = useLang()
   const scale = useRef(new Animated.Value(1)).current
 
   const handlePressIn = () => {
@@ -45,7 +47,7 @@ export function DestinationCard({ destination, variant, onPress }: Props) {
               )}
             </View>
             <View style={[styles.explorePill, !isHero && styles.explorePillCompact]}>
-              {isHero && <Text style={styles.exploreText}>Find hotels</Text>}
+              {isHero && <Text style={styles.exploreText}>{t.explore.findHotels}</Text>}
               <Ionicons name="arrow-forward" size={12} color="#fff" />
             </View>
           </View>
