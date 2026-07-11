@@ -237,7 +237,7 @@ export default function BookingDetailScreen() {
                 <Ionicons name="map-outline" size={16} color={Colors.primary} />
                 <Text style={s.itineraryTitle}>{t.bookingDetail.savedItinerary}</Text>
               </View>
-              <Text style={s.itineraryPreview} numberOfLines={4}>{itinerary.content}</Text>
+              <Text style={s.itineraryPreview}>{itinerary.content}</Text>
               <TouchableOpacity style={s.itineraryBtn} activeOpacity={0.8} onPress={handleRefineItinerary}>
                 <Text style={s.itineraryBtnText}>{t.bookingDetail.viewRefineItinerary}</Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.primary} />

@@ -10,12 +10,14 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { VoiceHUD } from '../../components/VoiceHUD'
+import { SideMenu } from '../../components/SideMenu'
 import { sendMessage, summarizeItinerary } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
 import { describeTravelProfile } from '../../lib/travel-profile'
+import { describeBookings } from '../../lib/bookings-store'
 import { saveItinerary } from '../../lib/itinerary-store'
 import { getViewedHotels } from '../../lib/session-store'
 import { FormattedText } from '../../components/planner/FormattedText'
@@ -282,6 +284,7 @@ export default function SearchScreen() {
   const [country, setCountry] = useState<CountryCode>(() => appLang === 'mk' ? 'mk' : 'gb')
   const [currency, setCurrency] = useState<CurrencyCode>(() => appLang === 'mk' ? 'MKD' : 'EUR')
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  const [menuVisible, setMenuVisible] = useState(false)
   // Set when this chat was opened from a booking's "Ask Nea to plan" flow —
   // lets the user save the itinerary Nea produces back onto that booking.
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null)
@@ -432,7 +435,7 @@ export default function SearchScreen() {
           timestamp: new Date(),
         }])
       },
-    }, describeTravelProfile())
+    }, [describeTravelProfile(), describeBookings()].filter(Boolean).join('; '))
   }, [callStatus, lang, t])
 
   const handleSaveItinerary = useCallback(async () => {
@@ -498,14 +501,7 @@ export default function SearchScreen() {
           <TouchableOpacity
             style={s.topBtn}
             activeOpacity={0.7}
-            onPress={() => {
-              Alert.alert(t.menu.title, undefined, [
-                { text: t.menu.myBookings, onPress: () => router.navigate('/trips') },
-                { text: t.menu.exploreDestinations, onPress: () => router.navigate('/explore') },
-                { text: t.menu.signOut, style: 'destructive', onPress: async () => { await setGuestMode(false); await signOut() } },
-                { text: t.menu.cancel, style: 'cancel' },
-              ])
-            }}
+            onPress={() => setMenuVisible(true)}
           >
             <Ionicons name="menu-outline" size={22} color={Colors.text} />
           </TouchableOpacity>
@@ -611,6 +607,13 @@ export default function SearchScreen() {
         onEndCall={handleVoicePress}
         viewedHotels={getViewedHotels().map(v => v.hotel)}
         onViewHotel={handleViewHotelFromVoice}
+      />
+      <SideMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onMyBookings={() => router.navigate('/trips')}
+        onExploreDestinations={() => router.navigate('/explore')}
+        onSignOut={async () => { await setGuestMode(false); await signOut() }}
       />
     </SafeAreaView>
   )

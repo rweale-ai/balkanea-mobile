@@ -11,6 +11,7 @@ import type { Hotel, HotelSearchParams, ChatMessage } from '../../lib/types'
 import { sendMessage } from '../../lib/claude'
 import { getViewedHotels } from '../../lib/session-store'
 import { describeTravelProfile } from '../../lib/travel-profile'
+import { describeBookings } from '../../lib/bookings-store'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import { HotelComparisonCard } from './HotelComparisonCard'
@@ -197,7 +198,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       })
       return
     }
-    const tripContext = `${describeTravelProfile()}; currently looking at ${hotel.name}`
+    const tripContext = [describeTravelProfile(), describeBookings(), `currently looking at ${hotel.name}`].filter(Boolean).join('; ')
     await startVoiceCall(lang, {
       onStatusChange: setCallStatus,
       onAgentTalking: setAgentTalking,

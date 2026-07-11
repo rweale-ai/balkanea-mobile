@@ -234,6 +234,17 @@ export function getPastBookings(): Booking[] {
   return cache.filter(b => (isValidDate(b.checkin) && b.checkin < t) || b.status === 'cancelled')
 }
 
+// Plain-English summary of confirmed bookings for handing off context to
+// Nea (chat system prompt + Retell voice dynamic variable) — without this,
+// Nea only ever sees search-profile dates, not what's actually booked.
+export function describeBookings(): string {
+  const confirmed = cache.filter(b => b.status === 'confirmed')
+  if (confirmed.length === 0) return ''
+  return confirmed
+    .map(b => `${b.hotel.name} in ${b.hotel.address} (confirmation ${b.confirmation_code}), ${b.checkin} to ${b.checkout}, status: confirmed and paid`)
+    .join('; ')
+}
+
 export function subscribeToBookings(listener: (bookings: Booking[]) => void): () => void {
   listeners.push(listener)
   return () => {
