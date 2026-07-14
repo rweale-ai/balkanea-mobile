@@ -7,16 +7,18 @@ const LANG_KEY = 'balkanea_language'
 
 let _lang: Language = 'en'
 let _ready = false
+let _chosen = false
 const _listeners: Array<(l: Language) => void> = []
 
 AsyncStorage.getItem(LANG_KEY).then(v => {
-  if (v === 'mk' || v === 'en') _lang = v
+  if (v === 'mk' || v === 'en') { _lang = v; _chosen = true }
   _ready = true
   _listeners.forEach(l => l(_lang))
 })
 
 export async function setLang(lang: Language) {
   _lang = lang
+  _chosen = true
   await AsyncStorage.setItem(LANG_KEY, lang)
   _listeners.forEach(l => l(_lang))
 }
@@ -29,11 +31,13 @@ export async function hasChosenLanguage(): Promise<boolean> {
 export function useLang() {
   const [lang, setLocal] = useState<Language>(_lang)
   const [ready, setReady] = useState(_ready)
+  const [chosen, setChosen] = useState(_chosen)
 
   useEffect(() => {
     setLocal(_lang)
+    setChosen(_chosen)
     if (_ready) setReady(true)
-    const listener = (l: Language) => { setLocal(l); setReady(true) }
+    const listener = (l: Language) => { setLocal(l); setReady(true); setChosen(_chosen) }
     _listeners.push(listener)
     return () => {
       const idx = _listeners.indexOf(listener)
@@ -45,7 +49,7 @@ export function useLang() {
     await setLang(l)
   }, [])
 
-  return { t: translations[lang], lang, setLang: changeLang, ready }
+  return { t: translations[lang], lang, setLang: changeLang, ready, chosen }
 }
 
 /** For non-component code (e.g. scheduling local notifications) that needs

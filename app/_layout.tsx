@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { View, Text } from 'react-native'
 import { onAuthStateChange, getSession } from '../lib/auth'
 import { isGuest, onGuestChange } from '../lib/guest'
-import { hasChosenLanguage, useLang } from '../lib/i18n'
+import { useLang } from '../lib/i18n'
 import { checkVersionGate } from '../lib/version-gate'
 import type { AuthSession } from '../lib/auth'
 
@@ -20,22 +20,15 @@ export function ErrorBoundary({ error }: { error: Error }) {
 export default function RootLayout() {
   const [session, setSession] = useState<AuthSession | null | undefined>(undefined)
   const [guest, setGuest] = useState(isGuest())
-  const [langChosen, setLangChosen] = useState<boolean | undefined>(undefined)
   const [ready, setReady] = useState(false)
-  const { ready: langReady } = useLang()
+  const { ready: langReady, chosen: langChosen } = useLang()
   const segments = useSegments()
   const router = useRouter()
 
   useEffect(() => {
-    checkVersionGate().then(() =>
-      Promise.all([
-        getSession(),
-        hasChosenLanguage(),
-      ])
-    ).then(([s, lc]) => {
+    checkVersionGate().then(() => getSession()).then((s) => {
       setSession(s)
       setGuest(isGuest())
-      setLangChosen(lc)
       setReady(true)
     })
     const unsubAuth = onAuthStateChange(setSession)
@@ -44,7 +37,7 @@ export default function RootLayout() {
   }, [])
 
   useEffect(() => {
-    if (!ready || langChosen === undefined) return
+    if (!ready || !langReady) return
 
     const inLang = segments[0] === 'language'
     const inAuth = segments[0] === 'auth'
@@ -57,7 +50,7 @@ export default function RootLayout() {
     } else if (langChosen && authenticated && (inAuth || inLang)) {
       router.replace('/(tabs)')
     }
-  }, [session, guest, langChosen, segments, ready])
+  }, [session, guest, langChosen, langReady, segments, ready])
 
   return (
     <>
