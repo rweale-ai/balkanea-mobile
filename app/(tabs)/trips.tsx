@@ -13,8 +13,6 @@ import {
 import { searchHotelsSync } from '../../lib/hotels'
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
-import { setReviewIntent } from '../../lib/explore-intent'
-import { ItineraryTopicSheet, type ItineraryTopic } from '../../components/trip/ItineraryTopicSheet'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 function formatDate(iso: string): string {
@@ -46,31 +44,12 @@ function TripCard({
   onCancel: (booking: Booking) => void
 }) {
   const { t } = useLang()
-  const router = useRouter()
   const imageUrl = booking.hotel.images?.[0] ?? null
   const nights = nightCount(booking.checkin, booking.checkout)
   const days = daysUntil(booking.checkin)
-  const city = booking.hotel.address?.split(',')[0] ?? booking.hotel.name
   const currencySymbol = booking.currency === 'EUR' ? '€' : booking.currency === 'USD' ? '$' : booking.currency
-  const [topicSheet, setTopicSheet] = useState<ItineraryTopic | null>(null)
-
-  const handleAskNeaPlan = useCallback(() => {
-    const already = `I've already booked my hotel in ${city} (confirmation ${booking.confirmation_code}), staying ${formatDate(booking.checkin)} to ${formatDate(booking.checkout)} (${nights} ${nights === 1 ? 'night' : 'nights'}). Please don't ask me about hotels — that's decided.`
-    setReviewIntent(`${already} Help me plan my trip — top restaurants, must-see sights, and a daily itinerary.`, booking.id)
-    router.navigate('/')
-  }, [city, booking.checkin, booking.checkout, booking.confirmation_code, booking.id, nights, router])
-
-  const tripTiles = [
-    { key: 'flights', icon: 'airplane' as const, label: t.dashboard.flights, active: false },
-    { key: 'restaurants', icon: 'restaurant' as const, label: t.dashboard.restaurants, active: true },
-    { key: 'tours', icon: 'map' as const, label: t.dashboard.tours, active: true },
-    { key: 'carRental', icon: 'car' as const, label: t.dashboard.carRental, active: false },
-    { key: 'insurance', icon: 'shield-checkmark' as const, label: t.dashboard.insurance, active: false },
-    { key: 'more', icon: 'ellipsis-horizontal' as const, label: t.dashboard.more, active: false },
-  ]
 
   return (
-    <>
     <TouchableOpacity
       style={tripStyles.card}
       activeOpacity={0.92}
@@ -139,52 +118,7 @@ function TripCard({
           )}
         </View>
       </View>
-
-      {/* Add to trip grid */}
-      <View style={tripStyles.addSection}>
-        <Text style={tripStyles.addLabel}>{t.dashboard.addToTrip}</Text>
-        <View style={tripStyles.grid}>
-          {tripTiles.map(tile => (
-            <TouchableOpacity
-              key={tile.key}
-              style={[tripStyles.tile, !tile.active && tripStyles.tileInactive]}
-              onPress={() => {
-                if (tile.key === 'restaurants' || tile.key === 'tours') setTopicSheet(tile.key)
-              }}
-              disabled={!tile.active}
-              activeOpacity={0.75}
-            >
-              <Ionicons
-                name={tile.icon}
-                size={18}
-                color={tile.active ? Colors.primary : Colors.textLight}
-              />
-              <Text style={[tripStyles.tileLabel, !tile.active && tripStyles.tileLabelDim]}>
-                {tile.label}
-              </Text>
-              <Text style={[tripStyles.tileAction, !tile.active && tripStyles.tileActionDim]}>
-                {tile.active ? `${t.dashboard.askNea} →` : t.dashboard.comingSoon}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Ask Nea to plan */}
-      <TouchableOpacity
-        style={tripStyles.planBar}
-        onPress={handleAskNeaPlan}
-        activeOpacity={0.8}
-      >
-        <LinearGradient colors={Gradients.primaryFade} style={tripStyles.planBarInner}>
-          <Ionicons name="sparkles" size={15} color="#fff" />
-          <Text style={tripStyles.planBarText}>{t.dashboard.askNeaPlan}</Text>
-          <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.8)" />
-        </LinearGradient>
-      </TouchableOpacity>
     </TouchableOpacity>
-    <ItineraryTopicSheet booking={booking} topic={topicSheet} onClose={() => setTopicSheet(null)} />
-    </>
   )
 }
 
@@ -736,9 +670,8 @@ const tripStyles = StyleSheet.create({
   body: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
+    paddingBottom: Spacing.md,
     gap: Spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   infoRow: {
     flexDirection: 'row',
@@ -795,76 +728,5 @@ const tripStyles = StyleSheet.create({
     color: Colors.error,
     fontWeight: '600',
     fontSize: 11,
-  },
-  addSection: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  addLabel: {
-    ...Typography.overline,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  tile: {
-    width: '30%',
-    flexGrow: 1,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    alignItems: 'center',
-    gap: 4,
-  },
-  tileInactive: {
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: Colors.border,
-  },
-  tileLabel: {
-    ...Typography.caption,
-    color: Colors.text,
-    fontWeight: '600',
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  tileLabelDim: {
-    color: Colors.textLight,
-  },
-  tileAction: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '700',
-    fontSize: 10,
-    textAlign: 'center',
-  },
-  tileActionDim: {
-    color: Colors.textLight,
-    fontWeight: '400',
-  },
-  planBar: {
-    margin: Spacing.md,
-    marginTop: 0,
-    borderRadius: Radius.md,
-    overflow: 'hidden',
-  },
-  planBarInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.md,
-    gap: 8,
-  },
-  planBarText: {
-    ...Typography.button,
-    color: '#fff',
-    flex: 1,
-    textAlign: 'center',
   },
 })

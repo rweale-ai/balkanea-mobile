@@ -13,6 +13,7 @@ import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Booking, HotelSearchParams } from '../lib/types'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
+import { ItineraryTopicSheet, type ItineraryTopic } from '../components/trip/ItineraryTopicSheet'
 
 const BALKANEA_PHONE = '+38923100200'
 
@@ -50,6 +51,7 @@ export default function BookingDetailScreen() {
   const [booking, setBooking] = useState<Booking | undefined>(() => (id ? getBooking(id) : undefined))
   const [neaSheetVisible, setNeaSheetVisible] = useState(false)
   const [itinerary, setItinerary] = useState(() => (id ? getItinerary(id) : undefined))
+  const [topicSheet, setTopicSheet] = useState<ItineraryTopic | null>(null)
 
   // Refresh whenever this screen regains focus — an itinerary saved from
   // the chat tab should show up immediately on returning here.
@@ -147,6 +149,23 @@ export default function BookingDetailScreen() {
     removeItineraryItem(booking.id, itemId)
     setItinerary(getItinerary(booking.id))
   }, [booking])
+
+  const handleAskNeaPlan = useCallback(() => {
+    if (!booking) return
+    const city = booking.hotel.address?.split(',')[0] ?? booking.hotel.name
+    const already = `I've already booked my hotel in ${city} (confirmation ${booking.confirmation_code}), staying ${formatDate(booking.checkin)} to ${formatDate(booking.checkout)} (${nights} ${nights === 1 ? 'night' : 'nights'}). Please don't ask me about hotels — that's decided.`
+    setReviewIntent(`${already} Help me plan my trip — top restaurants, must-see sights, and a daily itinerary.`, booking.id)
+    router.navigate('/')
+  }, [booking, nights, router])
+
+  const tripTiles = [
+    { key: 'flights', icon: 'airplane' as const, label: t.dashboard.flights, active: false },
+    { key: 'restaurants', icon: 'restaurant' as const, label: t.dashboard.restaurants, active: true },
+    { key: 'tours', icon: 'map' as const, label: t.dashboard.tours, active: true },
+    { key: 'carRental', icon: 'car' as const, label: t.dashboard.carRental, active: false },
+    { key: 'insurance', icon: 'shield-checkmark' as const, label: t.dashboard.insurance, active: false },
+    { key: 'more', icon: 'ellipsis-horizontal' as const, label: t.dashboard.more, active: false },
+  ]
 
   const itemIcon = (type: ItineraryItemType): React.ComponentProps<typeof Ionicons>['name'] => {
     if (type === 'restaurant') return 'restaurant'
@@ -246,6 +265,46 @@ export default function BookingDetailScreen() {
                 <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
               </LinearGradient>
             </TouchableOpacity>
+          )}
+
+          {/* ── Add to trip ──────────────────────────────────────── */}
+          {!isCancelled && (
+            <>
+              <Text style={s.sectionTitle}>{t.dashboard.addToTrip}</Text>
+              <View style={s.addGrid}>
+                {tripTiles.map(tile => (
+                  <TouchableOpacity
+                    key={tile.key}
+                    style={[s.addTile, !tile.active && s.addTileInactive]}
+                    onPress={() => {
+                      if (tile.key === 'restaurants' || tile.key === 'tours') setTopicSheet(tile.key)
+                    }}
+                    disabled={!tile.active}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons
+                      name={tile.icon}
+                      size={18}
+                      color={tile.active ? Colors.primary : Colors.textLight}
+                    />
+                    <Text style={[s.addTileLabel, !tile.active && s.addTileLabelDim]}>
+                      {tile.label}
+                    </Text>
+                    <Text style={[s.addTileAction, !tile.active && s.addTileActionDim]}>
+                      {tile.active ? `${t.dashboard.askNea} →` : t.dashboard.comingSoon}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity style={s.planBar} onPress={handleAskNeaPlan} activeOpacity={0.8}>
+                <LinearGradient colors={Gradients.primaryFade} style={s.planBarInner}>
+                  <Ionicons name="sparkles" size={15} color="#fff" />
+                  <Text style={s.planBarText}>{t.dashboard.askNeaPlan}</Text>
+                  <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.8)" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
           )}
 
           {/* ── Trip plan — structured itinerary, not a chat transcript ── */}
@@ -350,6 +409,7 @@ export default function BookingDetailScreen() {
         visible={neaSheetVisible}
         onClose={() => setNeaSheetVisible(false)}
       />
+      <ItineraryTopicSheet booking={booking} topic={topicSheet} onClose={() => setTopicSheet(null)} />
     </SafeAreaView>
   )
 }
@@ -389,7 +449,7 @@ const s = StyleSheet.create({
     left: Spacing.md,
     width: 40, height: 40,
     borderRadius: Radius.full,
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center', justifyContent: 'center',
     ...Shadows.sm,
   },
@@ -476,6 +536,67 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: Spacing.lg,
     ...Shadows.sm,
+  },
+  addGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  addTile: {
+    width: '30%',
+    flexGrow: 1,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    alignItems: 'center',
+    gap: 4,
+  },
+  addTileInactive: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.border,
+  },
+  addTileLabel: {
+    ...Typography.caption,
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  addTileLabelDim: {
+    color: Colors.textLight,
+  },
+  addTileAction: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 10,
+    textAlign: 'center',
+  },
+  addTileActionDim: {
+    color: Colors.textLight,
+    fontWeight: '400',
+  },
+  planBar: {
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
+  },
+  planBarInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
+    gap: 8,
+  },
+  planBarText: {
+    ...Typography.button,
+    color: '#fff',
+    flex: 1,
+    textAlign: 'center',
   },
   neaBtnInner: {
     flexDirection: 'row',
