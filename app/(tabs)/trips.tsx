@@ -14,6 +14,7 @@ import { searchHotelsSync } from '../../lib/hotels'
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
 import { setReviewIntent } from '../../lib/explore-intent'
+import { ItineraryTopicSheet, type ItineraryTopic } from '../../components/trip/ItineraryTopicSheet'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 function formatDate(iso: string): string {
@@ -51,21 +52,16 @@ function TripCard({
   const days = daysUntil(booking.checkin)
   const city = booking.hotel.address?.split(',')[0] ?? booking.hotel.name
   const currencySymbol = booking.currency === 'EUR' ? '€' : booking.currency === 'USD' ? '$' : booking.currency
+  const [topicSheet, setTopicSheet] = useState<ItineraryTopic | null>(null)
 
-  const handleAskNea = useCallback((type: string) => {
+  const handleAskNeaPlan = useCallback(() => {
     const already = `I've already booked my hotel in ${city} (confirmation ${booking.confirmation_code}), staying ${formatDate(booking.checkin)} to ${formatDate(booking.checkout)} (${nights} ${nights === 1 ? 'night' : 'nights'}). Please don't ask me about hotels — that's decided.`
-    const messages: Record<string, string> = {
-      flights: `${already} Can you help me find flights from Skopje?`,
-      restaurants: `${already} What are the best restaurants I should try?`,
-      tours: `${already} What tours and activities should I book?`,
-      plan: `${already} Help me plan my trip — top restaurants, must-see sights, and a daily itinerary.`,
-    }
-    setReviewIntent(messages[type] ?? messages.plan, booking.id)
+    setReviewIntent(`${already} Help me plan my trip — top restaurants, must-see sights, and a daily itinerary.`, booking.id)
     router.navigate('/')
   }, [city, booking.checkin, booking.checkout, booking.confirmation_code, booking.id, nights, router])
 
   const tripTiles = [
-    { key: 'flights', icon: 'airplane' as const, label: t.dashboard.flights, active: true },
+    { key: 'flights', icon: 'airplane' as const, label: t.dashboard.flights, active: false },
     { key: 'restaurants', icon: 'restaurant' as const, label: t.dashboard.restaurants, active: true },
     { key: 'tours', icon: 'map' as const, label: t.dashboard.tours, active: true },
     { key: 'carRental', icon: 'car' as const, label: t.dashboard.carRental, active: false },
@@ -74,6 +70,7 @@ function TripCard({
   ]
 
   return (
+    <>
     <TouchableOpacity
       style={tripStyles.card}
       activeOpacity={0.92}
@@ -151,7 +148,9 @@ function TripCard({
             <TouchableOpacity
               key={tile.key}
               style={[tripStyles.tile, !tile.active && tripStyles.tileInactive]}
-              onPress={() => tile.active ? handleAskNea(tile.key) : undefined}
+              onPress={() => {
+                if (tile.key === 'restaurants' || tile.key === 'tours') setTopicSheet(tile.key)
+              }}
               disabled={!tile.active}
               activeOpacity={0.75}
             >
@@ -174,7 +173,7 @@ function TripCard({
       {/* Ask Nea to plan */}
       <TouchableOpacity
         style={tripStyles.planBar}
-        onPress={() => handleAskNea('plan')}
+        onPress={handleAskNeaPlan}
         activeOpacity={0.8}
       >
         <LinearGradient colors={Gradients.primaryFade} style={tripStyles.planBarInner}>
@@ -184,6 +183,8 @@ function TripCard({
         </LinearGradient>
       </TouchableOpacity>
     </TouchableOpacity>
+    <ItineraryTopicSheet booking={booking} topic={topicSheet} onClose={() => setTopicSheet(null)} />
+    </>
   )
 }
 

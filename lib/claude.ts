@@ -3,6 +3,7 @@ import { searchHotelsSync } from './hotels'
 import { fetchAllKnowledge } from './knowledge'
 import { getTravelProfile, saveTravelProfile } from './travel-profile'
 import { describeBookings } from './bookings-store'
+import type { ItineraryItemDraft, ItineraryItemType } from './itinerary-store'
 
 // ── System prompts ─────────────────────────────────────────────────
 
@@ -133,26 +134,103 @@ export async function sendFeedbackMessage(
   return runMessageLoop(apiKey, FEEDBACK_SYSTEM_PROMPT, messages, onToken, [])
 }
 
-// ── Itinerary summarization ──────────────────────────────────────────
+// ── Topic-scoped conversation (restaurants / tours) ──────────────────
+//
+// Dashboard tiles used to route flights/restaurants/tours into the same
+// shared chat thread as the main planner tab, so picking one topic then
+// another left the conversation reading like an interleaved mess. These
+// give restaurants/tours their own scoped conversation instead.
 
-const ITINERARY_SYSTEM_PROMPT = (language: 'mk' | 'en') => `You distill a travel-planning chat between a traveler and Nea, an AI travel advisor, into a short, clean itinerary summary.
+export type ItineraryTopic = 'restaurants' | 'tours'
 
-${language === 'mk' ? 'Reply in Macedonian (Cyrillic script).' : 'Reply in English.'}
+export interface TopicContext {
+  hotelName: string
+  city: string
+  checkin: string
+  checkout: string
+}
 
-Include only what was actually decided or agreed on: destination, dates, number of travelers, hotel/room if chosen, and any restaurants, tours, or sights the traveler confirmed interest in. Write one short line per item, each prefixed with one relevant emoji (📍 destination, 📅 dates, 👥 travelers, 🏨 hotel, 🍽️ restaurants, 🎟️ tours/activities, 📌 other confirmed plans). Do not include greetings, questions, back-and-forth, or anything still undecided. If nothing concrete was agreed yet, reply with one short sentence saying so — do not invent details.`
+function topicSystemPrompt(
+  topic: ItineraryTopic,
+  context: TopicContext,
+  language: 'mk' | 'en',
+  knowledge: string,
+): string {
+  const focus = topic === 'restaurants' ? 'restaurants' : 'tours, activities, and things to do'
+  const emoji = topic === 'restaurants' ? '🍽️' : '🎟️'
+  const langInstruction = language === 'mk'
+    ? 'ALWAYS reply in Macedonian (Cyrillic script) regardless of what language the traveler types in.'
+    : 'Always reply in English.'
 
-// Distills a chat transcript into a clean, saveable itinerary — not the raw conversation.
-export async function summarizeItinerary(
+  return `You are Nea, the AI travel advisor for Balkanea. This traveler has already booked their hotel — ${context.hotelName} in ${context.city}, ${context.checkin} to ${context.checkout}. That's decided; never suggest changing it or ask which hotel they want.
+
+This conversation is only about ${focus} for that trip. If the traveler asks about hotels, flights, or anything unrelated, gently say that's handled elsewhere in the app and steer back to ${focus}.
+
+Recommend specific, real places with one short reason each. Prefix each recommendation with ${emoji}. Use web_search when it would help (current hours, real reviews, current events). Keep replies concise — this is a mobile app. ${langInstruction}
+
+${knowledge}`.trim()
+}
+
+export async function sendTopicMessage(
+  messages: ChatMessage[],
+  onToken: (token: string) => void,
+  topic: ItineraryTopic,
+  context: TopicContext,
+  language: 'mk' | 'en' = 'en',
+): Promise<PlannerResponse> {
+  const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
+  if (!apiKey) return simulateTopicResponse(topic, onToken)
+
+  const knowledge = await fetchAllKnowledge()
+  const system = topicSystemPrompt(topic, context, language, knowledge ?? '')
+  return runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
+}
+
+async function simulateTopicResponse(
+  topic: ItineraryTopic,
+  onToken: (token: string) => void,
+): Promise<PlannerResponse> {
+  const reply = topic === 'restaurants'
+    ? "🍽️ Here are a few favourites nearby — tell me a price range or vibe (romantic, family, local) and I'll narrow it down."
+    : "🎟️ Here are a few popular options — let me know if you'd rather something relaxed or more active and I'll tailor it."
+  for (let i = 0; i < reply.length; i += 2) {
+    onToken(reply.slice(i, i + 2))
+    await new Promise<void>(r => setTimeout(r, 16))
+  }
+  return { type: 'message', content: reply }
+}
+
+// ── Structured itinerary extraction ───────────────────────────────────
+//
+// Used both by the main planner's "Ask Nea to plan your trip" flow and by
+// the topic-scoped sheets' "Add to trip" action. Returns dated line items
+// instead of a saved chat transcript, so the itinerary a traveler sees is
+// a real plan (with reservations they can review/remove), not a wall of text.
+
+const ITEMS_SYSTEM_PROMPT = (language: 'mk' | 'en') => `You extract concrete travel-itinerary items from a conversation between a traveler and Nea, an AI travel advisor, for a trip with an already-booked hotel.
+
+Only include restaurants, tours/activities, sights, or other plans the traveler showed real interest in, or that Nea recommended and the traveler didn't reject. Never include the hotel itself. Skip anything still undecided, greetings, or small talk.
+
+Respond with ONLY a JSON array (no other text), in this exact shape:
+[{"type":"restaurant","title":"...","description":"one short sentence","date":"YYYY-MM-DD or null"}]
+Valid "type" values: "restaurant", "tour", "sight", "note". Only set "date" if a specific day was clearly mentioned; otherwise use null.
+${language === 'mk' ? 'Write "title" and "description" in Macedonian (Cyrillic).' : 'Write "title" and "description" in English.'}
+If nothing concrete was discussed, respond with exactly: []`
+
+const VALID_ITEM_TYPES: ItineraryItemType[] = ['restaurant', 'tour', 'sight', 'note']
+
+export async function extractItineraryItems(
   messages: ChatMessage[],
   language: 'mk' | 'en' = 'en',
-): Promise<string> {
+): Promise<ItineraryItemDraft[]> {
   const transcript = messages
     .filter(m => m.content.trim().length > 0)
     .map(m => `${m.role === 'user' ? 'Traveler' : 'Nea'}: ${m.content}`)
     .join('\n\n')
+  if (!transcript) return []
 
   const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
-  if (!apiKey) return transcript // demo mode — no key to summarize with
+  if (!apiKey) return [] // demo mode — no model available to extract structured items
 
   try {
     const res = await fetch(CLAUDE_API_URL, {
@@ -164,17 +242,29 @@ export async function summarizeItinerary(
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 400,
-        system: ITINERARY_SYSTEM_PROMPT(language),
+        max_tokens: 800,
+        system: ITEMS_SYSTEM_PROMPT(language),
         messages: [{ role: 'user', content: transcript }],
       }),
     })
-    if (!res.ok) return transcript
+    if (!res.ok) return []
     const data = await res.json()
-    const text: string | undefined = data.content?.[0]?.text?.trim()
-    return text || transcript
+    const text: string = data.content?.[0]?.text?.trim() ?? '[]'
+    const raw = JSON.parse(text)
+    if (!Array.isArray(raw)) return []
+
+    return raw
+      .map((r: Record<string, unknown>): ItineraryItemDraft | null => {
+        const title = String(r?.title ?? '').trim().slice(0, 120)
+        if (!title) return null
+        const type = VALID_ITEM_TYPES.includes(r?.type as ItineraryItemType) ? (r.type as ItineraryItemType) : 'note'
+        const date = typeof r?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : undefined
+        const description = r?.description ? String(r.description).trim().slice(0, 400) : undefined
+        return { type, title, description, date }
+      })
+      .filter((i): i is ItineraryItemDraft => i !== null)
   } catch {
-    return transcript
+    return []
   }
 }
 

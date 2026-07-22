@@ -11,14 +11,14 @@ import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { VoiceHUD } from '../../components/VoiceHUD'
 import { SideMenu } from '../../components/SideMenu'
-import { sendMessage, summarizeItinerary } from '../../lib/claude'
+import { sendMessage, extractItineraryItems } from '../../lib/claude'
 import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
 import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
 import { describeTravelProfile } from '../../lib/travel-profile'
 import { describeBookings } from '../../lib/bookings-store'
-import { saveItinerary } from '../../lib/itinerary-store'
+import { addItineraryItems } from '../../lib/itinerary-store'
 import { getViewedHotels } from '../../lib/session-store'
 import { FormattedText } from '../../components/planner/FormattedText'
 import { LocaleSelector } from '../../components/LocaleSelector'
@@ -442,8 +442,8 @@ export default function SearchScreen() {
     if (!activeBookingId || savingItinerary) return
     setSavingItinerary(true)
     try {
-      const summary = await summarizeItinerary(messages, appLang)
-      saveItinerary(activeBookingId, summary)
+      const items = await extractItineraryItems(messages, appLang)
+      addItineraryItems(activeBookingId, items)
       Alert.alert(t.chat.itinerarySavedTitle, t.chat.itinerarySavedBody)
     } finally {
       setSavingItinerary(false)

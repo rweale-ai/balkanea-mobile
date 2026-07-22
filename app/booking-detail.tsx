@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import { getBooking, cancelBooking, subscribeToBookings, isValidDate } from '../lib/bookings-store'
-import { getItinerary } from '../lib/itinerary-store'
+import { getItinerary, removeItineraryItem, type ItineraryItemType } from '../lib/itinerary-store'
 import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
@@ -92,6 +92,9 @@ export default function BookingDetailScreen() {
   const isCancelled = booking?.status === 'cancelled'
   const isUpcoming = isConfirmed && !!booking && (!isValidDate(booking.checkin) || booking.checkin >= today)
   const isPast = isConfirmed && !isUpcoming
+  // Once a hotel is booked, that decision is made — reviews/Q&A only make
+  // sense while the booking is still being finalized (pending/locked).
+  const showHotelQA = !!booking && !isConfirmed && !isCancelled
 
   // Status badge
   const statusLabel = isCancelled
@@ -129,8 +132,8 @@ export default function BookingDetailScreen() {
   const handleRefineItinerary = useCallback(() => {
     if (!booking) return
     const city = booking.hotel.address?.split(',')[0] ?? booking.hotel.name
-    const prior = itinerary?.content
-      ? `\n\nHere's what we planned before:\n${itinerary.content}`
+    const prior = itinerary && itinerary.items.length > 0
+      ? `\n\nHere's what we planned before:\n${itinerary.items.map(i => `- ${i.title}${i.date ? ` (${formatDate(i.date)})` : ''}`).join('\n')}`
       : ''
     setReviewIntent(
       `I've already booked my hotel in ${city} (confirmation ${booking.confirmation_code}). I'd like to continue refining my trip itinerary.${prior}`,
@@ -138,6 +141,19 @@ export default function BookingDetailScreen() {
     )
     router.navigate('/')
   }, [booking, itinerary, router])
+
+  const handleRemoveItem = useCallback((itemId: string) => {
+    if (!booking) return
+    removeItineraryItem(booking.id, itemId)
+    setItinerary(getItinerary(booking.id))
+  }, [booking])
+
+  const itemIcon = (type: ItineraryItemType): React.ComponentProps<typeof Ionicons>['name'] => {
+    if (type === 'restaurant') return 'restaurant'
+    if (type === 'tour') return 'map'
+    if (type === 'sight') return 'location'
+    return 'sparkles'
+  }
 
   // ── Not found ──────────────────────────────────────────────────
   if (!booking) {
@@ -217,27 +233,62 @@ export default function BookingDetailScreen() {
             />
           </View>
 
-          {/* ── Ask Nea about this hotel ──────────────────────────── */}
-          <TouchableOpacity
-            style={s.neaBtn}
-            activeOpacity={0.8}
-            onPress={() => setNeaSheetVisible(true)}
-          >
-            <LinearGradient colors={['#FFF4E8', '#FFF8F2'] as const} style={s.neaBtnInner}>
-              <Ionicons name="sparkles" size={16} color={Colors.primary} />
-              <Text style={s.neaBtnText}>{t.hotel.askNeaAbout}</Text>
-              <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
-            </LinearGradient>
-          </TouchableOpacity>
+          {/* ── Ask Nea about this hotel — only while still deciding ── */}
+          {showHotelQA && (
+            <TouchableOpacity
+              style={s.neaBtn}
+              activeOpacity={0.8}
+              onPress={() => setNeaSheetVisible(true)}
+            >
+              <LinearGradient colors={['#FFF4E8', '#FFF8F2'] as const} style={s.neaBtnInner}>
+                <Ionicons name="sparkles" size={16} color={Colors.primary} />
+                <Text style={s.neaBtnText}>{t.hotel.askNeaAbout}</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
-          {/* ── Saved itinerary ────────────────────────────────────── */}
-          {itinerary && (
+          {/* ── Trip plan — structured itinerary, not a chat transcript ── */}
+          {!isCancelled && (
             <View style={s.itineraryCard}>
               <View style={s.itineraryHeader}>
                 <Ionicons name="map-outline" size={16} color={Colors.primary} />
                 <Text style={s.itineraryTitle}>{t.bookingDetail.savedItinerary}</Text>
               </View>
-              <Text style={s.itineraryPreview}>{itinerary.content}</Text>
+
+              {itinerary && itinerary.items.length > 0 ? (
+                <>
+                  {itinerary.items
+                    .slice()
+                    .sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'))
+                    .map(item => (
+                      <View key={item.id} style={s.itineraryItemRow}>
+                        <Ionicons name={itemIcon(item.type)} size={15} color={Colors.primary} style={s.itineraryItemIcon} />
+                        <View style={s.itineraryItemBody}>
+                          <Text style={s.itineraryItemTitle}>{item.title}</Text>
+                          {!!item.description && (
+                            <Text style={s.itineraryItemDesc}>{item.description}</Text>
+                          )}
+                          <Text style={s.itineraryItemDate}>
+                            {item.date ? formatDate(item.date) : t.bookingDetail.itineraryUnscheduled}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleRemoveItem(item.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="close" size={16} color={Colors.textLight} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                </>
+              ) : (
+                <>
+                  <Text style={s.itineraryEmptyTitle}>{t.bookingDetail.itineraryEmpty}</Text>
+                  <Text style={s.itineraryPreview}>{t.bookingDetail.itineraryEmptySub}</Text>
+                </>
+              )}
+
               <TouchableOpacity style={s.itineraryBtn} activeOpacity={0.8} onPress={handleRefineItinerary}>
                 <Text style={s.itineraryBtnText}>{t.bookingDetail.viewRefineItinerary}</Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
@@ -462,6 +513,46 @@ const s = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     lineHeight: 19,
+  },
+  itineraryEmptyTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  itineraryItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs + 2,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  itineraryItemIcon: {
+    marginTop: 2,
+  },
+  itineraryItemBody: {
+    flex: 1,
+    gap: 1,
+  },
+  itineraryItemTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  itineraryItemDesc: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  itineraryItemDate: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
   },
   itineraryBtn: {
     flexDirection: 'row',
