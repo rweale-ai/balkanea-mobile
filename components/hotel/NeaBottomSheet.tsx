@@ -10,15 +10,10 @@ import { useRouter } from 'expo-router'
 import type { Hotel, HotelSearchParams, ChatMessage } from '../../lib/types'
 import { sendMessage } from '../../lib/claude'
 import { getViewedHotels } from '../../lib/session-store'
-import { describeTravelProfile } from '../../lib/travel-profile'
-import { describeBookings } from '../../lib/bookings-store'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import { HotelComparisonCard } from './HotelComparisonCard'
 import { FormattedText } from '../planner/FormattedText'
-import { VoiceHUD } from '../VoiceHUD'
-import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
-import type { CallStatus, TranscriptEntry } from '../../lib/voice'
 
 type SheetMsg =
   | { role: 'user' | 'assistant'; content: string }
@@ -54,9 +49,6 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
   const [streamingText, setStreamingText] = useState('')
-  const [callStatus, setCallStatus] = useState<CallStatus>('idle')
-  const [agentTalking, setAgentTalking] = useState(false)
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
   const listRef = useRef<FlatList<SheetMsg>>(null)
   const loadedRef = useRef(false)
 
@@ -158,59 +150,6 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     })
   }, [onClose, router, searchParams])
 
-  const handleViewHotelFromVoice = useCallback((h: Hotel) => {
-    stopVoiceCall()
-    setCallStatus('idle')
-    setAgentTalking(false)
-    setTranscript([])
-    onClose()
-    router.push({
-      pathname: '/hotel-detail',
-      params: {
-        hotelId: h.hotel_id,
-        checkin: searchParams.checkin,
-        checkout: searchParams.checkout,
-        adults: String(searchParams.adults),
-        children: String(searchParams.children),
-        rooms: String(searchParams.rooms),
-        currency: searchParams.currency,
-        destination: searchParams.destination,
-      },
-    })
-  }, [onClose, router, searchParams])
-
-  const handleVoicePress = useCallback(async () => {
-    if (callStatus === 'active' || callStatus === 'connecting') {
-      setCallStatus('ending')
-      stopVoiceCall()
-      setAgentTalking(false)
-      // Fold the voice conversation into this sheet's own chat so it
-      // reads as one continuous conversation with Nea.
-      setTranscript(prevTranscript => {
-        if (prevTranscript.length > 0) {
-          const asSheetMsgs: SheetMsg[] = prevTranscript.map(entry => ({
-            role: entry.role === 'agent' ? 'assistant' as const : 'user' as const,
-            content: entry.content,
-          }))
-          setHistory(prev => [...prev, ...asSheetMsgs])
-        }
-        return []
-      })
-      return
-    }
-    const tripContext = [describeTravelProfile(), describeBookings(), `currently looking at ${hotel.name}`].filter(Boolean).join('; ')
-    await startVoiceCall(lang, {
-      onStatusChange: setCallStatus,
-      onAgentTalking: setAgentTalking,
-      onTranscriptUpdate: setTranscript,
-      onError: () => {
-        setCallStatus('idle')
-        setAgentTalking(false)
-        setTranscript([])
-      },
-    }, tripContext)
-  }, [callStatus, lang, hotel.name])
-
   const displayMessages = useMemo((): SheetMsg[] => {
     const base = history.length > 1 ? history.slice(1) : []
     if (streamingText) return [...base, { role: 'assistant', content: streamingText }]
@@ -226,7 +165,6 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
   )
 
   return (
-    <>
     <Modal
       visible={visible}
       transparent
@@ -351,19 +289,6 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
 
             {/* Input row */}
             <View style={[styles.inputRow, Platform.OS === 'android' && styles.inputRowAndroid]}>
-              <TouchableOpacity
-                style={styles.micBtn}
-                onPress={handleVoicePress}
-                activeOpacity={0.8}
-              >
-                <LinearGradient colors={Gradients.primaryFade} style={styles.sendGrad}>
-                  <Ionicons
-                    name={callStatus === 'active' ? 'stop-circle' : 'mic'}
-                    size={16}
-                    color="#fff"
-                  />
-                </LinearGradient>
-              </TouchableOpacity>
               <TextInput
                 style={styles.input}
                 value={inputText}
@@ -395,15 +320,6 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
         </View>
       </View>
     </Modal>
-    <VoiceHUD
-      transcript={transcript}
-      agentTalking={agentTalking}
-      callStatus={callStatus}
-      onEndCall={handleVoicePress}
-      hotel={hotel}
-      onViewHotel={handleViewHotelFromVoice}
-    />
-    </>
   )
 }
 
@@ -509,12 +425,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
     fontSize: 12,
-  },
-  micBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
   },
   compareChip: {
     flexDirection: 'row',

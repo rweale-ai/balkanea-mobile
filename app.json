@@ -11,7 +11,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.marraglobal.balkanea",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Balkanea uses your microphone to let you plan trips by voice with Nea.",
         "NSUserNotificationsUsageDescription": "Balkanea sends booking confirmations and check-in reminders.",
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -27,14 +26,10 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.marraglobal.balkanea",
       "permissions": [
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
         "INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.CAMERA",
         "android.permission.INTERNET",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WAKE_LOCK",
         "android.permission.BLUETOOTH",
@@ -50,8 +45,6 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "@livekit/react-native-expo-plugin",
-      "@config-plugins/react-native-webrtc",
       [
         "expo-notifications",
         {

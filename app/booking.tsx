@@ -13,6 +13,8 @@ import { syncBookingToSalesforce } from '../lib/salesforce'
 import { chargeCard } from '../lib/bank-payment'
 import { lockRoom, reconfirmBooking } from '../lib/ratehawk'
 import type { RoomLock } from '../lib/ratehawk'
+import { PaymentWebView } from '../components/PaymentWebView'
+import { PLACEHOLDER_CHECKOUT_URL } from '../lib/bank-payment-webview'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
 
@@ -213,6 +215,7 @@ export default function BookingScreen() {
   const [payState, setPayState] = useState<PayState>('idle')
   const [cardReady, setCardReady] = useState(false)
   const cardRef = useRef<CardCaptureHandle>(null)
+  const [showWebViewPreview, setShowWebViewPreview] = useState(false)
 
   // ── RateHawk room lock (holds the room before the guest pays) ────
   const [lock, setLock] = useState<RoomLock | null>(null)
@@ -513,6 +516,15 @@ export default function BookingScreen() {
           onValidChange={setCardReady}
         />
 
+        {/* Dev-only preview of the WebView payment container — not wired into
+            the real pay flow yet, see lib/bank-payment-webview.ts */}
+        {__DEV__ && (
+          <TouchableOpacity style={s.webviewPreviewBtn} onPress={() => setShowWebViewPreview(true)}>
+            <Ionicons name="globe-outline" size={14} color={Colors.textSecondary} />
+            <Text style={s.webviewPreviewBtnText}>Preview WebView payment (dev)</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 110 }} />
       </ScrollView>
 
@@ -549,6 +561,22 @@ export default function BookingScreen() {
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+
+      {__DEV__ && (
+        <PaymentWebView
+          visible={showWebViewPreview}
+          checkoutUrl={PLACEHOLDER_CHECKOUT_URL}
+          onCancel={() => setShowWebViewPreview(false)}
+          onSuccess={(raw) => {
+            setShowWebViewPreview(false)
+            Alert.alert('WebView preview — success', raw)
+          }}
+          onError={(message) => {
+            setShowWebViewPreview(false)
+            Alert.alert('WebView preview — error', message)
+          }}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -819,6 +847,22 @@ const s = StyleSheet.create({
     borderRadius: Radius.sm,
   },
   devBtnText: { ...Typography.caption, fontWeight: '700', fontSize: 11 },
+
+  // Dev-only WebView payment preview trigger
+  webviewPreviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.border,
+  },
+  webviewPreviewBtnText: { ...Typography.caption, color: Colors.textSecondary, fontWeight: '600' },
 
   // Pay bar
   payBar: {

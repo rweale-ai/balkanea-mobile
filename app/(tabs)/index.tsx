@@ -9,17 +9,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { VoiceHUD } from '../../components/VoiceHUD'
 import { SideMenu } from '../../components/SideMenu'
 import { sendMessage, extractItineraryItems } from '../../lib/claude'
-import { startVoiceCall, stopVoiceCall } from '../../lib/voice'
-import type { CallStatus, TranscriptEntry, AgentLang } from '../../lib/voice'
 import type { ChatMessage, ChatBlock, Hotel, HotelSearchParams } from '../../lib/types'
 import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-intent'
-import { describeTravelProfile } from '../../lib/travel-profile'
-import { describeBookings } from '../../lib/bookings-store'
 import { addItineraryItems } from '../../lib/itinerary-store'
-import { getViewedHotels } from '../../lib/session-store'
 import { FormattedText } from '../../components/planner/FormattedText'
 import { LocaleSelector } from '../../components/LocaleSelector'
 import type { CountryCode, CurrencyCode } from '../../lib/locale'
@@ -276,9 +270,6 @@ export default function SearchScreen() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [savingItinerary, setSavingItinerary] = useState(false)
-  const [callStatus, setCallStatus] = useState<CallStatus>('idle')
-  const [agentTalking, setAgentTalking] = useState(false)
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
   // Initialise country from the persisted app language so LocaleSelector
   // flag matches the language the user already selected
   const [country, setCountry] = useState<CountryCode>(() => appLang === 'mk' ? 'mk' : 'gb')
@@ -293,10 +284,6 @@ export default function SearchScreen() {
   useEffect(() => {
     setCountry(appLang === 'mk' ? 'mk' : 'gb')
   }, [appLang])
-
-  // Use appLang directly for Nea — don't derive from country so language
-  // is always consistent with what the user selected on the language screen
-  const lang: AgentLang = appLang
 
   const listRef = useRef<FlatList>(null)
   const inputRef = useRef<TextInput>(null)
@@ -367,7 +354,7 @@ export default function SearchScreen() {
     }
 
     const allMessages = [...messages, userMsg]
-    const response = await sendMessage(allMessages, onToken, lang)
+    const response = await sendMessage(allMessages, onToken, appLang)
 
     const blocks: ChatBlock[] = []
     if (response.type === 'hotels') {
@@ -396,48 +383,6 @@ export default function SearchScreen() {
 
   useEffect(() => { handleSendRef.current = handleSend }, [handleSend])
 
-  const handleVoicePress = useCallback(async () => {
-    if (callStatus === 'active' || callStatus === 'connecting') {
-      setCallStatus('ending')
-      stopVoiceCall()
-      setAgentTalking(false)
-      // Fold the voice conversation into the visible text chat so
-      // returning to chat continues seamlessly with the same context.
-      setTranscript(prevTranscript => {
-        if (prevTranscript.length > 0) {
-          const asChatMessages: ChatMessage[] = prevTranscript.map((entry, i) => ({
-            id: `voice-${Date.now()}-${i}`,
-            role: entry.role === 'agent' ? 'assistant' as const : 'user' as const,
-            content: entry.content,
-            timestamp: new Date(),
-          }))
-          setMessages(prev => [...prev, ...asChatMessages])
-        }
-        return []
-      })
-      return
-    }
-    await startVoiceCall(lang, {
-      onStatusChange: setCallStatus,
-      onAgentTalking: setAgentTalking,
-      onTranscriptUpdate: setTranscript,
-      onError: (msg) => {
-        setCallStatus('idle')
-        setAgentTalking(false)
-        setTranscript([])
-        const translated = msg.includes('not available') ? t.chat.voiceNotAvailable
-          : msg.includes('failed') ? t.chat.voiceFailed
-          : t.chat.voiceError
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: translated,
-          timestamp: new Date(),
-        }])
-      },
-    }, [describeTravelProfile(), describeBookings()].filter(Boolean).join('; '))
-  }, [callStatus, lang, t])
-
   const handleSaveItinerary = useCallback(async () => {
     if (!activeBookingId || savingItinerary) return
     setSavingItinerary(true)
@@ -465,15 +410,6 @@ export default function SearchScreen() {
       },
     })
   }, [currency, router])
-
-  const handleViewHotelFromVoice = useCallback((hotel: Hotel) => {
-    setCallStatus('ending')
-    stopVoiceCall()
-    setAgentTalking(false)
-    setTranscript([])
-    const params = getViewedHotels().find(v => v.hotel.hotel_id === hotel.hotel_id)?.params
-    handleHotelPress(hotel, params)
-  }, [handleHotelPress])
 
   type ListItem = { key: string; kind: 'message'; message: ChatMessage }
 
@@ -574,13 +510,6 @@ export default function SearchScreen() {
               <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => router.navigate('/trips')}>
                 <Ionicons name="briefcase-outline" size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={handleVoicePress}>
-                <Ionicons
-                  name={callStatus === 'active' ? 'stop-circle' : 'mic-outline'}
-                  size={20}
-                  color={callStatus === 'active' ? Colors.error : Colors.textSecondary}
-                />
-              </TouchableOpacity>
               <View style={{ flex: 1 }} />
               <TouchableOpacity
                 onPress={() => handleSend(input)}
@@ -600,14 +529,6 @@ export default function SearchScreen() {
         </View>
 
       </KeyboardAvoidingView>
-      <VoiceHUD
-        transcript={transcript}
-        agentTalking={agentTalking}
-        callStatus={callStatus}
-        onEndCall={handleVoicePress}
-        viewedHotels={getViewedHotels().map(v => v.hotel)}
-        onViewHotel={handleViewHotelFromVoice}
-      />
       <SideMenu
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
