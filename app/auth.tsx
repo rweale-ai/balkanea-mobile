@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   SafeAreaView, KeyboardAvoidingView, Platform, Alert, Image, ScrollView,
@@ -6,7 +6,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { signIn, signUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp } from '../lib/auth'
+import * as AppleAuthentication from 'expo-apple-authentication'
+import {
+  signIn, signUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
+  isAppleNativeSignInAvailable, signInWithAppleNative,
+} from '../lib/auth'
 import { setGuestMode } from '../lib/guest'
 import { useLang } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
@@ -29,6 +33,11 @@ export default function AuthScreen() {
   const [otpSent, setOtpSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [nativeAppleAvailable, setNativeAppleAvailable] = useState(false)
+
+  useEffect(() => {
+    isAppleNativeSignInAvailable().then(setNativeAppleAvailable)
+  }, [])
 
   const handleEmailSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -120,11 +129,29 @@ export default function AuthScreen() {
                 <Text style={styles.googleIcon}>G</Text>
                 <Text style={styles.socialText}>{t.auth.google}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}
-                onPress={async () => { try { await signInWithApple() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? t.auth.appleSignInFailed) } }}>
-                <Ionicons name="logo-apple" size={18} color={Colors.text} />
-                <Text style={styles.socialText}>{t.auth.apple}</Text>
-              </TouchableOpacity>
+              {nativeAppleAvailable ? (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={Radius.md}
+                  style={styles.socialBtnApple}
+                  onPress={async () => {
+                    try {
+                      await signInWithAppleNative()
+                    } catch (e: any) {
+                      if (e?.code !== 'ERR_REQUEST_CANCELED') {
+                        Alert.alert(t.auth.error, e?.message ?? t.auth.appleSignInFailed)
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}
+                  onPress={async () => { try { await signInWithApple() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? t.auth.appleSignInFailed) } }}>
+                  <Ionicons name="logo-apple" size={18} color={Colors.text} />
+                  <Text style={styles.socialText}>{t.auth.apple}</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.divider}>
@@ -312,6 +339,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12, borderRadius: Radius.md, backgroundColor: Colors.background,
     borderWidth: 1, borderColor: Colors.border,
   },
+  // AppleAuthenticationButton renders its own native chrome — backgroundColor/borderRadius
+  // on its style prop are ignored, so only layout properties belong here.
+  socialBtnApple: { flex: 1, height: 44 },
   googleIcon: { fontSize: 18, fontWeight: '700', color: '#4285F4' },
   socialText: { ...Typography.button, color: Colors.text, fontSize: 14 },
 

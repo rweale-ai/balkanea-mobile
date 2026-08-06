@@ -2,6 +2,7 @@ import { Platform } from 'react-native'
 import { supabase } from './supabase'
 import type { Session, User } from '@supabase/supabase-js'
 import * as WebBrowser from 'expo-web-browser'
+import * as AppleAuthentication from 'expo-apple-authentication'
 
 export type AuthUser = User
 export type AuthSession = Session
@@ -68,6 +69,41 @@ export async function signInWithApple() {
       }
     }
   }
+}
+
+// Native Sign in with Apple — required by App Store guideline 4.8 since the
+// app also offers Google sign-in. iOS only; other platforms fall back to
+// signInWithApple() above (browser-based OAuth).
+export async function isAppleNativeSignInAvailable(): Promise<boolean> {
+  if (Platform.OS !== 'ios') return false
+  return AppleAuthentication.isAvailableAsync()
+}
+
+export async function signInWithAppleNative() {
+  const credential = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+  })
+
+  if (!credential.identityToken) throw new Error('Apple did not return an identity token')
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'apple',
+    token: credential.identityToken,
+  })
+  if (error) throw error
+
+  // Apple only returns the user's name on their very first sign-in ever —
+  // capture it now or it's gone for good.
+  const { givenName, familyName } = credential.fullName ?? {}
+  if (givenName || familyName) {
+    const fullName = [givenName, familyName].filter(Boolean).join(' ')
+    await updateProfile({ full_name: fullName }).catch(() => { /* non-critical */ })
+  }
+
+  return data
 }
 
 export async function signInWithPhone(phone: string) {
