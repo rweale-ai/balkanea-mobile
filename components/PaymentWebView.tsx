@@ -3,35 +3,32 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, SafeAreaView, Platform,
 } from 'react-native'
-import { WebView, WebViewNavigation } from 'react-native-webview'
+import { WebView } from 'react-native-webview'
 import { Ionicons } from '@expo/vector-icons'
 import { Colors, Spacing, Typography } from '../constants/theme'
-import { parsePaymentReturnUrl } from '../lib/bank-payment-webview'
 
 interface PaymentWebViewProps {
   visible: boolean
   checkoutUrl: string
-  onSuccess: (raw: string) => void
-  onCancel: () => void
+  /** Guest taps close before the bridge status endpoint reports a terminal result. */
+  onClose: () => void
+  /** The WebView itself failed to load (network/DNS) — not a payment outcome. */
   onError: (message: string) => void
 }
 
 // Hosts the bank's checkout page in-app. The bank owns the card fields
-// entirely — this component never sees card data, only the return
-// navigation once the customer finishes on the bank's page.
-export function PaymentWebView({ visible, checkoutUrl, onSuccess, onCancel, onError }: PaymentWebViewProps) {
+// entirely — this component never sees card data.
+//
+// This does NOT detect payment success/failure itself. The confirmed bridge
+// contract (see lib/bank-payment-webview.ts) redirects through several
+// same-domain WooCommerce pages with no custom URL scheme to intercept — the
+// caller is responsible for polling lib/payment-status.ts's status endpoint
+// in parallel and closing this modal once that reports a terminal result.
+export function PaymentWebView({ visible, checkoutUrl, onClose, onError }: PaymentWebViewProps) {
   const [loading, setLoading] = useState(true)
 
-  const handleShouldStartLoad = (request: WebViewNavigation) => {
-    const result = parsePaymentReturnUrl(request.url)
-    if (result.kind === 'success') { onSuccess(result.raw); return false }
-    if (result.kind === 'cancel') { onCancel(); return false }
-    if (result.kind === 'error') { onError(result.raw); return false }
-    return true
-  }
-
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onCancel}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={s.safe}>
         <View style={s.header}>
           <View style={s.headerTitleWrap}>
@@ -40,7 +37,7 @@ export function PaymentWebView({ visible, checkoutUrl, onSuccess, onCancel, onEr
           </View>
           <TouchableOpacity
             style={s.closeBtn}
-            onPress={onCancel}
+            onPress={onClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="close" size={22} color={Colors.textSecondary} />
@@ -64,7 +61,6 @@ export function PaymentWebView({ visible, checkoutUrl, onSuccess, onCancel, onEr
             <WebView
               source={{ uri: checkoutUrl }}
               style={s.webview}
-              onShouldStartLoadWithRequest={handleShouldStartLoad}
               onLoadStart={() => setLoading(true)}
               onLoadEnd={() => setLoading(false)}
               onError={(e) => onError(e.nativeEvent.description || 'Failed to load payment page')}

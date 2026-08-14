@@ -76,6 +76,11 @@ export interface Booking {
   guest_name: string
   guest_email: string
   guest_phone: string
+  // Gateway payment tracking (see lib/payment-intent.ts) — optional because
+  // rows created before migration 004_payment_tracking.sql won't have them.
+  payment_reference?: string
+  payment_state?: 'preauth_pending' | 'preauth_done' | 'captured' | 'voided' | 'failed'
+  gateway_transaction_id?: string
 }
 
 export interface Destination {

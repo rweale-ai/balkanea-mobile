@@ -10,7 +10,8 @@ import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { addBooking } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
-import { chargeCard } from '../lib/bank-payment'
+import { activeGateway } from '../lib/payment-gateway'
+import { getOrCreateIntent, updateIntent } from '../lib/payment-intent'
 import { lockRoom, reconfirmBooking } from '../lib/ratehawk'
 import type { RoomLock } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
@@ -317,16 +318,37 @@ export default function BookingScreen() {
 
     setPayState('processing')
 
-    const result = await chargeCard({
-      amount: isMKD ? Math.round(room.total_price * MKD_RATE) : room.total_price,
-      currency: isMKD ? 'MKD' : 'EUR',
+    const amount = isMKD ? Math.round(room.total_price * MKD_RATE) : room.total_price
+    const payCurrency = isMKD ? 'MKD' : 'EUR'
+    // Reference is derived from the room lock, not generated fresh here — a
+    // retry after this screen was backgrounded reuses the same gateway
+    // transaction instead of risking a double charge.
+    const intent = await getOrCreateIntent(lock.lockId, amount, payCurrency)
+
+    const result = await activeGateway.createCheckoutSession({
+      reference: intent.reference,
+      amount,
+      currency: payCurrency,
       simulateDecline: cardRef.current?.isDeclineDemo() ?? false,
     })
 
-    if (result.success === false) {
+    if (result.kind === 'hosted-webview') {
+      // Not reachable while activeGateway = simulatedGateway (lib/payment-gateway.ts).
+      // Wiring PaymentWebView + lib/payment-status.ts polling up to this
+      // branch is pending the backend's order-creation step, still unconfirmed
+      // (see docs/bankart-payment-config.md in the Chat repo).
+      await updateIntent(intent.reference, { state: 'failed' })
+      setPayState('declined')
+      return
+    }
+
+    if (!result.success) {
+      await updateIntent(intent.reference, { state: 'failed' })
       setPayState(result.reason === 'network' ? 'network' : 'declined')
       return
     }
+
+    await updateIntent(intent.reference, { state: 'captured', gatewayTransactionId: result.transactionId })
 
     // Bank charge succeeded — tell RateHawk the hold is now a real booking
     // before creating the local record and syncing to Salesforce.
@@ -349,6 +371,9 @@ export default function BookingScreen() {
         guest_name: fullName.trim(),
         guest_email: email.trim(),
         guest_phone: phone.trim(),
+        payment_reference: intent.reference,
+        payment_state: 'captured',
+        gateway_transaction_id: result.transactionId,
       })
 
       syncBookingToSalesforce({
@@ -566,11 +591,7 @@ export default function BookingScreen() {
         <PaymentWebView
           visible={showWebViewPreview}
           checkoutUrl={PLACEHOLDER_CHECKOUT_URL}
-          onCancel={() => setShowWebViewPreview(false)}
-          onSuccess={(raw) => {
-            setShowWebViewPreview(false)
-            Alert.alert('WebView preview — success', raw)
-          }}
+          onClose={() => setShowWebViewPreview(false)}
           onError={(message) => {
             setShowWebViewPreview(false)
             Alert.alert('WebView preview — error', message)

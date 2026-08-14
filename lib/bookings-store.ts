@@ -51,6 +51,9 @@ function rowToBooking(row: Record<string, any>): Booking {
     guest_name: row.guest_name,
     guest_email: row.guest_email,
     guest_phone: row.guest_phone ?? '',
+    payment_reference: row.payment_reference ?? undefined,
+    payment_state: row.payment_state ?? undefined,
+    gateway_transaction_id: row.gateway_transaction_id ?? undefined,
   }
 }
 
@@ -80,6 +83,9 @@ function bookingToInsert(b: Booking & { confirmation_code: string; status: Booki
     guest_email: b.guest_email,
     guest_phone: b.guest_phone,
     salesforce_synced: false,
+    payment_reference: b.payment_reference ?? null,
+    payment_state: b.payment_state ?? null,
+    gateway_transaction_id: b.gateway_transaction_id ?? null,
   }
 }
 
@@ -95,11 +101,20 @@ async function loadFromSupabase(): Promise<Booking[]> {
 }
 
 async function insertToSupabase(b: Booking, userId: string): Promise<Booking | null> {
-  const { data, error } = await supabase
-    .from('bookings')
-    .insert(bookingToInsert(b, userId))
-    .select()
-    .single()
+  const insertRow = bookingToInsert(b, userId)
+  let { data, error } = await supabase.from('bookings').insert(insertRow).select().single()
+
+  // payment_reference/payment_state/gateway_transaction_id require migration
+  // 004_payment_tracking.sql. Until that's run in Supabase, PostgREST rejects
+  // the insert with an unknown-column error (42703) — retry without those
+  // fields rather than losing the whole booking over pending payment-tracking
+  // columns the guest's booking doesn't strictly need.
+  if (error?.code === '42703') {
+    const { payment_reference, payment_state, gateway_transaction_id, ...fallbackRow } = insertRow
+    console.warn('bookings-store: payment tracking columns missing (run migration 004), inserting without them')
+    ;({ data, error } = await supabase.from('bookings').insert(fallbackRow).select().single())
+  }
+
   if (error || !data) {
     console.warn('bookings-store: insert failed', error?.message)
     return null
