@@ -1,47 +1,45 @@
-// Polls the "Balkanea Mobile Payment Bridge" status endpoint. This is the
-// documented reliable channel for learning a payment's outcome — see
-// lib/bank-payment-webview.ts for why WebView navigation events aren't
-// sufficient on their own.
-//
-// Confirmed response shape (balkanea-mobile-bridge-documentation.txt §9,
-// verified live 2026-08-13 against stage.staging.balkanea.com order #20592682):
-//   { order_id, wc_status, bridge_status: 'pending'|'success'|'failed', is_terminal, total, currency, invoice_num }
+// Polls our own Supabase `bookings` row for a terminal `payment_state`.
+// This is the reliable channel for learning a payment's outcome — the
+// WebView bridge callback (components/PaymentWebView.tsx) is same-device
+// UX feedback only, per the "Balkanea Payment Bridge" plugin doc §5-6. The
+// row itself is only ever updated server-side by api/payment-notify.js
+// (Chat repo), never by the app — this just watches it change.
 
-export interface OrderStatus {
-  order_id: number
-  wc_status: string
-  bridge_status: 'pending' | 'success' | 'failed'
-  is_terminal: boolean
-  total: string
-  currency: string
-  invoice_num: string
-}
+import { supabase } from './supabase'
+import { getBooking } from './bookings-store'
+import type { Booking } from './types'
 
 const POLL_MS = 3000
-const MAX_TRIES = 200 // ~10 min ceiling, matches the plugin doc's own recommendation
-
-export function buildStatusUrl(baseUrl: string, orderId: number | string, orderKey: string): string {
-  return `${baseUrl}/wp-json/balkanea/v1/order-status?order_id=${orderId}&key=${encodeURIComponent(orderKey)}`
-}
-
-async function fetchStatus(statusUrl: string): Promise<OrderStatus | null> {
-  const res = await fetch(statusUrl)
-  if (res.status === 404) return null // bad order id / key mismatch
-  if (!res.ok) throw new Error(`Status check failed: ${res.status}`)
-  return res.json()
-}
+const MAX_TRIES = 200 // ~10 min ceiling, matches the old bridge doc's own recommendation
 
 export interface PollHandle {
   stop: () => void
 }
 
-// Polls until is_terminal, onUpdate fires on every tick (including
-// non-terminal ones) so the caller can show a "still processing" state.
-// Returns a handle so the caller can cancel early (e.g. guest closes the
-// WebView manually).
-export function pollOrderStatus(
-  statusUrl: string,
-  onUpdate: (status: OrderStatus) => void,
+async function fetchPaymentState(bookingId: string): Promise<Booking['payment_state'] | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    // Guest / local-only booking — nothing server-side can update this row,
+    // so there's no point polling. Caller should treat this as terminal.
+    return getBooking(bookingId)?.payment_state ?? null
+  }
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('payment_state')
+    .eq('id', bookingId)
+    .single()
+
+  if (error || !data) return null
+  return data.payment_state
+}
+
+// Polls until payment_state is 'captured' or 'failed'. onUpdate fires on
+// every tick (including non-terminal ones). Returns a handle so the caller
+// can cancel early (e.g. guest closes the WebView manually).
+export function pollBookingPaymentState(
+  bookingId: string,
+  onUpdate: (state: Booking['payment_state']) => void,
   onError: (message: string) => void,
 ): PollHandle {
   let cancelled = false
@@ -52,16 +50,16 @@ export function pollOrderStatus(
     tries += 1
 
     try {
-      const status = await fetchStatus(statusUrl)
+      const state = await fetchPaymentState(bookingId)
       if (cancelled) return
 
-      if (!status) {
-        onError('Payment link is invalid or expired')
+      if (!state) {
+        onError('Could not check payment status')
         return
       }
 
-      onUpdate(status)
-      if (status.is_terminal) return
+      onUpdate(state)
+      if (state === 'captured' || state === 'failed') return
 
       if (tries >= MAX_TRIES) {
         onError('Timed out waiting for payment confirmation')

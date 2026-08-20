@@ -177,9 +177,9 @@ export function isValidDate(d: string): boolean {
 
 export async function addBooking(
   booking: Omit<Booking, 'id' | 'booked_at' | 'confirmation_code' | 'status'>,
+  status: Booking['status'] = 'confirmed',
 ): Promise<Booking> {
   const confirmation_code = generateConfirmationCode()
-  const status: Booking['status'] = 'confirmed'
   const { data: { session } } = await supabase.auth.getSession()
 
   if (session) {
@@ -212,6 +212,37 @@ export async function addBooking(
   await persistLocal(cache)
   scheduleBookingNotifications(newBooking)
   return newBooking
+}
+
+// A booking row has to exist (status 'pending', payment_reference set)
+// before a payment link is created, so api/payment-notify.js has something
+// to find and update — see docs/bankart-payment-config.md in the Chat repo.
+export async function createPendingBooking(
+  booking: Omit<Booking, 'id' | 'booked_at' | 'confirmation_code' | 'status'>,
+): Promise<Booking> {
+  return addBooking(booking, 'pending')
+}
+
+// Applied after the WebView closes, from lib/payment-status.ts's poll of
+// this same row (which payment-notify.js updates server-side) — never from
+// the WebView bridge callback itself, that's UX-only per the plugin doc.
+export async function updateBookingStatus(
+  id: string,
+  patch: Partial<Pick<Booking, 'status' | 'payment_state' | 'gateway_transaction_id'>>,
+): Promise<void> {
+  const booking = cache.find(b => b.id === id)
+  if (booking) {
+    Object.assign(booking, patch)
+    notify()
+  }
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    const { error } = await supabase.from('bookings').update(patch).eq('id', id)
+    if (error) console.warn('bookings-store: updateBookingStatus failed', error.message)
+  } else {
+    await persistLocal(cache)
+  }
 }
 
 export function cancelBooking(id: string): void {

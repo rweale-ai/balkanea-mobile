@@ -8,16 +8,18 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
-import { addBooking } from '../lib/bookings-store'
+import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { activeGateway } from '../lib/payment-gateway'
+import { supabase } from '../lib/supabase'
 import { getOrCreateIntent, updateIntent } from '../lib/payment-intent'
+import { pollBookingPaymentState } from '../lib/payment-status'
 import { lockRoom, reconfirmBooking } from '../lib/ratehawk'
 import type { RoomLock } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
-import { PLACEHOLDER_CHECKOUT_URL } from '../lib/bank-payment-webview'
+import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
-import type { Hotel, RoomType } from '../lib/types'
+import type { Hotel, RoomType, Booking } from '../lib/types'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -218,6 +220,15 @@ export default function BookingScreen() {
   const cardRef = useRef<CardCaptureHandle>(null)
   const [showWebViewPreview, setShowWebViewPreview] = useState(false)
 
+  // Real hosted-webview payment flow (lib/payment-gateway.ts's
+  // hostedWebviewGateway). pendingBookingRef survives retries within this
+  // screen session so a decline doesn't leave orphaned duplicate booking
+  // rows sharing the same payment_reference — see lib/bookings-store.ts.
+  const [paymentWebViewVisible, setPaymentWebViewVisible] = useState(false)
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
+  const pendingBookingRef = useRef<Booking | null>(null)
+  const pollHandleRef = useRef<{ stop: () => void } | null>(null)
+
   // ── RateHawk room lock (holds the room before the guest pays) ────
   const [lock, setLock] = useState<RoomLock | null>(null)
   const [lockState, setLockState] = useState<LockState>('locking')
@@ -310,11 +321,63 @@ export default function BookingScreen() {
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
 
+  // Shared tail for both gateways once the charge is actually confirmed:
+  // tell RateHawk the hold is now a real booking, sync to Salesforce, navigate.
+  const finalizeConfirmedBooking = async (booking: Booking) => {
+    setPayState('confirming')
+    await reconfirmBooking(lock!.lockId)
+
+    syncBookingToSalesforce({
+      guestName: fullName.trim(),
+      guestEmail: email.trim(),
+      guestPhone: phone.trim(),
+      hotelName: hotel!.name,
+      destination: params.destination ?? '',
+      checkin: params.checkin,
+      checkout: params.checkout,
+      totalPrice: room!.total_price,
+      currency,
+      confirmationCode: booking.confirmation_code,
+    }).catch(() => { /* fire-and-forget */ })
+
+    router.replace({ pathname: '/booking-confirmed', params: { id: booking.id } })
+  }
+
   const handlePay = async () => {
     if (!canPay || !lock) return
 
     if (!fullName.trim()) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
+
+    // The real gateway needs a Supabase row payment-notify.js can find and
+    // update — a guest's pending booking only ever lives in on-device
+    // AsyncStorage (lib/bookings-store.ts), which the webhook can't see, so
+    // it would never resolve. Gate here, before anything is created —
+    // navigating to /auth unmounts this screen, which would otherwise leave
+    // an orphaned pending booking / half-consumed room lock behind.
+    if (activeGateway.id === 'hosted-webview') {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push({
+          pathname: '/auth',
+          params: {
+            returnTo: 'booking',
+            prefillName: fullName.trim(),
+            prefillEmail: email.trim(),
+            hotelId: params.hotelId,
+            roomId: params.roomId,
+            checkin: params.checkin,
+            checkout: params.checkout,
+            adults: params.adults ?? '2',
+            children: params.children ?? '0',
+            rooms: params.rooms ?? '1',
+            currency: params.currency ?? 'EUR',
+            destination: params.destination ?? '',
+          },
+        })
+        return
+      }
+    }
 
     setPayState('processing')
 
@@ -325,20 +388,85 @@ export default function BookingScreen() {
     // transaction instead of risking a double charge.
     const intent = await getOrCreateIntent(lock.lockId, amount, payCurrency)
 
+    const [firstName, ...lastParts] = fullName.trim().split(/\s+/)
+
     const result = await activeGateway.createCheckoutSession({
       reference: intent.reference,
       amount,
       currency: payCurrency,
+      guest: { firstName, lastName: lastParts.join(' '), email: email.trim(), phone: phone.trim() },
       simulateDecline: cardRef.current?.isDeclineDemo() ?? false,
     })
 
     if (result.kind === 'hosted-webview') {
-      // Not reachable while activeGateway = simulatedGateway (lib/payment-gateway.ts).
-      // Wiring PaymentWebView + lib/payment-status.ts polling up to this
-      // branch is pending the backend's order-creation step, still unconfirmed
-      // (see docs/bankart-payment-config.md in the Chat repo).
-      await updateIntent(intent.reference, { state: 'failed' })
-      setPayState('declined')
+      if ('error' in result) {
+        await updateIntent(intent.reference, { state: 'failed' })
+        setPayState('network')
+        return
+      }
+
+      try {
+        // A booking row has to exist before opening the WebView so
+        // api/payment-notify.js has something to find — see
+        // docs/bankart-payment-config.md. Reused across retries on this
+        // screen (pendingBookingRef) so a decline doesn't leave duplicate
+        // rows sharing the same payment_reference.
+        if (!pendingBookingRef.current) {
+          pendingBookingRef.current = await createPendingBooking({
+            hotel,
+            room,
+            checkin: params.checkin,
+            checkout: params.checkout,
+            guests: {
+              adults: parseInt(params.adults ?? '2', 10),
+              children: parseInt(params.children ?? '0', 10),
+            },
+            rooms: parseInt(params.rooms ?? '1', 10),
+            total_price: room.total_price,
+            currency,
+            guest_name: fullName.trim(),
+            guest_email: email.trim(),
+            guest_phone: phone.trim(),
+            payment_reference: intent.reference,
+            payment_state: 'preauth_pending',
+          })
+        } else {
+          await updateBookingStatus(pendingBookingRef.current.id, { payment_state: 'preauth_pending' })
+        }
+      } catch {
+        setPayState('idle')
+        Alert.alert(t.common.error, t.common.somethingWentWrong)
+        return
+      }
+
+      setCheckoutUrl(result.checkoutUrl)
+      setPaymentWebViewVisible(true)
+
+      const bookingId = pendingBookingRef.current.id
+      pollHandleRef.current?.stop()
+      pollHandleRef.current = pollBookingPaymentState(
+        bookingId,
+        async (state) => {
+          if (state === 'captured') {
+            pollHandleRef.current = null
+            await updateIntent(intent.reference, { state: 'captured' })
+            await updateBookingStatus(bookingId, { status: 'confirmed', payment_state: 'captured' })
+            await finalizeConfirmedBooking({ ...pendingBookingRef.current!, status: 'confirmed', payment_state: 'captured' })
+          } else if (state === 'failed') {
+            pollHandleRef.current = null
+            await updateIntent(intent.reference, { state: 'failed' })
+            await updateBookingStatus(bookingId, { payment_state: 'failed' })
+            setPaymentWebViewVisible(false)
+            setPayState('declined')
+          }
+        },
+        (message) => {
+          pollHandleRef.current = null
+          setPaymentWebViewVisible(false)
+          setPayState('network')
+          console.warn('payment poll error:', message)
+        },
+      )
       return
     }
 
@@ -349,11 +477,6 @@ export default function BookingScreen() {
     }
 
     await updateIntent(intent.reference, { state: 'captured', gatewayTransactionId: result.transactionId })
-
-    // Bank charge succeeded — tell RateHawk the hold is now a real booking
-    // before creating the local record and syncing to Salesforce.
-    setPayState('confirming')
-    await reconfirmBooking(lock.lockId)
 
     try {
       const newBooking = await addBooking({
@@ -376,20 +499,7 @@ export default function BookingScreen() {
         gateway_transaction_id: result.transactionId,
       })
 
-      syncBookingToSalesforce({
-        guestName: fullName.trim(),
-        guestEmail: email.trim(),
-        guestPhone: phone.trim(),
-        hotelName: hotel.name,
-        destination: params.destination ?? '',
-        checkin: params.checkin,
-        checkout: params.checkout,
-        totalPrice: room.total_price,
-        currency,
-        confirmationCode: newBooking.confirmation_code,
-      }).catch(() => { /* fire-and-forget */ })
-
-      router.replace({ pathname: '/booking-confirmed', params: { id: newBooking.id } })
+      await finalizeConfirmedBooking(newBooking)
     } catch {
       setPayState('idle')
       Alert.alert(t.common.error, t.common.somethingWentWrong)
@@ -541,8 +651,9 @@ export default function BookingScreen() {
           onValidChange={setCardReady}
         />
 
-        {/* Dev-only preview of the WebView payment container — not wired into
-            the real pay flow yet, see lib/bank-payment-webview.ts */}
+        {/* Dev-only preview of the WebView payment container against a
+            placeholder URL — separate from the real instance below, which
+            only opens once handlePay has a signed card_url. */}
         {__DEV__ && (
           <TouchableOpacity style={s.webviewPreviewBtn} onPress={() => setShowWebViewPreview(true)}>
             <Ionicons name="globe-outline" size={14} color={Colors.textSecondary} />
@@ -586,6 +697,34 @@ export default function BookingScreen() {
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+
+      <PaymentWebView
+        visible={paymentWebViewVisible && !!checkoutUrl}
+        checkoutUrl={checkoutUrl ?? PLACEHOLDER_CHECKOUT_URL}
+        onClose={() => {
+          // Guest closed manually before a terminal result arrived. The
+          // Notify relay (server-side) will still resolve the booking even
+          // without the app watching — this just stops polling and lets
+          // them retry from this screen; retry reuses the same booking row.
+          pollHandleRef.current?.stop()
+          pollHandleRef.current = null
+          setPaymentWebViewVisible(false)
+          setPayState('idle')
+        }}
+        onError={(message) => {
+          pollHandleRef.current?.stop()
+          pollHandleRef.current = null
+          setPaymentWebViewVisible(false)
+          setPayState('network')
+          console.warn('PaymentWebView load error:', message)
+        }}
+        onResult={() => {
+          // UX-only bridge signal, not proof of payment (see
+          // components/PaymentWebView.tsx) — dismiss the page and let the
+          // poll (already running) drive the actual outcome.
+          setPaymentWebViewVisible(false)
+        }}
+      />
 
       {__DEV__ && (
         <PaymentWebView

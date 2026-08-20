@@ -3,29 +3,52 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, SafeAreaView, Platform,
 } from 'react-native'
-import { WebView } from 'react-native-webview'
+import { WebView, WebViewMessageEvent } from 'react-native-webview'
 import { Ionicons } from '@expo/vector-icons'
 import { Colors, Spacing, Typography } from '../constants/theme'
+
+// Shape of the JS bridge payload the payment page posts via
+// window.ReactNativeWebView.postMessage(...) — "Balkanea Payment Bridge"
+// plugin doc §5. camelCase, not snake_case — trips people up per the doc.
+export interface PaymentBridgeResult {
+  orderId: string
+  bridgeStatus: 'success' | 'failed'
+  errorCode?: number
+  message?: string
+}
 
 interface PaymentWebViewProps {
   visible: boolean
   checkoutUrl: string
-  /** Guest taps close before the bridge status endpoint reports a terminal result. */
+  /** Guest taps close before a terminal result arrives. */
   onClose: () => void
   /** The WebView itself failed to load (network/DNS) — not a payment outcome. */
   onError: (message: string) => void
+  /**
+   * Same-device bridge callback — UX feedback only, per doc §5-6. Do NOT
+   * treat this as proof of payment: it can be spoofed, delayed, or never
+   * fire. The caller should already be polling lib/payment-status.ts in
+   * parallel and treat that as the actual source of truth.
+   */
+  onResult?: (result: PaymentBridgeResult) => void
 }
 
-// Hosts the bank's checkout page in-app. The bank owns the card fields
-// entirely — this component never sees card data.
-//
-// This does NOT detect payment success/failure itself. The confirmed bridge
-// contract (see lib/bank-payment-webview.ts) redirects through several
-// same-domain WooCommerce pages with no custom URL scheme to intercept — the
-// caller is responsible for polling lib/payment-status.ts's status endpoint
-// in parallel and closing this modal once that reports a terminal result.
-export function PaymentWebView({ visible, checkoutUrl, onClose, onError }: PaymentWebViewProps) {
+// Hosts the payment page in-app. The page owns card entry, 3-D Secure, and
+// tokenization entirely (Bankart's payment.js) — this component never sees
+// card data.
+export function PaymentWebView({ visible, checkoutUrl, onClose, onError, onResult }: PaymentWebViewProps) {
   const [loading, setLoading] = useState(true)
+
+  const handleMessage = (event: WebViewMessageEvent) => {
+    try {
+      const payload: PaymentBridgeResult = JSON.parse(event.nativeEvent.data)
+      if (payload.bridgeStatus === 'success' || payload.bridgeStatus === 'failed') {
+        onResult?.(payload)
+      }
+    } catch {
+      // Not a bridge message we understand — ignore, don't crash the WebView.
+    }
+  }
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -61,9 +84,12 @@ export function PaymentWebView({ visible, checkoutUrl, onClose, onError }: Payme
             <WebView
               source={{ uri: checkoutUrl }}
               style={s.webview}
+              javaScriptEnabled
+              domStorageEnabled
               onLoadStart={() => setLoading(true)}
               onLoadEnd={() => setLoading(false)}
               onError={(e) => onError(e.nativeEvent.description || 'Failed to load payment page')}
+              onMessage={handleMessage}
             />
 
             {loading && (
