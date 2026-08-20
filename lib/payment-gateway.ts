@@ -59,8 +59,8 @@ export const hostedWebviewGateway: PaymentGateway = {
   },
 }
 
-// Flip to hostedWebviewGateway once BANKART_LINK_SECRET + the Notify URL
-// are confirmed with Hristijan (see docs/bankart-payment-config.md).
-export const activeGateway: PaymentGateway = simulatedGateway
+// BANKART_LINK_SECRET + Notify URL confirmed live 2026-08-20 (see
+// docs/bankart-payment-config.md in the Chat repo) — real gateway active.
+export const activeGateway: PaymentGateway = hostedWebviewGateway
 
 export { referenceForLock }
