@@ -595,6 +595,8 @@ export default function BookingScreen() {
               placeholder="+389 70 123 456"
               placeholderTextColor={Colors.textLight}
               keyboardType="phone-pad"
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               editable={!busy}
               textContentType="telephoneNumber"
               autoComplete="tel"
@@ -634,6 +636,9 @@ export default function BookingScreen() {
           <View style={s.errorBanner}>
             <Ionicons name="alert-circle" size={16} color={Colors.error} />
             <Text style={s.errorBannerText}>{t.booking.declined}</Text>
+            <TouchableOpacity onPress={handleRetry} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.common.retry}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
