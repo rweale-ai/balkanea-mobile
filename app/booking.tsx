@@ -316,7 +316,11 @@ export default function BookingScreen() {
     )
   }
 
-  const canPay = cardReady && !!fullName.trim() && !!email.trim() && payState === 'idle' && lockState === 'held'
+  // Card entry only happens in-app for the simulated demo gateway — the
+  // real gateway collects the card on Bankart's own WebView page, so
+  // there's nothing here for the guest to fill in or for canPay to gate on.
+  const isSimulated = activeGateway.id === 'simulated'
+  const canPay = (!isSimulated || cardReady) && !!fullName.trim() && !!email.trim() && payState === 'idle' && lockState === 'held'
   const payLabel = t.booking.payNow + ' ' + formatPrice(room.total_price)
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
@@ -644,12 +648,23 @@ export default function BookingScreen() {
           </View>
         )}
 
-        {/* Card capture — PAN stays inside this component */}
-        <CardCapture
-          ref={cardRef}
-          disabled={busy}
-          onValidChange={setCardReady}
-        />
+        {/* Card capture — demo-only. The real gateway collects the card on
+            Bankart's own WebView page, opened after tapping Pay below. */}
+        {isSimulated && (
+          <CardCapture
+            ref={cardRef}
+            disabled={busy}
+            onValidChange={setCardReady}
+          />
+        )}
+        {!isSimulated && (
+          <View style={s.realGatewayNotice}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.success} />
+            <Text style={s.realGatewayNoticeText}>
+              You'll enter your card details on the next screen, hosted securely by our payment provider.
+            </Text>
+          </View>
+        )}
 
         {/* Dev-only preview of the WebView payment container against a
             placeholder URL — separate from the real instance below, which
@@ -869,6 +884,24 @@ const s = StyleSheet.create({
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.sm + 2,
     paddingVertical: Spacing.sm - 1,
+  },
+  realGatewayNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.sm + 2,
+  },
+  realGatewayNoticeText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    flex: 1,
   },
   holdBannerText: {
     ...Typography.caption,
