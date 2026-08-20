@@ -194,7 +194,13 @@ export async function addBooking(
     if (saved) {
       cache.unshift(saved)
       notify()
-      scheduleBookingNotifications(saved)
+      // "Booking Confirmed" fires immediately (trigger: null) -- must never
+      // go out for a status other than 'confirmed'. createPendingBooking()
+      // calls this with 'pending' for the real payment gateway, and that
+      // used to notify the guest their room was booked before payment had
+      // even been attempted. See updateBookingStatus below for where the
+      // real-gateway path actually earns this notification.
+      if (saved.status === 'confirmed') scheduleBookingNotifications(saved)
       return saved
     }
   }
@@ -210,7 +216,7 @@ export async function addBooking(
   cache.unshift(newBooking)
   notify()
   await persistLocal(cache)
-  scheduleBookingNotifications(newBooking)
+  if (newBooking.status === 'confirmed') scheduleBookingNotifications(newBooking)
   return newBooking
 }
 
@@ -231,6 +237,7 @@ export async function updateBookingStatus(
   patch: Partial<Pick<Booking, 'status' | 'payment_state' | 'gateway_transaction_id' | 'payment_reference'>>,
 ): Promise<void> {
   const booking = cache.find(b => b.id === id)
+  const becomingConfirmed = patch.status === 'confirmed' && booking?.status !== 'confirmed'
   if (booking) {
     Object.assign(booking, patch)
     notify()
@@ -243,6 +250,11 @@ export async function updateBookingStatus(
   } else {
     await persistLocal(cache)
   }
+
+  // Real gateway's actual "booking confirmed" moment -- addBooking() no
+  // longer fires this for a 'pending' row (see above), so this is the only
+  // place the guest gets notified once payment genuinely succeeds.
+  if (becomingConfirmed && booking) scheduleBookingNotifications(booking)
 }
 
 export function cancelBooking(id: string): void {
