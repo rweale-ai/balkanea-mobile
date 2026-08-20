@@ -435,7 +435,17 @@ export default function BookingScreen() {
             payment_state: 'preauth_pending',
           })
         } else {
-          await updateBookingStatus(pendingBookingRef.current.id, { payment_state: 'preauth_pending' })
+          // The room lock auto-renews every 60s in the background (see the
+          // holding-effect above), which changes lock.lockId and therefore
+          // intent.reference (derived from it) -- a retry after a renewal
+          // would otherwise sign a new link under a reference that doesn't
+          // match what's stored on this row, and the webhook would never
+          // find it. Always resync payment_reference alongside the state
+          // reset so it matches whatever reference is actually in play.
+          await updateBookingStatus(pendingBookingRef.current.id, {
+            payment_state: 'preauth_pending',
+            payment_reference: intent.reference,
+          })
         }
       } catch {
         setPayState('idle')
