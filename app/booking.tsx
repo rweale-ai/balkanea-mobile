@@ -212,6 +212,7 @@ export default function BookingScreen() {
     rooms: string
     currency: string
     destination: string
+    maxPricePerNight: string
   }>()
 
   const [fullName, setFullName] = useState('')
@@ -262,6 +263,8 @@ export default function BookingScreen() {
       children: parseInt(params.children ?? '0', 10),
       rooms: parseInt(params.rooms ?? '1', 10),
       currency,
+      // Must match the original search's price filter — see hotel-detail.tsx
+      maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
     }).then((results) => {
       if (cancelled) return
       const h = results.find(r => r.hotel_id === params.hotelId) ?? null
@@ -270,7 +273,7 @@ export default function BookingScreen() {
       setHotelLoading(false)
     })
     return () => { cancelled = true }
-  }, [params.hotelId, params.roomId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, currency])
+  }, [params.hotelId, params.roomId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, currency, params.maxPricePerNight])
 
   const nights = useMemo(() => {
     if (!params.checkin || !params.checkout) return 1

@@ -417,6 +417,7 @@ export default function SearchScreen() {
         rooms: String(params?.rooms ?? 1),
         currency: params?.currency ?? currency,
         destination: params?.destination ?? '',
+        maxPricePerNight: params?.maxPricePerNight != null ? String(params.maxPricePerNight) : '',
       },
     })
   }, [currency, router])

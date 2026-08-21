@@ -27,6 +27,7 @@ export default function HotelDetailScreen() {
     rooms: string
     currency: string
     destination: string
+    maxPricePerNight: string
   }>()
 
   const [neaSheetVisible, setNeaSheetVisible] = useState(false)
@@ -50,13 +51,19 @@ export default function HotelDetailScreen() {
       children: parseInt(params.children || '0', 10),
       rooms: parseInt(params.rooms || '1', 10),
       currency: params.currency || getCurrency(),
+      // Must match the original search's price filter exactly — the DB
+      // search's candidate pool differs a lot depending on whether a
+      // budget cap is active (see Chat/lib/hotel-db.js), so an inconsistent
+      // maxPricePerNight here can miss the hotel entirely. See project
+      // memory: caused a real "Hotel not found" on a budget Ohrid search.
+      maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
     }).then((results) => {
       if (cancelled) return
       setHotel(results.find(h => h.hotel_id === params.hotelId) || null)
       setHotelLoading(false)
     })
     return () => { cancelled = true }
-  }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency])
+  }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight])
 
   const nights = useMemo(() => {
     if (!params.checkin || !params.checkout) return 1
@@ -78,7 +85,8 @@ export default function HotelDetailScreen() {
     children: parseInt(params.children || '0', 10),
     rooms: parseInt(params.rooms || '1', 10),
     currency: params.currency || getCurrency(),
-  }), [params.destination, params.checkin, params.checkout, params.adults, params.children, params.rooms, params.currency])
+    maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
+  }), [params.destination, params.checkin, params.checkout, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight])
 
   // Track this hotel in session memory for Nea's compare feature
   useEffect(() => {
@@ -131,6 +139,7 @@ export default function HotelDetailScreen() {
         rooms: params.rooms,
         currency: params.currency || getCurrency(),
         destination: params.destination || '',
+        maxPricePerNight: params.maxPricePerNight || '',
       },
     })
   }
