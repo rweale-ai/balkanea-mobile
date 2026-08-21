@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
+import { getCurrency } from '../lib/currency'
 import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { activeGateway } from '../lib/payment-gateway'
@@ -234,7 +235,7 @@ export default function BookingScreen() {
   const [lockState, setLockState] = useState<LockState>('locking')
   const [holdSeconds, setHoldSeconds] = useState(0)
 
-  const currency = params.currency ?? 'EUR'
+  const currency = params.currency ?? getCurrency()
   const isMKD = currency === 'MKD'
   const MKD_RATE = 61.5
 
@@ -375,7 +376,7 @@ export default function BookingScreen() {
             adults: params.adults ?? '2',
             children: params.children ?? '0',
             rooms: params.rooms ?? '1',
-            currency: params.currency ?? 'EUR',
+            currency: params.currency ?? getCurrency(),
             destination: params.destination ?? '',
           },
         })

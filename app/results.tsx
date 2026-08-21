@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
+import { getCurrency } from '../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, HotelSearchParams } from '../lib/types'
 
@@ -474,7 +475,10 @@ export default function ResultsScreen() {
     currency?: string
   }>()
 
-  const currency = params.currency ?? 'EUR'
+  // Falls back to the shared preference (lib/currency.ts), not a hardcoded
+  // 'EUR' -- a caller that forgets to pass currency should still respect
+  // whatever the guest actually has selected, not silently reset it.
+  const currency = params.currency ?? getCurrency()
   const today = new Date()
   const defaultCheckin = today.toISOString().split('T')[0]
   const defaultCheckout = new Date(today.getTime() + 3 * 86_400_000).toISOString().split('T')[0]

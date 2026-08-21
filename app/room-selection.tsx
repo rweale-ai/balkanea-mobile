@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsSync } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
+import { getCurrency } from '../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
 
@@ -34,7 +35,7 @@ export default function RoomSelectionScreen() {
       adults: parseInt(params.adults || '2', 10),
       children: parseInt(params.children || '0', 10),
       rooms: parseInt(params.rooms || '1', 10),
-      currency: params.currency || 'EUR',
+      currency: params.currency || getCurrency(),
     })
     return results.find(h => h.hotel_id === params.hotelId) || null
   }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency])
@@ -46,10 +47,10 @@ export default function RoomSelectionScreen() {
     ))
   }, [params.checkin, params.checkout])
 
-  const currencySymbol = (params.currency || 'EUR') === 'EUR' ? '€'
-    : (params.currency || 'EUR') === 'USD' ? '$'
-    : (params.currency || 'EUR') === 'GBP' ? '£'
-    : params.currency || 'EUR'
+  const currencySymbol = (params.currency || getCurrency()) === 'EUR' ? '€'
+    : (params.currency || getCurrency()) === 'USD' ? '$'
+    : (params.currency || getCurrency()) === 'GBP' ? '£'
+    : params.currency || getCurrency()
 
   const recommendedRoomId = useMemo(() => {
     if (!hotel) return null
@@ -86,7 +87,7 @@ export default function RoomSelectionScreen() {
         adults: params.adults,
         children: params.children,
         rooms: params.rooms,
-        currency: params.currency || 'EUR',
+        currency: params.currency || getCurrency(),
         destination: params.destination || '',
       },
     })

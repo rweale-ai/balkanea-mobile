@@ -16,10 +16,11 @@ import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-int
 import { addItineraryItems } from '../../lib/itinerary-store'
 import { FormattedText } from '../../components/planner/FormattedText'
 import { LocaleSelector } from '../../components/LocaleSelector'
-import type { CountryCode, CurrencyCode } from '../../lib/locale'
+import type { CountryCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getUser, signOut } from '../../lib/auth'
 import { useLang } from '../../lib/i18n'
+import { useCurrency } from '../../lib/currency'
 import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
@@ -273,7 +274,10 @@ export default function SearchScreen() {
   // Initialise country from the persisted app language so LocaleSelector
   // flag matches the language the user already selected
   const [country, setCountry] = useState<CountryCode>(() => appLang === 'mk' ? 'mk' : 'gb')
-  const [currency, setCurrency] = useState<CurrencyCode>(() => appLang === 'mk' ? 'MKD' : 'EUR')
+  // Shared across every screen (see lib/currency.ts) -- was previously its
+  // own local state here, disconnected from Profile's setting and from
+  // Explore, which never passed currency at all.
+  const { currency, setCurrency } = useCurrency()
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
   const [menuVisible, setMenuVisible] = useState(false)
   // Set when this chat was opened from a booking's "Ask Nea to plan" flow —

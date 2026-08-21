@@ -8,6 +8,7 @@ import { CATEGORIES, filterDestinations } from '../../lib/destinations'
 import type { DestinationCategory, Destination } from '../../lib/destinations'
 import { setExploreIntent } from '../../lib/explore-intent'
 import { useLang } from '../../lib/i18n'
+import { useCurrency } from '../../lib/currency'
 import { Colors, Spacing, Radius, Typography, Gradients } from '../../constants/theme'
 
 export default function ExploreScreen() {
@@ -15,6 +16,10 @@ export default function ExploreScreen() {
   const [search, setSearch] = useState('')
   const router = useRouter()
   const { t } = useLang()
+  // Explore previously never passed currency at all, silently falling
+  // through to results.tsx's hardcoded EUR default several screens
+  // downstream regardless of what the guest had selected elsewhere.
+  const { currency } = useCurrency()
 
   const destinations = useMemo(() => filterDestinations(category, search), [category, search])
 
@@ -24,7 +29,7 @@ export default function ExploreScreen() {
   const handlePress = (dest: Destination) => {
     router.push({
       pathname: '/results',
-      params: { destination: dest.name.toLowerCase() },
+      params: { destination: dest.name.toLowerCase(), currency },
     })
   }
 
