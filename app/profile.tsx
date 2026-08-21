@@ -11,12 +11,13 @@ import { getUser, signOut } from '../lib/auth'
 import { setGuestMode } from '../lib/guest'
 import { useLang, setLang } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
+import { useCurrency } from '../lib/currency'
+import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import Constants from 'expo-constants'
 import * as Updates from 'expo-updates'
 
 const NOTIF_KEY = 'balkanea_notif_prefs'
-const CURRENCY_KEY = 'balkanea_currency'
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0'
 // Distinguishes which OTA update is actually running — the app version
 // number alone doesn't change between OTA pushes, which made "did the
@@ -117,10 +118,10 @@ const lp = StyleSheet.create({
 // ── Currency pill ──────────────────────────────────────────────────
 
 function CurrencyPill({ currency, onChange }: {
-  currency: string
-  onChange: (c: string) => void
+  currency: CurrencyCode
+  onChange: (c: CurrencyCode) => void
 }) {
-  const options = ['EUR', 'MKD', 'USD', 'GBP']
+  const options: CurrencyCode[] = ['EUR', 'MKD', 'USD', 'GBP']
   const current = options.indexOf(currency)
 
   const cycle = () => onChange(options[(current + 1) % options.length])
@@ -200,7 +201,11 @@ export default function ProfileScreen() {
 
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
-  const [currency, setCurrency] = useState('EUR')
+  // Shared across every screen (lib/currency.ts) -- this pill previously
+  // had its own local state, persisted under the same AsyncStorage key but
+  // never actually read by anything downstream. Changing it here did
+  // nothing to real bookings.
+  const { currency, setCurrency } = useCurrency()
   const [notif, setNotif] = useState<NotifPrefs>(DEFAULT_NOTIF)
 
   useEffect(() => {
@@ -210,7 +215,6 @@ export default function ProfileScreen() {
         setUserEmail(u.email ?? '')
       }
     })
-    AsyncStorage.getItem(CURRENCY_KEY).then(v => { if (v) setCurrency(v) })
     AsyncStorage.getItem(NOTIF_KEY).then(v => {
       if (v) {
         try { setNotif({ ...DEFAULT_NOTIF, ...JSON.parse(v) }) } catch {}
@@ -221,11 +225,6 @@ export default function ProfileScreen() {
   const handleLangChange = useCallback(async (l: Language) => {
     await setAppLang(l)
   }, [setAppLang])
-
-  const handleCurrencyChange = useCallback(async (c: string) => {
-    setCurrency(c)
-    await AsyncStorage.setItem(CURRENCY_KEY, c)
-  }, [])
 
   const handleNotifChange = useCallback(async (key: keyof NotifPrefs, val: boolean) => {
     const next = { ...notif, [key]: val }
@@ -297,7 +296,7 @@ export default function ProfileScreen() {
           {/* Currency */}
           <View style={s.prefRow}>
             <Text style={s.prefLabel}>{t.profile.currency}</Text>
-            <CurrencyPill currency={currency} onChange={handleCurrencyChange} />
+            <CurrencyPill currency={currency} onChange={setCurrency} />
           </View>
         </SectionCard>
 

@@ -16,7 +16,7 @@ import { consumeExploreIntent, consumeReviewIntent } from '../../lib/explore-int
 import { addItineraryItems } from '../../lib/itinerary-store'
 import { FormattedText } from '../../components/planner/FormattedText'
 import { LocaleSelector } from '../../components/LocaleSelector'
-import type { CountryCode } from '../../lib/locale'
+import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getUser, signOut } from '../../lib/auth'
 import { useLang } from '../../lib/i18n'
@@ -210,7 +210,7 @@ function MessageBubble({
                         adults: String(block.searchParams?.adults ?? 2),
                         children: String(block.searchParams?.children ?? 0),
                         rooms: String(block.searchParams?.rooms ?? 1),
-                        currency: block.searchParams?.currency ?? 'EUR',
+                        currency: block.searchParams?.currency ?? currency,
                       },
                     })}
                   >
