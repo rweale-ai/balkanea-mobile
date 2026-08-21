@@ -69,7 +69,15 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
 
   const loadReviewSummary = async () => {
     setLoading(true)
-    const initialQuery = `What are guests saying about ${hotel.name}? Please search for reviews and give me an honest summary — what do guests love, and any watch-outs?`
+    // Hotel names like "City Palace Hotel" are common worldwide — without
+    // the address, web search has no way to know which actual property
+    // this is and will ask the traveler to disambiguate, even though the
+    // app already knows exactly which one. This first exchange is hidden
+    // from the visible chat (see displayMessages below), so it's safe to
+    // spell out the full address here — it establishes the hotel's
+    // identity for the whole conversation via history, without ever
+    // looking odd as a "typed" message to the traveler.
+    const initialQuery = `What are guests saying about ${hotel.name}, located at ${hotel.address}? This is a specific property — if you find hotels with this name in other cities, ignore them and only use results for the one at this address. Please search for reviews and give me an honest summary — what do guests love, and any watch-outs?`
     const msgs: SheetMsg[] = [{ role: 'user', content: initialQuery }]
     let streamed = ''
     try {
@@ -119,7 +127,11 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     setLoading(true)
     let streamed = ''
     try {
-      const prompt = `Compare ${hotel.name} and ${other.name} for this trip in 2-3 short sentences. Give a clear, confident verdict on which is the better choice and why.`
+      // other.name has no established identity in this conversation yet
+      // (unlike hotel.name, grounded via loadReviewSummary's initial
+      // query) — same generic-name ambiguity risk, so spell out both
+      // addresses explicitly rather than relying on name alone.
+      const prompt = `Compare ${hotel.name} (${hotel.address}) and ${other.name} (${other.address}) for this trip in 2-3 short sentences. These are specific properties at these addresses — ignore any other hotels that happen to share these names. Give a clear, confident verdict on which is the better choice and why.`
       const resp = await sendMessage([...toApiHistory(priorHistory), { id: 'compare-prompt', timestamp: new Date(), role: 'user', content: prompt }], token => {
         streamed += token
         setStreamingText(streamed)
