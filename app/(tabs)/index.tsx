@@ -20,7 +20,7 @@ import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getUser, signOut } from '../../lib/auth'
 import { useLang } from '../../lib/i18n'
-import { useCurrency } from '../../lib/currency'
+import { useCurrency, formatPrice } from '../../lib/currency'
 import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
@@ -58,9 +58,7 @@ function InlineHotelCard({
   isTopPick?: boolean
 }) {
   const { t } = useLang()
-  const price = currency === 'EUR'
-    ? `€${hotel.price_per_night}`
-    : `${Math.round(hotel.price_per_night * 61.5).toLocaleString('en-US')} ден`
+  const price = formatPrice(hotel.price_per_night, currency)
 
   const hasImage = hotel.images && hotel.images.length > 0
 
@@ -368,12 +366,26 @@ export default function SearchScreen() {
 
     const blocks: ChatBlock[] = []
     if (response.type === 'hotels') {
+      // Nea has no way to know the traveler's selected currency -- it's
+      // never told, and its own system-prompt JSON example hardcodes
+      // "currency":"EUR" as a template, so every Nea-driven search
+      // silently defaulted to EUR regardless of the app-wide MKD/EUR/etc
+      // selection. That EUR then overrode the correct currency everywhere
+      // downstream (handleHotelPress's `params?.currency ?? currency`
+      // never falls through, since Nea's EUR is a defined value, not
+      // null) -- all the way to the actual payment amount and currency
+      // code sent to Bankart. Prices themselves (maxPricePerNight, the
+      // hotel DB's price_per_night) are always EUR-denominated internally
+      // regardless of display currency, so overriding just the label
+      // here is safe -- it doesn't change what got searched or filtered.
+      const hotelsWithRealCurrency = response.hotels.map(h => ({ ...h, currency }))
+      const searchParamsWithRealCurrency = { ...response.searchParams, currency }
       blocks.push({ type: 'text', content: response.content })
       blocks.push({
         type: 'hotel-list',
-        hotels: response.hotels,
-        searchParams: response.searchParams,
-        totalCount: response.hotels.length,
+        hotels: hotelsWithRealCurrency,
+        searchParams: searchParamsWithRealCurrency,
+        totalCount: hotelsWithRealCurrency.length,
       })
     } else if (response.type === 'escalation') {
       blocks.push({ type: 'text', content: response.content })

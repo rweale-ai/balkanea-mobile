@@ -10,7 +10,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
-import { getCurrency } from '../lib/currency'
+import { getCurrency, formatPrice } from '../lib/currency'
+import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, HotelSearchParams } from '../lib/types'
 
@@ -173,12 +174,10 @@ const fc = StyleSheet.create({
 function HotelCard({
   hotel, currency, onPress,
 }: {
-  hotel: Hotel; currency: string; onPress: () => void
+  hotel: Hotel; currency: CurrencyCode; onPress: () => void
 }) {
   const { t } = useLang()
-  const price = currency === 'MKD'
-    ? `${Math.round(hotel.price_per_night * 61.5).toLocaleString('en-US')} ден`
-    : `€${hotel.price_per_night}`
+  const price = formatPrice(hotel.price_per_night, currency)
 
   return (
     <TouchableOpacity style={hc.card} onPress={onPress} activeOpacity={0.85}>
@@ -478,7 +477,7 @@ export default function ResultsScreen() {
   // Falls back to the shared preference (lib/currency.ts), not a hardcoded
   // 'EUR' -- a caller that forgets to pass currency should still respect
   // whatever the guest actually has selected, not silently reset it.
-  const currency = params.currency ?? getCurrency()
+  const currency = (params.currency ?? getCurrency()) as CurrencyCode
   const today = new Date()
   const defaultCheckin = today.toISOString().split('T')[0]
   const defaultCheckout = new Date(today.getTime() + 3 * 86_400_000).toISOString().split('T')[0]

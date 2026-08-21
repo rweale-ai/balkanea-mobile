@@ -57,3 +57,43 @@ export function useCurrency() {
 export function getCurrency(): CurrencyCode {
   return _currency
 }
+
+// All hotel/room prices throughout the app (hotel-db.js's simulated
+// pricing, generateHotels()'s fallback) are EUR-denominated numbers,
+// regardless of the traveler's selected display currency — there's no
+// live FX feed. formatPrice is the one place that converts for display.
+// Only MKD has a real conversion rate wired up so far (matches the rate
+// already used and tested in booking.tsx's payment-amount calculation,
+// extracted here so every screen uses the identical number, not a
+// re-typed copy that can drift). The other 6 supported currencies (USD,
+// GBP, CHF, RSD, BAM, ALL, HRK) fall back to showing the EUR amount with
+// that currency's code as a label — not a real conversion, but at least
+// not silently wrong-looking the way a raw EUR number with a foreign
+// symbol slapped on it would be. Extend RATES/symbols here if real FX
+// support is needed for those.
+const RATES: Partial<Record<CurrencyCode, number>> = {
+  MKD: 61.5,
+}
+
+const SYMBOLS: Partial<Record<CurrencyCode, string>> = {
+  EUR: '€',
+  USD: '$',
+  GBP: '£',
+}
+
+/** Formats a EUR-denominated amount for display in the given currency. */
+export function formatPrice(eurAmount: number, currency: CurrencyCode): string {
+  const rate = RATES[currency]
+  if (rate) {
+    const converted = Math.round(eurAmount * rate)
+    return currency === 'MKD' ? `${converted.toLocaleString('en-US')} ден` : `${converted.toLocaleString('en-US')} ${currency}`
+  }
+  const symbol = SYMBOLS[currency]
+  return symbol ? `${symbol}${eurAmount}` : `${eurAmount} ${currency}`
+}
+
+/** The actual numeric amount to charge in the given currency (not a display string) — same EUR base, same rate table as formatPrice. */
+export function convertPrice(eurAmount: number, currency: CurrencyCode): number {
+  const rate = RATES[currency]
+  return rate ? Math.round(eurAmount * rate) : eurAmount
+}

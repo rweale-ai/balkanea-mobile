@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
-import { getCurrency } from '../lib/currency'
+import { getCurrency, formatPrice } from '../lib/currency'
+import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, HotelSearchParams } from '../lib/types'
 import { trackViewedHotel } from '../lib/session-store'
@@ -72,10 +73,7 @@ export default function HotelDetailScreen() {
     ))
   }, [params.checkin, params.checkout])
 
-  const currencySymbol = (params.currency || getCurrency()) === 'EUR' ? '€'
-    : (params.currency || getCurrency()) === 'USD' ? '$'
-    : (params.currency || getCurrency()) === 'GBP' ? '£'
-    : params.currency || getCurrency()
+  const activeCurrency = (params.currency || getCurrency()) as CurrencyCode
 
   const searchParams = useMemo<HotelSearchParams>(() => ({
     destination: params.destination || '',
@@ -120,7 +118,7 @@ export default function HotelDetailScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Check out ${hotel.name} - ${currencySymbol}${hotel.price_per_night}/night`,
+        message: `Check out ${hotel.name} - ${formatPrice(hotel.price_per_night, activeCurrency)}/night`,
       })
     } catch (e) {
       // ignore
@@ -292,7 +290,7 @@ export default function HotelDetailScreen() {
                 {hotel.room_types.length} {hotel.room_types.length === 1 ? 'room type' : 'room types'} available
               </Text>
               <Text style={styles.roomTeaserFrom}>
-                {t.hotel.fromPrice} {currencySymbol}{hotel.price_per_night} {t.hotel.perNight}
+                {t.hotel.fromPrice} {formatPrice(hotel.price_per_night, activeCurrency)} {t.hotel.perNight}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.primary} />

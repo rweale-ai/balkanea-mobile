@@ -8,7 +8,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
-import { getCurrency } from '../lib/currency'
+import { getCurrency, formatPrice } from '../lib/currency'
+import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
 
@@ -61,10 +62,7 @@ export default function RoomSelectionScreen() {
     ))
   }, [params.checkin, params.checkout])
 
-  const currencySymbol = (params.currency || getCurrency()) === 'EUR' ? '€'
-    : (params.currency || getCurrency()) === 'USD' ? '$'
-    : (params.currency || getCurrency()) === 'GBP' ? '£'
-    : params.currency || getCurrency()
+  const activeCurrency = (params.currency || getCurrency()) as CurrencyCode
 
   const recommendedRoomId = useMemo(() => {
     if (!hotel) return null
@@ -184,9 +182,9 @@ export default function RoomSelectionScreen() {
               <View style={styles.rcFooter}>
                 <View>
                   <Text style={styles.rcPrice}>
-                    {currencySymbol}{room.price_per_night}<Text style={styles.rcPriceUnit}> {t.hotel.perNight}</Text>
+                    {formatPrice(room.price_per_night, activeCurrency)}<Text style={styles.rcPriceUnit}> {t.hotel.perNight}</Text>
                   </Text>
-                  <Text style={styles.rcTotal}>{currencySymbol}{room.total_price} {t.hotel.total.toLowerCase()}</Text>
+                  <Text style={styles.rcTotal}>{formatPrice(room.total_price, activeCurrency)} {t.hotel.total.toLowerCase()}</Text>
                 </View>
                 <TouchableOpacity
                   style={[styles.rcBookBtn, !isRecommended && styles.rcBookBtnOutline]}

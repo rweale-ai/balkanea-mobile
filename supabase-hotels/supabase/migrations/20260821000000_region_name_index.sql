@@ -1,0 +1,13 @@
+-- api/search-hotels.js (Chat backend) queries hotels by region_name for
+-- DB-first search (see lib/hotel-db.js) — but the only indexes were on
+-- region_id and kind. Without one on region_name, Postgres had to scan
+-- across every country partition ordered by star_rating and filter each
+-- row post-hoc, touching hundreds of thousands of irrelevant rows before
+-- reaching the actual matches. Measured 2026-08-21: 18s for a Rome search.
+--
+-- Functional index on lower(region_name) instead of a plain index, since
+-- the query does a case-insensitive exact match (lower(region_name) =
+-- lower($1)) rather than pattern matching — a plain btree wouldn't be
+-- sargable for that, and pattern matching (ILIKE with wildcards) isn't
+-- needed here since destinations.js resolves to an exact city name.
+create index idx_hotels_region_name_lower on hotels (lower(region_name));

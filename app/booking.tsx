@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
-import { getCurrency } from '../lib/currency'
+import { getCurrency, formatPrice, convertPrice } from '../lib/currency'
+import type { CurrencyCode } from '../lib/locale'
 import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { activeGateway } from '../lib/payment-gateway'
@@ -237,14 +238,7 @@ export default function BookingScreen() {
   const [lockState, setLockState] = useState<LockState>('locking')
   const [holdSeconds, setHoldSeconds] = useState(0)
 
-  const currency = params.currency ?? getCurrency()
-  const isMKD = currency === 'MKD'
-  const MKD_RATE = 61.5
-
-  const formatPrice = useCallback((eur: number) => {
-    if (isMKD) return `${Math.round(eur * MKD_RATE).toLocaleString('en-US')} ден`
-    return `€${eur}`
-  }, [isMKD])
+  const currency = (params.currency ?? getCurrency()) as CurrencyCode
 
   const [{ hotel, room }, setHotelRoom] = useState<{ hotel: Hotel | null; room: RoomType | null }>({ hotel: null, room: null })
   const [hotelLoading, setHotelLoading] = useState(true)
@@ -347,7 +341,7 @@ export default function BookingScreen() {
   // there's nothing here for the guest to fill in or for canPay to gate on.
   const isSimulated = activeGateway.id === 'simulated'
   const canPay = (!isSimulated || cardReady) && !!fullName.trim() && !!email.trim() && payState === 'idle' && lockState === 'held'
-  const payLabel = t.booking.payNow + ' ' + formatPrice(room.total_price)
+  const payLabel = t.booking.payNow + ' ' + formatPrice(room.total_price, currency)
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
 
@@ -411,8 +405,11 @@ export default function BookingScreen() {
 
     setPayState('processing')
 
-    const amount = isMKD ? Math.round(room.total_price * MKD_RATE) : room.total_price
-    const payCurrency = isMKD ? 'MKD' : 'EUR'
+    // Bankart is only confirmed to accept EUR/MKD -- other display
+    // currencies fall back to charging in EUR rather than risking an
+    // unsupported currency code at the actual payment gateway.
+    const payCurrency = currency === 'MKD' ? 'MKD' : 'EUR'
+    const amount = convertPrice(room.total_price, payCurrency)
     // Reference is derived from the room lock, not generated fresh here — a
     // retry after this screen was backgrounded reuses the same gateway
     // transaction instead of risking a double charge.
@@ -587,7 +584,7 @@ export default function BookingScreen() {
             </Text>
           </View>
           <View style={s.summaryPriceCol}>
-            <Text style={s.summaryPrice}>{formatPrice(room.total_price)}</Text>
+            <Text style={s.summaryPrice}>{formatPrice(room.total_price, currency)}</Text>
             <Text style={s.summaryTaxes}>{t.booking.taxesIncl}</Text>
           </View>
         </View>
