@@ -2,11 +2,12 @@ import React, { useState, useMemo, useRef, useCallback, useEffect, forwardRef, u
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   SafeAreaView, TextInput, Alert, Platform, Image, KeyboardAvoidingView, Keyboard,
+  ActivityIndicator,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotelsSync } from '../lib/hotels'
+import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency } from '../lib/currency'
 import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
@@ -244,9 +245,16 @@ export default function BookingScreen() {
     return `€${eur}`
   }, [isMKD])
 
-  const { hotel, room } = useMemo<{ hotel: Hotel | null; room: RoomType | null }>(() => {
-    if (!params.hotelId || !params.checkin || !params.checkout) return { hotel: null, room: null }
-    const results = searchHotelsSync({
+  const [{ hotel, room }, setHotelRoom] = useState<{ hotel: Hotel | null; room: RoomType | null }>({ hotel: null, room: null })
+  const [hotelLoading, setHotelLoading] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    if (!params.hotelId || !params.checkin || !params.checkout) {
+      setHotelLoading(false)
+      return
+    }
+    setHotelLoading(true)
+    searchHotels({
       destination: params.destination ?? 'Hotel',
       checkin: params.checkin,
       checkout: params.checkout,
@@ -254,10 +262,14 @@ export default function BookingScreen() {
       children: parseInt(params.children ?? '0', 10),
       rooms: parseInt(params.rooms ?? '1', 10),
       currency,
+    }).then((results) => {
+      if (cancelled) return
+      const h = results.find(r => r.hotel_id === params.hotelId) ?? null
+      const rm = h?.room_types.find(r => r.room_id === params.roomId) ?? null
+      setHotelRoom({ hotel: h, room: rm })
+      setHotelLoading(false)
     })
-    const h = results.find(r => r.hotel_id === params.hotelId) ?? null
-    const rm = h?.room_types.find(r => r.room_id === params.roomId) ?? null
-    return { hotel: h, room: rm }
+    return () => { cancelled = true }
   }, [params.hotelId, params.roomId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, currency])
 
   const nights = useMemo(() => {
@@ -302,6 +314,16 @@ export default function BookingScreen() {
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [lock, hotel, room, lockState])
+
+  if (hotelLoading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.errorWrap}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   if (!hotel || !room) {
     return (

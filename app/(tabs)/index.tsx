@@ -4,7 +4,7 @@ import React, {
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, Animated,
-  SafeAreaView, Linking, Alert, Keyboard, ScrollView,
+  SafeAreaView, Linking, Alert, Keyboard, ScrollView, Image,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -62,17 +62,23 @@ function InlineHotelCard({
     ? `€${hotel.price_per_night}`
     : `${Math.round(hotel.price_per_night * 61.5).toLocaleString('en-US')} ден`
 
+  const hasImage = hotel.images && hotel.images.length > 0
+
   return (
     <TouchableOpacity style={s.hotelCard} activeOpacity={0.85} onPress={onPress}>
       {/* Thumbnail */}
-      <LinearGradient
-        colors={['#8fc6e6', '#27567a'] as const}
-        style={s.hotelThumb}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Text style={s.hotelCity} numberOfLines={1}>{hotel.address.split(',')[0]?.toUpperCase()}</Text>
-      </LinearGradient>
+      {hasImage ? (
+        <Image source={{ uri: hotel.images[0] }} style={s.hotelThumb} resizeMode="cover" />
+      ) : (
+        <LinearGradient
+          colors={['#8fc6e6', '#27567a'] as const}
+          style={s.hotelThumb}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={s.hotelCity} numberOfLines={1}>{hotel.address.split(',')[0]?.toUpperCase()}</Text>
+        </LinearGradient>
+      )}
 
       {/* Details */}
       <View style={s.hotelBody}>

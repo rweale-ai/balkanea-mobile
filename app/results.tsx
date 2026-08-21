@@ -8,7 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotelsSync } from '../lib/hotels'
+import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency } from '../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
@@ -493,16 +493,26 @@ export default function ResultsScreen() {
     currency,
   }
 
-  // Load hotels once on mount — searchHotelsSync is deterministic per destination
-  const [allHotels] = useState<Hotel[]>(() =>
-    params.destination ? searchHotelsSync(searchParams) : []
-  )
+  // Load hotels once on mount. searchHotels tries the real hotel-content DB
+  // first (via the backend), falling back to deterministic simulated data —
+  // deterministic either way, so hotel-detail/room-selection/booking can
+  // re-run the same search later and find the same hotel_id.
+  const [allHotels, setAllHotels] = useState<Hotel[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    // Simulate a brief search delay for UX
-    const t = setTimeout(() => setLoading(false), 600)
-    return () => clearTimeout(t)
-  }, [])
+    let cancelled = false
+    if (!params.destination) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    searchHotels(searchParams).then((results) => {
+      if (cancelled) return
+      setAllHotels(results)
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [params.destination])
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [sort, setSort] = useState<SortKey>('recommended')

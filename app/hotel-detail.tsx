@@ -2,11 +2,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react'
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
   StyleSheet, SafeAreaView, Share, Platform, NativeSyntheticEvent, NativeScrollEvent, Dimensions,
+  ActivityIndicator,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotelsSync } from '../lib/hotels'
+import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency } from '../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
@@ -32,9 +33,16 @@ export default function HotelDetailScreen() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const photoScrollRef = useRef<ScrollView>(null)
 
-  const hotel = useMemo<Hotel | null>(() => {
-    if (!params.hotelId || !params.checkin || !params.checkout) return null
-    const results = searchHotelsSync({
+  const [hotel, setHotel] = useState<Hotel | null>(null)
+  const [hotelLoading, setHotelLoading] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    if (!params.hotelId || !params.checkin || !params.checkout) {
+      setHotelLoading(false)
+      return
+    }
+    setHotelLoading(true)
+    searchHotels({
       destination: params.destination || 'Hotel',
       checkin: params.checkin,
       checkout: params.checkout,
@@ -42,8 +50,12 @@ export default function HotelDetailScreen() {
       children: parseInt(params.children || '0', 10),
       rooms: parseInt(params.rooms || '1', 10),
       currency: params.currency || getCurrency(),
+    }).then((results) => {
+      if (cancelled) return
+      setHotel(results.find(h => h.hotel_id === params.hotelId) || null)
+      setHotelLoading(false)
     })
-    return results.find(h => h.hotel_id === params.hotelId) || null
+    return () => { cancelled = true }
   }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency])
 
   const nights = useMemo(() => {
@@ -72,6 +84,16 @@ export default function HotelDetailScreen() {
   useEffect(() => {
     if (hotel) trackViewedHotel(hotel, searchParams)
   }, [hotel?.hotel_id])
+
+  if (hotelLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   if (!hotel) {
     return (

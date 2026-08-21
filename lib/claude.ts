@@ -1,5 +1,5 @@
 import type { ChatMessage, PlannerResponse, HotelSearchParams } from './types'
-import { searchHotelsSync } from './hotels'
+import { searchHotels } from './hotels'
 import { fetchAllKnowledge } from './knowledge'
 import { getTravelProfile, saveTravelProfile } from './travel-profile'
 import { describeBookings } from './bookings-store'
@@ -314,7 +314,7 @@ async function runMessageLoop(
     ]
   }
 
-  return parseStreamedResponse(fullText)
+  return await parseStreamedResponse(fullText)
 }
 
 interface StreamResult {
@@ -421,7 +421,7 @@ async function streamOnce(
 
 // ── Response parser ────────────────────────────────────────────────
 
-function parseStreamedResponse(text: string): PlannerResponse {
+async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
   const hotelMarker = '---HOTELS---'
   const escalateMarker = '---ESCALATE---'
   const feedbackMarker = '---FEEDBACK---'
@@ -460,7 +460,7 @@ function parseStreamedResponse(text: string): PlannerResponse {
         maxPricePerNight: raw.maxPricePerNight,
         currency: raw.currency ?? 'EUR',
       }
-      const hotels = searchHotelsSync(searchParams)
+      const hotels = await searchHotels(searchParams)
       return { type: 'hotels', content: prose, hotels, searchParams }
     } catch {
       return { type: 'message', content: prose }
@@ -476,7 +476,7 @@ async function simulateResponse(
   messages: ChatMessage[],
   onToken: (token: string) => void,
 ): Promise<PlannerResponse> {
-  const reply = buildSimulatedReply(messages)
+  const reply = await buildSimulatedReply(messages)
   const prose = reply.content
   for (let i = 0; i < prose.length; i += 2) {
     onToken(prose.slice(i, i + 2))
@@ -488,7 +488,7 @@ async function simulateResponse(
   return reply
 }
 
-function buildSimulatedReply(messages: ChatMessage[]): PlannerResponse {
+async function buildSimulatedReply(messages: ChatMessage[]): Promise<PlannerResponse> {
   const count = messages.filter(m => m.role === 'user').length
   const lastMsg = messages[messages.length - 1]?.content?.toLowerCase() ?? ''
 
@@ -506,7 +506,7 @@ function buildSimulatedReply(messages: ChatMessage[]): PlannerResponse {
   return {
     type: 'hotels',
     content: "Here are my top picks for Santorini! I've chosen hotels with great views and breakfast included, all within your budget. What do you think — shall I adjust anything?",
-    hotels: searchHotelsSync(searchParams),
+    hotels: await searchHotels(searchParams),
     searchParams,
   }
 }
