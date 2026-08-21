@@ -28,6 +28,11 @@ export interface HotelSearchParams {
   maxPricePerNight?: number
   minStars?: number
   currency: string
+  // Free-text preferences the traveler mentioned (e.g. "pool, sea view,
+  // quiet") -- not used for search filtering, just carried forward so
+  // later features (review summaries, itinerary suggestions) can weigh
+  // their answers against what the traveler actually asked for.
+  amenityPreferences?: string
 }
 
 export interface Hotel {

@@ -25,6 +25,35 @@ function nightsBetween(checkin: string, checkout: string): number {
   ))
 }
 
+// Builds a short, natural-language description of who's traveling, when,
+// and what they've asked for -- so the review synthesis actually weighs
+// what matters to THIS trip (a family with a toddler cares about
+// different things than a couple visiting in August), instead of a
+// generic "guests love/watch-outs" summary that ignores context the app
+// already has.
+function travelerContext(searchParams: HotelSearchParams): string {
+  const parts: string[] = []
+
+  if (searchParams.children > 0) {
+    parts.push(`traveling with ${searchParams.adults} adult${searchParams.adults === 1 ? '' : 's'} and ${searchParams.children} ${searchParams.children === 1 ? 'child' : 'children'}`)
+  } else if (searchParams.adults === 2) {
+    parts.push('traveling as a couple')
+  } else if (searchParams.adults > 0) {
+    parts.push(`a group of ${searchParams.adults} adults`)
+  }
+
+  if (searchParams.checkin) {
+    const month = new Date(searchParams.checkin).toLocaleDateString('en-US', { month: 'long' })
+    if (month !== 'Invalid Date') parts.push(`visiting in ${month}`)
+  }
+
+  if (searchParams.amenityPreferences) {
+    parts.push(`specifically wants: ${searchParams.amenityPreferences}`)
+  }
+
+  return parts.length > 0 ? `This traveler is ${parts.join(', ')}. ` : ''
+}
+
 function toApiHistory(msgs: SheetMsg[]): ChatMessage[] {
   return msgs.map((m, i) => ({
     id: String(i),
@@ -77,7 +106,8 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     // spell out the full address here — it establishes the hotel's
     // identity for the whole conversation via history, without ever
     // looking odd as a "typed" message to the traveler.
-    const initialQuery = `What are guests saying about ${hotel.name}, located at ${hotel.address}? This is a specific property — if you find hotels with this name in other cities, ignore them and only use results for the one at this address. Please search for reviews and give me an honest summary — what do guests love, and any watch-outs?`
+    const context = travelerContext(searchParams)
+    const initialQuery = `What are guests saying about ${hotel.name}, located at ${hotel.address}? This is a specific property — if you find hotels with this name in other cities, ignore them and only use results for the one at this address. ${context}Please search for reviews and give me an honest summary weighted toward what matters for this specific trip — what do guests love, and any watch-outs? If children are mentioned above, prioritize family-friendliness (noise, safety, kid amenities) in what you surface. If a season/month is mentioned, prioritize reviews relevant to that time of year (heat, crowds, closures) over generic ones. If specific wants are listed, lead with whether guests confirm those.`
     const msgs: SheetMsg[] = [{ role: 'user', content: initialQuery }]
     let streamed = ''
     try {

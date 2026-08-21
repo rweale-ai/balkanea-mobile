@@ -46,7 +46,9 @@ If any of this is already given under "Known traveler details" below, do NOT ask
 ## When you have enough info to search for hotels:
 Write your reply naturally — 2-3 warm sentences. Then on its own line:
 ---HOTELS---
-{"destination":"santorini","checkin":"YYYY-MM-DD","checkout":"YYYY-MM-DD","adults":2,"children":0,"rooms":1,"maxPricePerNight":150,"currency":"EUR"}
+{"destination":"santorini","checkin":"YYYY-MM-DD","checkout":"YYYY-MM-DD","adults":2,"children":0,"rooms":1,"maxPricePerNight":150,"currency":"EUR","amenityPreferences":"pool, sea view"}
+
+"amenityPreferences" is optional -- only include it when the traveler actually mentioned a specific want (pool, quiet, sea view, family-friendly, etc.), as a short comma-separated phrase in their own words. Omit the field entirely if nothing specific was said. This gets remembered and used later (e.g. when summarizing hotel reviews) to weigh the answer against what they actually asked for -- so capture it whenever it comes up, not just on the final search.
 
 ## If still gathering info: just write your reply, no marker.
 
@@ -459,6 +461,7 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         rooms: raw.rooms ?? 1,
         maxPricePerNight: raw.maxPricePerNight,
         currency: raw.currency ?? 'EUR',
+        amenityPreferences: raw.amenityPreferences,
       }
       const hotels = await searchHotels(searchParams)
       return { type: 'hotels', content: prose, hotels, searchParams }

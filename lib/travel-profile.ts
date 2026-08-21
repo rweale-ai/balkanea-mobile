@@ -47,5 +47,6 @@ export function describeTravelProfile(): string {
   if (p.adults) parts.push(`${p.adults} adult${p.adults === 1 ? '' : 's'}`)
   if (p.children) parts.push(`${p.children} child${p.children === 1 ? '' : 'ren'}`)
   if (p.maxPricePerNight) parts.push(`budget up to ${p.maxPricePerNight}/night`)
+  if (p.amenityPreferences) parts.push(`wants: ${p.amenityPreferences}`)
   return parts.length > 0 ? parts.join(', ') : 'Nothing yet'
 }
