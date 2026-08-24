@@ -56,6 +56,7 @@ function rowToBooking(row: Record<string, any>): Booking {
     payment_reference: row.payment_reference ?? undefined,
     payment_state: row.payment_state ?? undefined,
     gateway_transaction_id: row.gateway_transaction_id ?? undefined,
+    ratehawk_order_id: row.ratehawk_order_id ?? undefined,
   }
 }
 
@@ -90,6 +91,7 @@ function bookingToInsert(b: Booking & { confirmation_code: string; status: Booki
     payment_reference: b.payment_reference ?? null,
     payment_state: b.payment_state ?? null,
     gateway_transaction_id: b.gateway_transaction_id ?? null,
+    ratehawk_order_id: b.ratehawk_order_id ?? null,
   }
 }
 
@@ -111,13 +113,15 @@ async function insertToSupabase(b: Booking, userId: string): Promise<Booking | n
 
   // payment_reference/payment_state/gateway_transaction_id require migration
   // 004_payment_tracking.sql; rooms_config/room_guest_names require
-  // 006_multiroom_booking.sql. Until those are run in Supabase, PostgREST
-  // rejects the insert with an unknown-column error (42703) naming the
-  // specific missing column — strip just that one and retry, looping (not a
-  // single blanket strip) so an environment with 004 run but not 006 (or
-  // vice versa) doesn't lose payment-tracking data it actually has columns
-  // for. Bounded to the number of optional-migration columns that exist.
-  for (let attempt = 0; attempt < 6; attempt++) {
+  // 006_multiroom_booking.sql; ratehawk_order_id requires 007_ratehawk_order.sql.
+  // Until those are run in Supabase, PostgREST rejects the insert with an
+  // unknown-column error (42703) naming the specific missing column — strip
+  // just that one and retry, looping (not a single blanket strip) so an
+  // environment with some but not all of these migrations run doesn't lose
+  // data it actually has columns for. Bound is (optional columns) + 1: one
+  // insert attempt per column-missing state, including the final state where
+  // all of them have been stripped.
+  for (let attempt = 0; attempt < 7; attempt++) {
     ;({ data, error } = await supabase.from('bookings').insert(insertRow).select().single())
     if (!error || error.code !== '42703') break
 

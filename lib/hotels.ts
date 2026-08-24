@@ -119,7 +119,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
     if (res.ok) {
       const data = await res.json()
       if (data.success && data.results && data.results.length > 0) {
-        return data.results.map((h: any) => ({
+        const enriched = data.results.map((h: any) => ({
           ...h,
           guest_rating: h.guest_rating ?? 8.0,
           distance_to_center: h.distance_to_center ?? 1.0,
@@ -135,6 +135,46 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
           latitude: h.latitude ?? 0,
           longitude: h.longitude ?? 0,
         }))
+
+        // `data.simulated === false` means these results came from RateHawk's
+        // real live search (currently only Los Angeles) -- room_types is
+        // always null on that path (search-hotels.js never populates it),
+        // which would otherwise fall through to the fabricated ROOM_TEMPLATES
+        // above: fake room names and made-up prices layered onto a real,
+        // bookable hotel. Fetch real rates instead. A hotel whose real-room
+        // fetch fails is dropped rather than shown with fabricated rooms --
+        // unlike the DB-content/simulated path, this hotel is genuinely
+        // payable, so wrong room data is a real-money risk, not just a
+        // display gap.
+        if (data.simulated === false) {
+          const withRealRooms = await Promise.all(
+            enriched.map(async (h: Hotel) => {
+              try {
+                const roomsRes = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    hotel_id: h.hotel_id,
+                    checkin: params.checkin,
+                    checkout: params.checkout,
+                    adults: params.adults,
+                    children: [],
+                  }),
+                })
+                const roomsData = await roomsRes.json()
+                if (roomsData.success && roomsData.room_types?.length > 0) {
+                  return { ...h, room_types: roomsData.room_types }
+                }
+                return null
+              } catch {
+                return null
+              }
+            })
+          )
+          return withRealRooms.filter((h): h is Hotel => h !== null)
+        }
+
+        return enriched
       }
     }
   } catch (e) {

@@ -17,7 +17,7 @@ import { activeGateway } from '../lib/payment-gateway'
 import { supabase } from '../lib/supabase'
 import { getOrCreateIntent, updateIntent } from '../lib/payment-intent'
 import { pollBookingPaymentState } from '../lib/payment-status'
-import { lockRoom, reconfirmBooking } from '../lib/ratehawk'
+import { lockRoom, reconfirmBooking, realLockRoom, confirmRealBooking } from '../lib/ratehawk'
 import type { RoomLock } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
@@ -27,7 +27,7 @@ import { validateRoomsConfig } from '../lib/rooms-config'
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network'
+type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network' | 'unavailable'
 type LockState = 'locking' | 'held' | 'renewing'
 type CardBrand = 'visa' | 'mc' | null
 
@@ -270,6 +270,12 @@ export default function BookingScreen() {
   const pendingBookingRef = useRef<Booking | null>(null)
   const pollHandleRef = useRef<{ stop: () => void } | null>(null)
 
+  // Set once the real RateHawk order (room.book_hash path only) is confirmed
+  // pre-charge. Survives retries the same way pendingBookingRef does — a
+  // decline-then-retry must reuse the already-confirmed order, never create
+  // a second real booking with the hotel.
+  const ratehawkOrderRef = useRef<string | null>(null)
+
   // ── RateHawk room lock (holds the room before the guest pays) ────
   const [lock, setLock] = useState<RoomLock | null>(null)
   const [lockState, setLockState] = useState<LockState>('locking')
@@ -317,12 +323,19 @@ export default function BookingScreen() {
   const children = parseInt(params.children ?? '0', 10)
 
   // Hold the room with RateHawk as soon as the guest reaches this screen —
-  // payment can't start until a lock exists (see lib/ratehawk.ts).
+  // payment can't start until a lock exists (see lib/ratehawk.ts). Rooms with
+  // a real book_hash (live RateHawk search, currently only Los Angeles) get a
+  // real prebook call here -- cheap and non-committing, no order created yet.
+  // Every other room keeps using the simulated stub, untouched.
+  const doLock = useCallback((h: Hotel, r: RoomType) => (
+    r.book_hash ? realLockRoom(r.book_hash) : lockRoom(h.hotel_id, r.room_id)
+  ), [])
+
   useEffect(() => {
     if (!hotel || !room) return
     let cancelled = false
     setLockState('locking')
-    lockRoom(hotel.hotel_id, room.room_id).then(l => {
+    doLock(hotel, room).then(l => {
       if (cancelled) return
       setLock(l)
       setLockState('held')
@@ -338,7 +351,7 @@ export default function BookingScreen() {
       setHoldSeconds(remaining)
       if (remaining === 0 && hotel && room && lockState !== 'renewing') {
         setLockState('renewing')
-        lockRoom(hotel.hotel_id, room.room_id).then(l => {
+        doLock(hotel, room).then(l => {
           setLock(l)
           setLockState('held')
         })
@@ -456,6 +469,27 @@ export default function BookingScreen() {
       }
     }
 
+    // Real RateHawk order first, charge second -- see the doLock/book_hash
+    // comment above and project memory for why. This runs before any money
+    // moves; on failure the guest is never charged. Skipped on a retry that
+    // already has a confirmed order (ratehawkOrderRef) so a decline-then-
+    // retry never creates a second real booking with the hotel.
+    if (room.book_hash && !ratehawkOrderRef.current) {
+      setPayState('confirming')
+      const result = await confirmRealBooking({
+        bookHash: lock.lockId,
+        leadGuestName: fullName.trim(),
+        adultsCount: adults,
+        email: email.trim(),
+        phone: phone.trim(),
+      })
+      if (!result.ok) {
+        setPayState('unavailable')
+        return
+      }
+      ratehawkOrderRef.current = result.orderId
+    }
+
     setPayState('processing')
 
     // Bankart is only confirmed to accept EUR/MKD -- other display
@@ -514,6 +548,7 @@ export default function BookingScreen() {
             guest_phone: phone.trim(),
             payment_reference: intent.reference,
             payment_state: 'preauth_pending',
+            ratehawk_order_id: ratehawkOrderRef.current ?? undefined,
           })
         } else {
           // The room lock auto-renews every 60s in the background (see the
@@ -594,6 +629,7 @@ export default function BookingScreen() {
         payment_reference: intent.reference,
         payment_state: 'captured',
         gateway_transaction_id: result.transactionId,
+        ratehawk_order_id: ratehawkOrderRef.current ?? undefined,
       })
 
       await finalizeConfirmedBooking(newBooking)
@@ -736,6 +772,20 @@ export default function BookingScreen() {
             <Text style={s.holdBannerText}>
               {t.booking.roomHeld.replace('{{time}}', holdLabel)}
             </Text>
+          </View>
+        )}
+
+        {/* Room unavailable banner -- real RateHawk booking failed before any
+            charge was attempted (see the confirm-gate in handlePay). Sends
+            the guest back to pick a different room rather than retry the
+            same now-unavailable one. */}
+        {payState === 'unavailable' && (
+          <View style={s.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={Colors.error} />
+            <Text style={s.errorBannerText}>{t.booking.roomUnavailable}</Text>
+            <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.booking.chooseAnotherRoom}</Text>
+            </TouchableOpacity>
           </View>
         )}
 

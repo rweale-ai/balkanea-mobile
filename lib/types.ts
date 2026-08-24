@@ -77,6 +77,11 @@ export interface RoomType {
   meal_plan: string
   cancellation: string
   beds: string
+  // Present only for rooms sourced from live RateHawk search (currently just
+  // Los Angeles) -- its presence is what tells booking.tsx and lib/ratehawk.ts
+  // to run the real prebook/booking flow instead of the simulated stub. Absent
+  // for every DB-content/simulated hotel, which keeps their behavior untouched.
+  book_hash?: string
 }
 
 export interface Booking {
@@ -106,6 +111,11 @@ export interface Booking {
   payment_reference?: string
   payment_state?: 'preauth_pending' | 'preauth_done' | 'captured' | 'voided' | 'failed'
   gateway_transaction_id?: string
+  // Real RateHawk order id, set only when this booking went through the real
+  // prebook/booking-finish flow (room.book_hash was present). Optional because
+  // rows created before migration 007_ratehawk_order.sql won't have it, and
+  // simulated/DB-content bookings never set it at all.
+  ratehawk_order_id?: string
 }
 
 export interface Destination {
