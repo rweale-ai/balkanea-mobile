@@ -480,8 +480,22 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         currency: raw.currency ?? 'EUR',
         amenityPreferences: raw.amenityPreferences,
       }
-      const hotels = await searchHotels(searchParams)
-      return { type: 'hotels', content: prose, hotels, searchParams }
+      let hotels = await searchHotels(searchParams)
+      let content = prose
+
+      // A genuine zero-result answer at the requested budget -- retry once
+      // without the cap so the traveler gets real next-tier options instead
+      // of a dead end, and say so plainly rather than silently swapping in
+      // pricier hotels with no explanation.
+      if (hotels.length === 0 && searchParams.maxPricePerNight) {
+        const relaxedHotels = await searchHotels({ ...searchParams, maxPricePerNight: undefined })
+        if (relaxedHotels.length > 0) {
+          hotels = relaxedHotels
+          content = `Sorry, I couldn't find any hotels in ${searchParams.destination} within your budget for those dates — here's the best next-tier option I found instead:`
+        }
+      }
+
+      return { type: 'hotels', content, hotels, searchParams }
     } catch {
       return { type: 'message', content: prose }
     }

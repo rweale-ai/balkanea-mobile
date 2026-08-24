@@ -151,6 +151,15 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
           hasLiveRates: isLive,
         }))
       }
+      // A genuine real search that just found nothing (e.g. the only live
+      // RateHawk test hotel doesn't have a room under the requested budget)
+      // is not the same as the backend being unreachable -- don't mask it
+      // behind fabricated hotels the traveler could never actually book.
+      // Callers that want a fallback (e.g. the chat flow retrying without
+      // the price cap) see this as a real, empty result and can react to it.
+      if (data.success) {
+        return []
+      }
     }
   } catch (e) {
     console.log('Backend search unavailable, using simulated data')
