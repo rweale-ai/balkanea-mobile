@@ -252,7 +252,7 @@ export async function createPendingBooking(
 // the WebView bridge callback itself, that's UX-only per the plugin doc.
 export async function updateBookingStatus(
   id: string,
-  patch: Partial<Pick<Booking, 'status' | 'payment_state' | 'gateway_transaction_id' | 'payment_reference'>>,
+  patch: Partial<Pick<Booking, 'status' | 'payment_state' | 'gateway_transaction_id' | 'payment_reference' | 'ratehawk_order_id'>>,
 ): Promise<void> {
   const booking = cache.find(b => b.id === id)
   const becomingConfirmed = patch.status === 'confirmed' && booking?.status !== 'confirmed'

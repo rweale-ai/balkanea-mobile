@@ -35,14 +35,16 @@ export async function reconfirmBooking(lockId: string): Promise<{ success: true 
 // than replacing them: every DB-content/simulated hotel keeps using
 // lockRoom/reconfirmBooking exactly as before, untouched.
 //
-// Booking creation (confirmRealBooking) deliberately does NOT happen here on
-// mount, unlike the cheap prebook hold — it's deferred to the moment the
-// guest taps Pay in booking.tsx, and runs BEFORE the guest is charged, not
-// after. See project memory / the plan this was built from for why: RateHawk
-// sandbox `payment_type: "deposit"` draws from Balkanea's own balance, not
-// the guest's card, so there's no reason to charge before RateHawk confirms
-// — and lib/payment-gateway.ts has no refund/void method to undo a charge if
-// RateHawk failed afterward.
+// Split into two steps (createRealBookingForm, finishRealBooking) rather
+// than one combined call, per RateHawk's own Best Practices for API guide
+// (docs.emergingtravel.com/docs/best-practices-for-apiv3/, confirmed
+// 2026-08-24): charge the guest through our own gateway FIRST, and only
+// confirm/commit the order with RateHawk after that payment succeeds.
+// createRealBookingForm opens the order envelope (no charge, no commitment
+// with the hotel) as soon as the guest reaches the payment step in
+// booking.tsx; finishRealBooking is called only once the gateway reports the
+// charge captured. The form step's 60-minute lifetime and the prebook hash's
+// 24h lifetime both comfortably outlast a card-entry/3DS/gateway round trip.
 
 const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
 
@@ -102,30 +104,63 @@ async function pollBookingStatus(partnerOrderId: string): Promise<{ ok: boolean 
   return { ok: false }
 }
 
-export async function confirmRealBooking(params: {
-  bookHash: string
+export interface RealBookingPaymentType {
+  type: string
+  amount: string
+  currency_code: string
+}
+
+export interface RealBookingForm {
+  orderId: string
+  partnerOrderId: string
+  paymentType: RealBookingPaymentType
+}
+
+// Opens the RateHawk order envelope only -- does NOT charge or commit
+// anything with the hotel. Per RateHawk's own Best Practices for API guide,
+// the guest is charged through our own gateway between this call and
+// finishRealBooking below, never before it and never skipped. Call this as
+// soon as the guest reaches the payment step (room already prebooked/held),
+// then only call finishRealBooking once payment has actually succeeded.
+export async function createRealBookingForm(bookHash: string): Promise<
+  { ok: true } & RealBookingForm | { ok: false }
+> {
+  const partnerOrderId = `balkanea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+  const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ step: 'form', book_hash: bookHash, partner_order_id: partnerOrderId }),
+  })
+  const data = await res.json()
+  if (!data.success) return { ok: false }
+  return { ok: true, orderId: data.order_id, partnerOrderId, paymentType: data.payment_type }
+}
+
+// Commits the order opened by createRealBookingForm. Only call this after
+// the guest's payment has been confirmed captured.
+export async function finishRealBooking(params: {
+  partnerOrderId: string
+  paymentType: RealBookingPaymentType
   leadGuestName: string
   adultsCount: number
   email: string
   phone: string
-}): Promise<{ ok: true; orderId: string } | { ok: false }> {
-  const partnerOrderId = `balkanea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-
-  const bookRes = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
+}): Promise<{ ok: boolean }> {
+  const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      book_hash: params.bookHash,
-      partner_order_id: partnerOrderId,
+      step: 'finish',
+      partner_order_id: params.partnerOrderId,
       guests: buildRoomGuests(params.leadGuestName, params.adultsCount),
       email: params.email,
       phone: params.phone,
+      payment_type: params.paymentType,
     }),
   })
-  const bookData = await bookRes.json()
-  if (!bookData.success) return { ok: false }
+  const data = await res.json()
+  if (!data.success) return { ok: false }
 
-  const { ok } = await pollBookingStatus(partnerOrderId)
-  if (!ok) return { ok: false }
-  return { ok: true, orderId: bookData.order_id }
+  return pollBookingStatus(params.partnerOrderId)
 }

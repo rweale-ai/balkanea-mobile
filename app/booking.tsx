@@ -17,8 +17,8 @@ import { activeGateway } from '../lib/payment-gateway'
 import { supabase } from '../lib/supabase'
 import { getOrCreateIntent, updateIntent } from '../lib/payment-intent'
 import { pollBookingPaymentState } from '../lib/payment-status'
-import { lockRoom, reconfirmBooking, realLockRoom, confirmRealBooking } from '../lib/ratehawk'
-import type { RoomLock } from '../lib/ratehawk'
+import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking } from '../lib/ratehawk'
+import type { RoomLock, RealBookingForm } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
@@ -27,7 +27,7 @@ import { validateRoomsConfig } from '../lib/rooms-config'
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network' | 'unavailable'
+type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network' | 'unavailable' | 'bookingFailedAfterPayment'
 type LockState = 'locking' | 'held' | 'renewing'
 type CardBrand = 'visa' | 'mc' | null
 
@@ -271,13 +271,21 @@ export default function BookingScreen() {
   const pendingBookingRef = useRef<Booking | null>(null)
   const pollHandleRef = useRef<{ stop: () => void } | null>(null)
 
-  // Set once the real RateHawk order (room.book_hash path only) is confirmed
-  // pre-charge. Survives retries the same way pendingBookingRef does — a
-  // decline-then-retry must reuse the already-confirmed order, never create
-  // a second real booking with the hotel.
+  // Set once the RateHawk booking FORM (room.book_hash path only) is opened,
+  // before the guest is charged -- per RateHawk's Best Practices for API
+  // guide, the guest is charged between form and finish, never before form.
+  // Survives retries the same way pendingBookingRef does, so a decline-then-
+  // retry reuses the same open order instead of opening a second one.
+  const ratehawkFormRef = useRef<RealBookingForm | null>(null)
+
+  // Set once the RateHawk order is actually COMMITTED (finishRealBooking
+  // succeeded) -- only after the guest's payment has captured. Distinct from
+  // ratehawkFormRef: a payment retry must never re-open a new form once one
+  // already exists, and finish must never be re-attempted once it already
+  // succeeded.
   const ratehawkOrderRef = useRef<string | null>(null)
 
-  // confirmRealBooking's poll can run up to ~150s. If the guest navigates
+  // finishRealBooking's poll can run up to ~150s. If the guest navigates
   // away mid-poll (e.g. router.back() off the unavailable banner, or just
   // backgrounding), this screen unmounts but the awaited call in handlePay
   // keeps running -- guard every state write after that await so it doesn't
@@ -450,9 +458,36 @@ export default function BookingScreen() {
 
   // Shared tail for both gateways once the charge is actually confirmed:
   // tell RateHawk the hold is now a real booking, sync to Salesforce, navigate.
+  // Real hotels (book_hash) commit the actual RateHawk order HERE, only now
+  // that payment has captured -- per RateHawk's Best Practices for API
+  // guide. If that commit fails, the guest has already been charged but the
+  // hotel booking isn't confirmed; flagged distinctly (bookingFailedAfterPayment)
+  // rather than silently treated as a normal confirmation, and the Supabase
+  // row (already optimistically marked 'confirmed' by the caller) is walked
+  // back to 'pending' so support can find it.
   const finalizeConfirmedBooking = async (booking: Booking) => {
     setPayState('confirming')
-    await reconfirmBooking(lock!.lockId)
+
+    if (room?.book_hash && ratehawkFormRef.current && !ratehawkOrderRef.current) {
+      const finish = await finishRealBooking({
+        partnerOrderId: ratehawkFormRef.current.partnerOrderId,
+        paymentType: ratehawkFormRef.current.paymentType,
+        leadGuestName: fullName.trim(),
+        adultsCount: adults,
+        email: email.trim(),
+        phone: phone.trim(),
+      })
+      if (!isMountedRef.current) return
+      if (!finish.ok) {
+        await updateBookingStatus(booking.id, { status: 'pending' })
+        setPayState('bookingFailedAfterPayment')
+        return
+      }
+      ratehawkOrderRef.current = ratehawkFormRef.current.orderId
+      await updateBookingStatus(booking.id, { ratehawk_order_id: ratehawkOrderRef.current })
+    } else {
+      await reconfirmBooking(lock!.lockId)
+    }
 
     syncBookingToSalesforce({
       guestName: fullName.trim(),
@@ -520,45 +555,47 @@ export default function BookingScreen() {
       }
     }
 
-    // Real RateHawk order first, charge second -- see the doLock/book_hash
-    // comment above and project memory for why. This runs before any money
-    // moves; on failure the guest is never charged. Skipped on a retry that
-    // already has a confirmed order (ratehawkOrderRef) so a decline-then-
-    // retry never creates a second real booking with the hotel.
-    if (room.book_hash && !ratehawkOrderRef.current) {
+    // Open the RateHawk order FORM before charging -- per RateHawk's Best
+    // Practices for API guide, the guest is charged between form and finish,
+    // not before form (this doesn't commit anything with the hotel yet) and
+    // not skipping straight to finish (which would charge before RateHawk
+    // has even opened the order). Skipped on a retry that already has an
+    // open form (ratehawkFormRef) so a decline-then-retry reuses it instead
+    // of opening a second one.
+    if (room.book_hash && !ratehawkFormRef.current) {
       setPayState('confirming')
-      const result = await confirmRealBooking({
-        bookHash: bookHashForPay,
-        leadGuestName: fullName.trim(),
-        adultsCount: adults,
-        email: email.trim(),
-        phone: phone.trim(),
-      })
+      const form = await createRealBookingForm(bookHashForPay)
       if (!isMountedRef.current) return
-      if (!result.ok) {
+      if (!form.ok) {
         setPayState('unavailable')
         return
       }
-      ratehawkOrderRef.current = result.orderId
+      ratehawkFormRef.current = form
     }
 
     setPayState('processing')
 
-    // Real RateHawk hotels (room.book_hash) price in their own real currency
-    // (both verified test hotels return USD regardless of requested
-    // currency) -- grandTotal for those is already in that real currency, so
-    // charge it as-is rather than running it through convertPrice, which
-    // assumes a EUR-denominated input. There's no real USD->EUR conversion
-    // in lib/currency.ts; Ray confirmed (2026-08-24) charging in the real
-    // currency directly rather than approximating one.
+    // Bankart's merchant account is confirmed EUR/MKD only, not USD (see
+    // docs/bankart-payment-config.md's error_code 1000 finding, 2026-08-24 --
+    // sending USD for the real LA test hotel reproduced that exact error).
+    // There's no live USD FX feed in this codebase; TEST_USD_TO_MKD is a
+    // fixed placeholder to unblock testing the payment gateway itself, same
+    // category as lib/currency.ts's EUR->MKD test rate -- replace with real
+    // FX before this goes live. The guest still sees the real USD price
+    // on-screen (payLabel/bookingCurrency use grandTotal, untouched below);
+    // only the actual Bankart charge and the booking record's stored
+    // total_price/currency switch to MKD, so payment-notify.js's
+    // amount/currency reconciliation matches what Bankart actually relays
+    // back instead of mismatching against a USD total_price it never charged.
     //
-    // Every other hotel keeps today's behavior: Bankart is only confirmed to
-    // accept EUR/MKD, so other display currencies fall back to EUR. Multiply
-    // by roomCount BEFORE converting (grandTotal already does this) rather
-    // than converting room.total_price and multiplying after -- converting
-    // per room and summing would round once per room instead of once total.
-    const payCurrency = room.book_hash ? (bookingCurrency as 'EUR' | 'MKD' | 'USD') : (currency === 'MKD' ? 'MKD' : 'EUR')
-    const amount = room.book_hash ? grandTotal : convertPrice(grandTotal, payCurrency)
+    // Every other hotel keeps today's behavior: other display currencies
+    // fall back to EUR. Multiply by roomCount BEFORE converting (grandTotal
+    // already does this) rather than converting room.total_price and
+    // multiplying after -- converting per room and summing would round once
+    // per room instead of once total.
+    const TEST_USD_TO_MKD = 56.5
+    const payCurrency = room.book_hash ? 'MKD' as const : (currency === 'MKD' ? 'MKD' : 'EUR')
+    const amount = room.book_hash ? Math.round(grandTotal * TEST_USD_TO_MKD) : convertPrice(grandTotal, payCurrency)
     // Reference is derived from the room lock captured at the top of this
     // function, not a fresh lock.lockId read — a retry after this screen was
     // backgrounded reuses the same gateway transaction instead of risking a
@@ -602,8 +639,11 @@ export default function BookingScreen() {
             rooms: parseInt(params.rooms ?? '1', 10),
             roomsConfig,
             roomGuestNames,
-            total_price: grandTotal,
-            currency: bookingCurrency,
+            // Must match what's actually charged (amount/payCurrency), not
+            // the displayed grandTotal/bookingCurrency -- payment-notify.js
+            // reconciles Bankart's relayed amount/currency against this row.
+            total_price: amount,
+            currency: payCurrency,
             guest_name: fullName.trim(),
             guest_email: email.trim(),
             guest_phone: phone.trim(),
@@ -860,6 +900,22 @@ export default function BookingScreen() {
             <Text style={s.errorBannerText}>{t.booking.declined}</Text>
             <TouchableOpacity onPress={handleRetry} style={s.retryBtn}>
               <Text style={s.retryText}>{t.common.retry}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Payment succeeded but the RateHawk order couldn't be committed --
+            real money already moved, so this must never offer a "retry"
+            (would risk a second charge) or "choose another room" (implies
+            nothing happened yet). Routes to the bookings dashboard, where
+            the flagged 'pending' row and existing support/escalation
+            channels live. */}
+        {payState === 'bookingFailedAfterPayment' && (
+          <View style={s.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={Colors.error} />
+            <Text style={s.errorBannerText}>{t.booking.bookingFailedAfterPayment}</Text>
+            <TouchableOpacity onPress={() => router.replace('/(tabs)/trips')} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.booking.viewBookings}</Text>
             </TouchableOpacity>
           </View>
         )}
