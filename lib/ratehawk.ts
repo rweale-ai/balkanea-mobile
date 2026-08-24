@@ -72,11 +72,18 @@ function splitName(fullName: string): { first_name: string; last_name: string } 
 // placeholders sharing the lead guest's last name. Real per-adult name
 // collection is a separate, larger UI change, not part of wiring real
 // RateHawk booking in.
+//
+// RateHawk's name validator rejects any digit ("Guest 2" -> invalid_params:
+// "digits and non-word symbols are prohibited") -- confirmed 2026-08-24
+// against the real booking/finish endpoint, which fails EVERY multi-adult
+// room. Ordinal words only, never a numeral.
+const CO_TRAVELER_ORDINALS = ['Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth']
 function buildRoomGuests(leadGuestName: string, adultsCount: number) {
   const lead = splitName(leadGuestName)
   const guests = [lead]
   for (let i = 1; i < Math.max(1, adultsCount); i++) {
-    guests.push({ first_name: `Guest ${i + 1}`, last_name: lead.last_name })
+    const ordinal = CO_TRAVELER_ORDINALS[i - 1] ?? 'Additional'
+    guests.push({ first_name: `${ordinal} Guest`, last_name: lead.last_name })
   }
   return guests
 }
