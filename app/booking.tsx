@@ -207,6 +207,7 @@ export default function BookingScreen() {
   const params = useLocalSearchParams<{
     hotelId: string
     roomId: string
+    roomData: string
     checkin: string
     checkout: string
     adults: string
@@ -276,12 +277,37 @@ export default function BookingScreen() {
   // a second real booking with the hotel.
   const ratehawkOrderRef = useRef<string | null>(null)
 
+  // confirmRealBooking's poll can run up to ~150s. If the guest navigates
+  // away mid-poll (e.g. router.back() off the unavailable banner, or just
+  // backgrounding), this screen unmounts but the awaited call in handlePay
+  // keeps running -- guard every state write after that await so it doesn't
+  // fire on an unmounted screen.
+  const isMountedRef = useRef(true)
+  useEffect(() => () => { isMountedRef.current = false }, [])
+
   // ── RateHawk room lock (holds the room before the guest pays) ────
   const [lock, setLock] = useState<RoomLock | null>(null)
   const [lockState, setLockState] = useState<LockState>('locking')
   const [holdSeconds, setHoldSeconds] = useState(0)
 
   const currency = (params.currency ?? getCurrency()) as CurrencyCode
+
+  // Real RateHawk rooms (book_hash present) can't be re-found by id -- every
+  // screen calls searchHotels() independently, and a real hotelpage call
+  // returns a fresh book_hash each time, so this screen's own re-search below
+  // would never contain the id room-selection.tsx saw. room-selection.tsx
+  // carries the exact selected room forward as JSON for that case (see its
+  // handleBookRoom) -- prefer it over the id lookup when present. Guarded:
+  // a malformed param must fall back to the id lookup, not crash.
+  const passedRoom = useMemo<RoomType | null>(() => {
+    if (!params.roomData) return null
+    try {
+      const parsed = JSON.parse(params.roomData)
+      return parsed && typeof parsed === 'object' && parsed.room_id ? parsed as RoomType : null
+    } catch {
+      return null
+    }
+  }, [params.roomData])
 
   const [{ hotel, room }, setHotelRoom] = useState<{ hotel: Hotel | null; room: RoomType | null }>({ hotel: null, room: null })
   const [hotelLoading, setHotelLoading] = useState(true)
@@ -304,8 +330,11 @@ export default function BookingScreen() {
       maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
     }).then((results) => {
       if (cancelled) return
+      // Hotel identity (name/images/address/hotel_id) is stable across
+      // re-searches even for real hotels -- only room_id (book_hash) is
+      // ephemeral, so the hotel is always safe to re-derive here.
       const h = results.find(r => r.hotel_id === params.hotelId) ?? null
-      const rm = h?.room_types.find(r => r.room_id === params.roomId) ?? null
+      const rm = passedRoom ?? h?.room_types.find(r => r.room_id === params.roomId) ?? null
       setHotelRoom({ hotel: h, room: rm })
       setHotelLoading(false)
     })
@@ -344,12 +373,17 @@ export default function BookingScreen() {
   }, [hotel?.hotel_id, room?.room_id])
 
   // Countdown the hold; silently renew it if it runs out before payment.
+  // Frozen once a pay attempt is in flight (payState !== 'idle') -- for the
+  // real path, renewing mid-attempt would replace lock.lockId (the book_hash)
+  // with one from a fresh prebook call that has nothing to do with whatever
+  // RateHawk order handlePay already confirmed against the old value. See
+  // handlePay's bookHashForPay capture below for the other half of this fix.
   useEffect(() => {
     if (!lock) return
     const tick = () => {
       const remaining = Math.max(0, Math.round((lock.expiresAt - Date.now()) / 1000))
       setHoldSeconds(remaining)
-      if (remaining === 0 && hotel && room && lockState !== 'renewing') {
+      if (remaining === 0 && hotel && room && lockState !== 'renewing' && payState === 'idle') {
         setLockState('renewing')
         doLock(hotel, room).then(l => {
           setLock(l)
@@ -360,7 +394,7 @@ export default function BookingScreen() {
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [lock, hotel, room, lockState])
+  }, [lock, hotel, room, lockState, payState])
 
   if (hotelLoading) {
     return (
@@ -394,13 +428,22 @@ export default function BookingScreen() {
   // this line.
   const grandTotal = room.total_price * roomCount
 
+  // Real RateHawk hotels price in their own real currency (see the payCurrency
+  // comment in handlePay below) -- grandTotal/room.total_price for those are
+  // already in hotel.currency, not the app's selected display currency, so
+  // every display/storage of THIS booking's price must use this instead of
+  // the bare `currency` state. formatPrice(amount, 'USD') happens to render
+  // correctly as-is ($ prefix, no wrongful EUR->USD conversion) since 'USD'
+  // isn't in lib/currency.ts's RATES table.
+  const bookingCurrency = (room.book_hash ? hotel.currency : currency) as CurrencyCode
+
   // Card entry only happens in-app for the simulated demo gateway — the
   // real gateway collects the card on Bankart's own WebView page, so
   // there's nothing here for the guest to fill in or for canPay to gate on.
   const isSimulated = activeGateway.id === 'simulated'
   const allGuestNamesFilled = fullName.trim().length > 0 && additionalGuestNames.every(n => n.trim().length > 0)
   const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && payState === 'idle' && lockState === 'held'
-  const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, currency)
+  const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, bookingCurrency)
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
   const roomGuestNames = [fullName.trim(), ...additionalGuestNames.map(n => n.trim())]
@@ -420,7 +463,7 @@ export default function BookingScreen() {
       checkin: params.checkin,
       checkout: params.checkout,
       totalPrice: grandTotal,
-      currency,
+      currency: bookingCurrency,
       confirmationCode: booking.confirmation_code,
     }).catch(() => { /* fire-and-forget */ })
 
@@ -429,6 +472,14 @@ export default function BookingScreen() {
 
   const handlePay = async () => {
     if (!canPay || !lock) return
+
+    // Captured now, before any async step -- renewal freezes once payState
+    // leaves 'idle' (see the countdown effect above), but this closes the
+    // gap between now and that first setPayState call, and gives both the
+    // confirm-gate and the payment reference below the exact same value
+    // instead of two separate reads of `lock.lockId` that a renewal could
+    // have changed in between.
+    const bookHashForPay = lock.lockId
 
     if (!allGuestNamesFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
@@ -477,12 +528,13 @@ export default function BookingScreen() {
     if (room.book_hash && !ratehawkOrderRef.current) {
       setPayState('confirming')
       const result = await confirmRealBooking({
-        bookHash: lock.lockId,
+        bookHash: bookHashForPay,
         leadGuestName: fullName.trim(),
         adultsCount: adults,
         email: email.trim(),
         phone: phone.trim(),
       })
+      if (!isMountedRef.current) return
       if (!result.ok) {
         setPayState('unavailable')
         return
@@ -492,18 +544,27 @@ export default function BookingScreen() {
 
     setPayState('processing')
 
-    // Bankart is only confirmed to accept EUR/MKD -- other display
-    // currencies fall back to charging in EUR rather than risking an
-    // unsupported currency code at the actual payment gateway. Multiply by
-    // roomCount BEFORE converting (grandTotal already does this) rather than
-    // converting room.total_price and multiplying after -- converting per
-    // room and summing would round once per room instead of once total.
-    const payCurrency = currency === 'MKD' ? 'MKD' : 'EUR'
-    const amount = convertPrice(grandTotal, payCurrency)
-    // Reference is derived from the room lock, not generated fresh here — a
-    // retry after this screen was backgrounded reuses the same gateway
-    // transaction instead of risking a double charge.
-    const intent = await getOrCreateIntent(lock.lockId, amount, payCurrency)
+    // Real RateHawk hotels (room.book_hash) price in their own real currency
+    // (both verified test hotels return USD regardless of requested
+    // currency) -- grandTotal for those is already in that real currency, so
+    // charge it as-is rather than running it through convertPrice, which
+    // assumes a EUR-denominated input. There's no real USD->EUR conversion
+    // in lib/currency.ts; Ray confirmed (2026-08-24) charging in the real
+    // currency directly rather than approximating one.
+    //
+    // Every other hotel keeps today's behavior: Bankart is only confirmed to
+    // accept EUR/MKD, so other display currencies fall back to EUR. Multiply
+    // by roomCount BEFORE converting (grandTotal already does this) rather
+    // than converting room.total_price and multiplying after -- converting
+    // per room and summing would round once per room instead of once total.
+    const payCurrency = room.book_hash ? (bookingCurrency as 'EUR' | 'MKD' | 'USD') : (currency === 'MKD' ? 'MKD' : 'EUR')
+    const amount = room.book_hash ? grandTotal : convertPrice(grandTotal, payCurrency)
+    // Reference is derived from the room lock captured at the top of this
+    // function, not a fresh lock.lockId read — a retry after this screen was
+    // backgrounded reuses the same gateway transaction instead of risking a
+    // double charge, and (for the real path) stays the same value the
+    // RateHawk order above was actually confirmed against.
+    const intent = await getOrCreateIntent(bookHashForPay, amount, payCurrency)
 
     const [firstName, ...lastParts] = fullName.trim().split(/\s+/)
 
@@ -542,7 +603,7 @@ export default function BookingScreen() {
             roomsConfig,
             roomGuestNames,
             total_price: grandTotal,
-            currency,
+            currency: bookingCurrency,
             guest_name: fullName.trim(),
             guest_email: email.trim(),
             guest_phone: phone.trim(),
@@ -622,7 +683,7 @@ export default function BookingScreen() {
         roomsConfig,
         roomGuestNames,
         total_price: grandTotal,
-        currency,
+        currency: bookingCurrency,
         guest_name: fullName.trim(),
         guest_email: email.trim(),
         guest_phone: phone.trim(),
@@ -680,7 +741,7 @@ export default function BookingScreen() {
             </Text>
           </View>
           <View style={s.summaryPriceCol}>
-            <Text style={s.summaryPrice}>{formatPrice(grandTotal, currency)}</Text>
+            <Text style={s.summaryPrice}>{formatPrice(grandTotal, bookingCurrency)}</Text>
             <Text style={s.summaryTaxes}>{t.booking.taxesIncl}</Text>
           </View>
         </View>
@@ -766,7 +827,10 @@ export default function BookingScreen() {
             </Text>
           </View>
         )}
-        {lockState === 'held' && (
+        {/* Hidden once a pay attempt starts -- renewal is frozen then (see the
+            countdown effect above), so this would otherwise sit at a stale
+            "Room held · 0:00" for the ~90s a real RateHawk confirm-gate runs. */}
+        {lockState === 'held' && payState === 'idle' && (
           <View style={s.holdBanner}>
             <Ionicons name="lock-closed-outline" size={14} color={Colors.success} />
             <Text style={s.holdBannerText}>

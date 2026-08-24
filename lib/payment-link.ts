@@ -25,7 +25,11 @@ export interface PaymentLinkError {
 export async function createPaymentLink(params: {
   reference: string
   amount: number
-  currency: 'EUR' | 'MKD'
+  // USD is real-RateHawk-hotel-only (see booking.tsx's book_hash branch) --
+  // both verified test hotels price in USD regardless of requested currency,
+  // and there's no real USD->EUR conversion in lib/currency.ts, so those
+  // bookings charge in the hotel's actual currency instead of converting.
+  currency: 'EUR' | 'MKD' | 'USD'
   guest?: PaymentLinkGuest
 }): Promise<PaymentLinkResult | PaymentLinkError> {
   try {

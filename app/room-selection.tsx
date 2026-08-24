@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels } from '../lib/hotels'
+import { searchHotels, fetchRealRoomTypes } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -65,9 +65,25 @@ export default function RoomSelectionScreen() {
       currency: params.currency || getCurrency(),
       // Must match the original search's price filter — see hotel-detail.tsx
       maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
-    }).then((results) => {
+    }).then(async (results) => {
       if (cancelled) return
-      setHotel(results.find(h => h.hotel_id === params.hotelId) || null)
+      const h = results.find(h => h.hotel_id === params.hotelId) || null
+      // Real rooms are fetched here, lazily, for this one hotel only -- see
+      // lib/hotels.ts's searchHotels for why the search itself never does
+      // this for all results (RateHawk hotelpage rate-limit risk). Skipped
+      // when room_types is already populated -- the Los Angeles special case
+      // in search-hotels.js returns real rooms directly, so re-fetching here
+      // would just be a second, redundant hotelpage call.
+      if (h?.hasLiveRates && h.room_types.length === 0) {
+        const room_types = await fetchRealRoomTypes(h.hotel_id, params.checkin, params.checkout, parseInt(params.adults || '2', 10))
+        if (cancelled) return
+        // Empty means the real fetch failed or this hotel has no bookable
+        // rates right now -- fall to the existing "not found" screen rather
+        // than render a room list with nothing in it.
+        setHotel(room_types.length > 0 ? { ...h, room_types } : null)
+      } else {
+        setHotel(h)
+      }
       setHotelLoading(false)
     })
     return () => { cancelled = true }
@@ -122,6 +138,13 @@ export default function RoomSelectionScreen() {
       params: {
         hotelId: hotel.hotel_id,
         roomId: room.room_id,
+        // Real RateHawk rooms (book_hash present) can't be re-found by id --
+        // every screen calls searchHotels() independently, and a real
+        // hotelpage call returns a fresh book_hash each time, so booking.tsx's
+        // own re-search would never contain the id set here. Carry the exact
+        // selected room forward instead of re-deriving it. Simulated/
+        // DB-content rooms keep using roomId only, unchanged.
+        roomData: room.book_hash ? JSON.stringify(room) : '',
         checkin: params.checkin,
         checkout: params.checkout,
         adults: params.adults,

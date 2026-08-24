@@ -19,7 +19,10 @@ export type PaymentResult =
 
 export async function chargeCard(params: {
   amount: number
-  currency: 'EUR' | 'MKD'
+  // USD is real-RateHawk-hotel-only -- see lib/payment-link.ts. This demo
+  // gateway doesn't care about the value, just needs the wider type to
+  // satisfy the shared PaymentGateway interface.
+  currency: 'EUR' | 'MKD' | 'USD'
   simulateDecline?: boolean
 }): Promise<PaymentResult> {
   // Simulate network latency

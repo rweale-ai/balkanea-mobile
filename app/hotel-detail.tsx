@@ -302,7 +302,9 @@ export default function HotelDetailScreen() {
           <View style={styles.roomTeaser}>
             <View style={styles.roomTeaserText}>
               <Text style={styles.roomTeaserCount}>
-                {hotel.room_types.length} {hotel.room_types.length === 1 ? 'room type' : 'room types'} available
+                {hotel.hasLiveRates
+                  ? 'Room options available'
+                  : `${hotel.room_types.length} ${hotel.room_types.length === 1 ? 'room type' : 'room types'} available`}
               </Text>
               <Text style={styles.roomTeaserFrom}>
                 {t.hotel.fromPrice} {formatPrice(hotel.price_per_night, activeCurrency)} {t.hotel.perNight}

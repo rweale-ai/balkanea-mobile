@@ -119,62 +119,37 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
     if (res.ok) {
       const data = await res.json()
       if (data.success && data.results && data.results.length > 0) {
-        const enriched = data.results.map((h: any) => ({
+        // `data.simulated === false` means these results came from RateHawk's
+        // real live search (currently only Los Angeles) -- room_types is
+        // always null on that path (search-hotels.js never populates it).
+        // Marked here so hotel-detail.tsx / room-selection.tsx know to fetch
+        // real rates via fetchRealRoomTypes below instead of falling through
+        // to the fabricated ROOM_TEMPLATES fallback: fake room names and
+        // made-up prices layered onto a real, bookable hotel. Deliberately
+        // NOT fetched here for every result in a search -- that's up to 8
+        // hotelpage calls on every search just to show cards that don't even
+        // display per-room detail, multiplied by every screen that re-searches
+        // (RateHawk's own error set includes endpoint_exceeded_limit). Fetch
+        // once, lazily, only for the one hotel a guest actually opens.
+        const isLive = data.simulated === false
+
+        return data.results.map((h: any) => ({
           ...h,
           guest_rating: h.guest_rating ?? 8.0,
           distance_to_center: h.distance_to_center ?? 1.0,
           images: h.images ?? [`https://picsum.photos/seed/${h.hotel_id}/800/600`],
-          room_types: h.room_types ?? ROOM_TEMPLATES.map((rt, i) => ({
+          room_types: h.room_types ?? (isLive ? [] : ROOM_TEMPLATES.map((rt, i) => ({
             ...rt,
             room_id: `${h.hotel_id}-${rt.room_id}`,
             price_per_night: h.price_per_night + i * 20,
             total_price: (h.price_per_night + i * 20) * nightsBetween(params.checkin, params.checkout),
-          })),
+          }))),
           cancellation_policy: h.cancellation_policy ?? 'Contact hotel for cancellation policy',
           meal_plan: h.meal_plan ?? 'Room only',
           latitude: h.latitude ?? 0,
           longitude: h.longitude ?? 0,
+          hasLiveRates: isLive,
         }))
-
-        // `data.simulated === false` means these results came from RateHawk's
-        // real live search (currently only Los Angeles) -- room_types is
-        // always null on that path (search-hotels.js never populates it),
-        // which would otherwise fall through to the fabricated ROOM_TEMPLATES
-        // above: fake room names and made-up prices layered onto a real,
-        // bookable hotel. Fetch real rates instead. A hotel whose real-room
-        // fetch fails is dropped rather than shown with fabricated rooms --
-        // unlike the DB-content/simulated path, this hotel is genuinely
-        // payable, so wrong room data is a real-money risk, not just a
-        // display gap.
-        if (data.simulated === false) {
-          const withRealRooms = await Promise.all(
-            enriched.map(async (h: Hotel) => {
-              try {
-                const roomsRes = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    hotel_id: h.hotel_id,
-                    checkin: params.checkin,
-                    checkout: params.checkout,
-                    adults: params.adults,
-                    children: [],
-                  }),
-                })
-                const roomsData = await roomsRes.json()
-                if (roomsData.success && roomsData.room_types?.length > 0) {
-                  return { ...h, room_types: roomsData.room_types }
-                }
-                return null
-              } catch {
-                return null
-              }
-            })
-          )
-          return withRealRooms.filter((h): h is Hotel => h !== null)
-        }
-
-        return enriched
       }
     }
   } catch (e) {
@@ -186,4 +161,27 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
 
 export function searchHotelsSync(params: HotelSearchParams): Hotel[] {
   return generateHotels(params)
+}
+
+// Real per-room rates for one hotel (hotel.hasLiveRates === true only -- see
+// searchHotels above for why this isn't fetched for every search result).
+// Called once by whichever screen actually needs to show real rooms for this
+// specific hotel -- currently just room-selection.tsx.
+export async function fetchRealRoomTypes(
+  hotelId: string,
+  checkin: string,
+  checkout: string,
+  adults: number,
+): Promise<RoomType[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hotel_id: hotelId, checkin, checkout, adults, children: [] }),
+    })
+    const data = await res.json()
+    return data.success && data.room_types ? data.room_types : []
+  } catch {
+    return []
+  }
 }

@@ -66,6 +66,10 @@ export interface Hotel {
   meal_plan: string
   latitude: number
   longitude: number
+  // True only for hotels sourced from live RateHawk search (currently just
+  // Los Angeles) -- room_types is empty until fetchRealRoomTypes (lib/hotels.ts)
+  // is called for this specific hotel; see room-selection.tsx.
+  hasLiveRates?: boolean
 }
 
 export interface RoomType {

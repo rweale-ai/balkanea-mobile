@@ -16,7 +16,8 @@ import { createPaymentLink, type PaymentLinkGuest } from './payment-link'
 export interface CheckoutSessionParams {
   reference: string
   amount: number
-  currency: 'EUR' | 'MKD'
+  // USD is real-RateHawk-hotel-only -- see lib/payment-link.ts.
+  currency: 'EUR' | 'MKD' | 'USD'
   guest?: PaymentLinkGuest
   /** Demo-only: routes to a decline in the simulated adapter. Ignored by real adapters. */
   simulateDecline?: boolean
