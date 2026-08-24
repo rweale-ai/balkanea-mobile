@@ -66,6 +66,20 @@ AI-first outbound hotel booking app for Balkan locals travelling internationally
 - Never commit .env files.
 - Use `StyleSheet.absoluteFill` not `StyleSheet.absoluteFillObject` (RN 0.85).
 
+## Open items
+
+### Claude API key exposed client-side + Anthropic legal/licensing review (2026-08-24)
+`lib/claude.ts` calls `api.anthropic.com` directly from the client using `EXPO_PUBLIC_CLAUDE_API_KEY` (`x-api-key` header, lines ~93/125/183/234/242/355). Because Expo inlines `EXPO_PUBLIC_*` vars into the built JS bundle, this key ships inside the app binary and is extractable by anyone who unpacks it — same category of issue as the Retell key noted above under "Voice (Retell AI)".
+
+Two separate things to resolve before App Store submission:
+1. **Technical fix:** proxy Nea's Claude calls through the Chat backend (balkanea-lead-webhook on Vercel), the same pattern already used for RateHawk (see `Chat/lib/ratehawk.js`). Add an endpoint (e.g. `api/nea-chat.js`) holding `ANTHROPIC_API_KEY` server-side (already present in Chat's Vercel env, unused). Must stream the response through rather than buffer-and-return, since Nea's typing effect depends on token streaming.
+2. **Legal/licensing review (not yet done, needs Balkanea counsel or a careful read of Anthropic's current Commercial Terms of Service / Usage Policy):**
+   - The exposed-key issue above may itself breach Anthropic's terms around keeping API credentials confidential / not allowing unauthorized third-party use, not just being a security bug.
+   - Confirm Nea's actual behavior (any advice-adjacent responses) doesn't brush up against Usage Policy restrictions on advice-related use cases.
+   - Confirm a Data Processing Addendum is in place with Anthropic if EU personal data flows through Claude calls (Balkanea serves Balkan travelers, many EU-adjacent).
+   - Confirm the app's AI-disclosure UX (users told they're talking to an AI, not a human) meets applicable regulatory requirements (e.g. EU AI Act transparency rules) — separate from anything Anthropic-specific.
+   - Branding is already correct (assistant is "Nea," not presented as "Claude").
+
 ## Next up
 - Supabase auth + real user accounts
 - Real RateHawk hotel search once sandbox credentials activate
