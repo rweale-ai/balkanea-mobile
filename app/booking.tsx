@@ -23,6 +23,7 @@ import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType, Booking } from '../lib/types'
+import { validateRoomsConfig } from '../lib/rooms-config'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -211,12 +212,48 @@ export default function BookingScreen() {
     adults: string
     children: string
     rooms: string
+    roomsConfig: string
+    additionalGuestNames: string
     currency: string
     destination: string
     maxPricePerNight: string
   }>()
 
+  // Guarded -- a malformed route param must never crash this screen, just
+  // fall back to the flat rooms count below.
+  const roomsConfig = useMemo(() => {
+    if (!params.roomsConfig) return undefined
+    try {
+      return validateRoomsConfig(JSON.parse(params.roomsConfig))
+    } catch {
+      return undefined
+    }
+  }, [params.roomsConfig])
+
+  // Load-bearing for the actual charge amount: must stay `roomsConfig?.length
+  // || parseInt(...)`, not `??` -- this is what keeps the total correct even
+  // after the /auth detour (which preserves the flat `rooms` param but may
+  // not carry `roomsConfig`). See project memory:
+  // balkanea-multiroom-booking-gap for why this exists.
+  const roomCount = roomsConfig?.length || parseInt(params.rooms ?? '1', 10)
+
   const [fullName, setFullName] = useState('')
+  // One lead-guest name per room beyond the first -- room 1's name is
+  // `fullName` above (unchanged from before multi-room support existed).
+  // Restores whatever was typed before an /auth detour, if any (guarded --
+  // a malformed param must not crash this screen).
+  const [additionalGuestNames, setAdditionalGuestNames] = useState<string[]>(() => {
+    const empty = Array(Math.max(0, roomCount - 1)).fill('')
+    if (!params.additionalGuestNames) return empty
+    try {
+      const restored = JSON.parse(params.additionalGuestNames)
+      return Array.isArray(restored) && restored.length === empty.length
+        ? restored.map(n => String(n))
+        : empty
+    } catch {
+      return empty
+    }
+  })
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [payState, setPayState] = useState<PayState>('idle')
@@ -336,14 +373,24 @@ export default function BookingScreen() {
     )
   }
 
+  // The actual price for this booking -- room.total_price is priced for ONE
+  // room (matches RateHawk's real model: a rate is per room, price for N
+  // rooms = rate × N). Every place that used to read room.total_price
+  // directly for display or the real charge amount must use this instead;
+  // `grep -n "room.total_price" app/booking.tsx` should find nothing below
+  // this line.
+  const grandTotal = room.total_price * roomCount
+
   // Card entry only happens in-app for the simulated demo gateway — the
   // real gateway collects the card on Bankart's own WebView page, so
   // there's nothing here for the guest to fill in or for canPay to gate on.
   const isSimulated = activeGateway.id === 'simulated'
-  const canPay = (!isSimulated || cardReady) && !!fullName.trim() && !!email.trim() && payState === 'idle' && lockState === 'held'
-  const payLabel = t.booking.payNow + ' ' + formatPrice(room.total_price, currency)
+  const allGuestNamesFilled = fullName.trim().length > 0 && additionalGuestNames.every(n => n.trim().length > 0)
+  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && payState === 'idle' && lockState === 'held'
+  const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, currency)
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
+  const roomGuestNames = [fullName.trim(), ...additionalGuestNames.map(n => n.trim())]
 
   // Shared tail for both gateways once the charge is actually confirmed:
   // tell RateHawk the hold is now a real booking, sync to Salesforce, navigate.
@@ -359,7 +406,7 @@ export default function BookingScreen() {
       destination: params.destination ?? '',
       checkin: params.checkin,
       checkout: params.checkout,
-      totalPrice: room!.total_price,
+      totalPrice: grandTotal,
       currency,
       confirmationCode: booking.confirmation_code,
     }).catch(() => { /* fire-and-forget */ })
@@ -370,7 +417,7 @@ export default function BookingScreen() {
   const handlePay = async () => {
     if (!canPay || !lock) return
 
-    if (!fullName.trim()) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
+    if (!allGuestNamesFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
 
     // The real gateway needs a Supabase row payment-notify.js can find and
@@ -395,6 +442,12 @@ export default function BookingScreen() {
             adults: params.adults ?? '2',
             children: params.children ?? '0',
             rooms: params.rooms ?? '1',
+            roomsConfig: params.roomsConfig || '',
+            // Additional guest names entered so far survive the detour too
+            // (fullName/email are already carried via prefillName/prefillEmail
+            // above) -- otherwise a guest who filled in room 2's name, then
+            // had to log in, would find it blank again.
+            additionalGuestNames: additionalGuestNames.length > 0 ? JSON.stringify(additionalGuestNames) : '',
             currency: params.currency ?? getCurrency(),
             destination: params.destination ?? '',
           },
@@ -407,9 +460,12 @@ export default function BookingScreen() {
 
     // Bankart is only confirmed to accept EUR/MKD -- other display
     // currencies fall back to charging in EUR rather than risking an
-    // unsupported currency code at the actual payment gateway.
+    // unsupported currency code at the actual payment gateway. Multiply by
+    // roomCount BEFORE converting (grandTotal already does this) rather than
+    // converting room.total_price and multiplying after -- converting per
+    // room and summing would round once per room instead of once total.
     const payCurrency = currency === 'MKD' ? 'MKD' : 'EUR'
-    const amount = convertPrice(room.total_price, payCurrency)
+    const amount = convertPrice(grandTotal, payCurrency)
     // Reference is derived from the room lock, not generated fresh here — a
     // retry after this screen was backgrounded reuses the same gateway
     // transaction instead of risking a double charge.
@@ -449,7 +505,9 @@ export default function BookingScreen() {
               children: parseInt(params.children ?? '0', 10),
             },
             rooms: parseInt(params.rooms ?? '1', 10),
-            total_price: room.total_price,
+            roomsConfig,
+            roomGuestNames,
+            total_price: grandTotal,
             currency,
             guest_name: fullName.trim(),
             guest_email: email.trim(),
@@ -526,7 +584,9 @@ export default function BookingScreen() {
           children: parseInt(params.children ?? '0', 10),
         },
         rooms: parseInt(params.rooms ?? '1', 10),
-        total_price: room.total_price,
+        roomsConfig,
+        roomGuestNames,
+        total_price: grandTotal,
         currency,
         guest_name: fullName.trim(),
         guest_email: email.trim(),
@@ -580,11 +640,11 @@ export default function BookingScreen() {
               {params.checkin} → {params.checkout} · {nights} {t.booking.nights}
             </Text>
             <Text style={s.summaryGuests}>
-              {adults} {t.bookingDetail.adults}{children > 0 ? `, ${children} ${t.bookingDetail.children}` : ''}
+              {adults} {t.bookingDetail.adults}{children > 0 ? `, ${children} ${t.bookingDetail.children}` : ''}{roomCount > 1 ? ` · ${roomCount} rooms` : ''}
             </Text>
           </View>
           <View style={s.summaryPriceCol}>
-            <Text style={s.summaryPrice}>{formatPrice(room.total_price, currency)}</Text>
+            <Text style={s.summaryPrice}>{formatPrice(grandTotal, currency)}</Text>
             <Text style={s.summaryTaxes}>{t.booking.taxesIncl}</Text>
           </View>
         </View>
@@ -592,7 +652,7 @@ export default function BookingScreen() {
         {/* ── Guest details ────────────────────────────────────── */}
         <Text style={s.sectionTitle}>{t.booking.guestDetails}</Text>
         <View style={s.fields}>
-          <Field label={t.booking.fullName} icon="person-outline">
+          <Field label={roomCount > 1 ? t.booking.guestNameForRoom.replace('{{n}}', '1') : t.booking.fullName} icon="person-outline">
             <TextInput
               style={s.fieldInput}
               value={fullName}
@@ -605,6 +665,21 @@ export default function BookingScreen() {
               autoComplete="name"
             />
           </Field>
+          {additionalGuestNames.map((name, idx) => (
+            <Field key={`room-guest-${idx}`} label={t.booking.guestNameForRoom.replace('{{n}}', String(idx + 2))} icon="person-outline">
+              <TextInput
+                style={s.fieldInput}
+                value={name}
+                onChangeText={(text) => setAdditionalGuestNames(prev => prev.map((v, i) => i === idx ? text : v))}
+                placeholder="Marko Petrov"
+                placeholderTextColor={Colors.textLight}
+                autoCapitalize="words"
+                editable={!busy}
+                textContentType="name"
+                autoComplete="name"
+              />
+            </Field>
+          ))}
           <Field label={t.booking.emailAddress} icon="mail-outline">
             <TextInput
               style={s.fieldInput}

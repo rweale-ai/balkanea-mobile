@@ -17,6 +17,16 @@ export interface ChatMessage {
   timestamp: Date
 }
 
+// Per-room guest breakdown for multi-room bookings, matching RateHawk's real
+// search model (one guests[] entry per room). When present on
+// HotelSearchParams/Booking, this is the source of truth and adults/
+// children/rooms are derived summary fields -- see lib/rooms-config.ts for
+// the validation this must pass before it's trusted anywhere near a charge.
+export interface RoomGuestConfig {
+  adults: number
+  childAges: number[]
+}
+
 export interface HotelSearchParams {
   destination: string
   regionId?: number
@@ -25,6 +35,10 @@ export interface HotelSearchParams {
   adults: number
   children: number
   rooms: number
+  // Per-room breakdown, when known -- see RoomGuestConfig above. Optional:
+  // absent means "single room" behavior, unchanged from before this field
+  // existed.
+  roomsConfig?: RoomGuestConfig[]
   maxPricePerNight?: number
   minStars?: number
   currency: string
@@ -73,6 +87,12 @@ export interface Booking {
   checkout: string
   guests: { adults: number; children: number }
   rooms: number
+  // Per-room breakdown + per-room lead-guest names, when known. Optional --
+  // absent for every booking made before multi-room support existed, and
+  // for any single-room booking today (guest_name below still covers that
+  // case). roomGuestNames[0] always mirrors guest_name when present.
+  roomsConfig?: RoomGuestConfig[]
+  roomGuestNames?: string[]
   total_price: number
   currency: string
   status: 'locked' | 'confirmed' | 'cancelled' | 'pending'

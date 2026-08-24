@@ -12,6 +12,7 @@ import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
+import { validateRoomsConfig } from '../lib/rooms-config'
 
 export default function RoomSelectionScreen() {
   const router = useRouter()
@@ -23,10 +24,27 @@ export default function RoomSelectionScreen() {
     adults: string
     children: string
     rooms: string
+    roomsConfig: string
     currency: string
     destination: string
     maxPricePerNight: string
   }>()
+
+  // Guarded -- a malformed route param must never crash this screen, just
+  // fall back to the flat rooms count below.
+  const roomsConfig = useMemo(() => {
+    if (!params.roomsConfig) return undefined
+    try {
+      return validateRoomsConfig(JSON.parse(params.roomsConfig))
+    } catch {
+      return undefined
+    }
+  }, [params.roomsConfig])
+
+  // Load-bearing for pricing: this must stay `roomsConfig?.length ||
+  // parseInt(...)`, not `??`, so a lost/invalid roomsConfig still falls back
+  // to the flat rooms count rather than pricing as a single room.
+  const roomCount = roomsConfig?.length || parseInt(params.rooms || '1', 10)
 
   const [hotel, setHotel] = useState<Hotel | null>(null)
   const [hotelLoading, setHotelLoading] = useState(true)
@@ -109,6 +127,7 @@ export default function RoomSelectionScreen() {
         adults: params.adults,
         children: params.children,
         rooms: params.rooms,
+        roomsConfig: params.roomsConfig || '',
         currency: params.currency || getCurrency(),
         destination: params.destination || '',
         maxPricePerNight: params.maxPricePerNight || '',
@@ -134,7 +153,9 @@ export default function RoomSelectionScreen() {
           </View>
           <View style={styles.ctxPill}>
             <Ionicons name="people-outline" size={12} color={Colors.primary} />
-            <Text style={styles.ctxPillText}>{params.adults || '2'} adults</Text>
+            <Text style={styles.ctxPillText}>
+              {params.adults || '2'} adults{roomCount > 1 ? ` · ${roomCount} rooms` : ''}
+            </Text>
           </View>
         </View>
       </View>
@@ -184,7 +205,10 @@ export default function RoomSelectionScreen() {
                   <Text style={styles.rcPrice}>
                     {formatPrice(room.price_per_night, activeCurrency)}<Text style={styles.rcPriceUnit}> {t.hotel.perNight}</Text>
                   </Text>
-                  <Text style={styles.rcTotal}>{formatPrice(room.total_price, activeCurrency)} {t.hotel.total.toLowerCase()}</Text>
+                  <Text style={styles.rcTotal}>
+                    {formatPrice(room.total_price * roomCount, activeCurrency)} {t.hotel.total.toLowerCase()}
+                    {roomCount > 1 ? ` (× ${roomCount} rooms)` : ''}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={[styles.rcBookBtn, !isRecommended && styles.rcBookBtnOutline]}

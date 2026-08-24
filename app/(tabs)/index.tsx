@@ -427,6 +427,7 @@ export default function SearchScreen() {
         adults: String(params?.adults ?? 2),
         children: String(params?.children ?? 0),
         rooms: String(params?.rooms ?? 1),
+        roomsConfig: params?.roomsConfig ? JSON.stringify(params.roomsConfig) : '',
         currency: params?.currency ?? currency,
         destination: params?.destination ?? '',
         maxPricePerNight: params?.maxPricePerNight != null ? String(params.maxPricePerNight) : '',

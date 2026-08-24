@@ -43,6 +43,8 @@ function rowToBooking(row: Record<string, any>): Booking {
     checkout: row.checkout,
     guests: { adults: row.adults, children: row.children },
     rooms: row.rooms,
+    roomsConfig: row.rooms_config ?? undefined,
+    roomGuestNames: row.room_guest_names ?? undefined,
     total_price: row.total_price,
     currency: row.currency,
     status: row.status as Booking['status'],
@@ -75,6 +77,8 @@ function bookingToInsert(b: Booking & { confirmation_code: string; status: Booki
     adults: b.guests.adults,
     children: b.guests.children,
     rooms: b.rooms,
+    rooms_config: b.roomsConfig ?? null,
+    room_guest_names: b.roomGuestNames ?? null,
     total_price: b.total_price,
     currency: b.currency,
     status: b.status,
@@ -101,18 +105,28 @@ async function loadFromSupabase(): Promise<Booking[]> {
 }
 
 async function insertToSupabase(b: Booking, userId: string): Promise<Booking | null> {
-  const insertRow = bookingToInsert(b, userId)
-  let { data, error } = await supabase.from('bookings').insert(insertRow).select().single()
+  let insertRow: Record<string, unknown> = bookingToInsert(b, userId)
+  let data: Record<string, unknown> | null = null
+  let error: { code?: string; message?: string } | null = null
 
   // payment_reference/payment_state/gateway_transaction_id require migration
-  // 004_payment_tracking.sql. Until that's run in Supabase, PostgREST rejects
-  // the insert with an unknown-column error (42703) — retry without those
-  // fields rather than losing the whole booking over pending payment-tracking
-  // columns the guest's booking doesn't strictly need.
-  if (error?.code === '42703') {
-    const { payment_reference, payment_state, gateway_transaction_id, ...fallbackRow } = insertRow
-    console.warn('bookings-store: payment tracking columns missing (run migration 004), inserting without them')
-    ;({ data, error } = await supabase.from('bookings').insert(fallbackRow).select().single())
+  // 004_payment_tracking.sql; rooms_config/room_guest_names require
+  // 006_multiroom_booking.sql. Until those are run in Supabase, PostgREST
+  // rejects the insert with an unknown-column error (42703) naming the
+  // specific missing column — strip just that one and retry, looping (not a
+  // single blanket strip) so an environment with 004 run but not 006 (or
+  // vice versa) doesn't lose payment-tracking data it actually has columns
+  // for. Bounded to the number of optional-migration columns that exist.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    ;({ data, error } = await supabase.from('bookings').insert(insertRow).select().single())
+    if (!error || error.code !== '42703') break
+
+    const missingColumn = error.message?.match(/column "?([a-z_]+)"?/i)?.[1]
+    if (!missingColumn || !(missingColumn in insertRow)) break
+
+    console.warn(`bookings-store: column "${missingColumn}" missing (run pending migrations), inserting without it`)
+    const { [missingColumn]: _omit, ...rest } = insertRow
+    insertRow = rest
   }
 
   if (error || !data) {

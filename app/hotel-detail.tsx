@@ -15,6 +15,7 @@ import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../cons
 import type { Hotel, HotelSearchParams } from '../lib/types'
 import { trackViewedHotel } from '../lib/session-store'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
+import { validateRoomsConfig } from '../lib/rooms-config'
 
 export default function HotelDetailScreen() {
   const router = useRouter()
@@ -26,6 +27,7 @@ export default function HotelDetailScreen() {
     adults: string
     children: string
     rooms: string
+    roomsConfig: string
     currency: string
     destination: string
     maxPricePerNight: string
@@ -75,6 +77,17 @@ export default function HotelDetailScreen() {
 
   const activeCurrency = (params.currency || getCurrency()) as CurrencyCode
 
+  // Guarded parse -- a malformed route param must never throw on this
+  // screen, just fall back to the flat adults/children/rooms fields.
+  const roomsConfig = useMemo(() => {
+    if (!params.roomsConfig) return undefined
+    try {
+      return validateRoomsConfig(JSON.parse(params.roomsConfig))
+    } catch {
+      return undefined
+    }
+  }, [params.roomsConfig])
+
   const searchParams = useMemo<HotelSearchParams>(() => ({
     destination: params.destination || '',
     checkin: params.checkin || '',
@@ -82,9 +95,10 @@ export default function HotelDetailScreen() {
     adults: parseInt(params.adults || '2', 10),
     children: parseInt(params.children || '0', 10),
     rooms: parseInt(params.rooms || '1', 10),
+    roomsConfig,
     currency: params.currency || getCurrency(),
     maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
-  }), [params.destination, params.checkin, params.checkout, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight])
+  }), [params.destination, params.checkin, params.checkout, params.adults, params.children, params.rooms, roomsConfig, params.currency, params.maxPricePerNight])
 
   // Track this hotel in session memory for Nea's compare feature
   useEffect(() => {
@@ -135,6 +149,7 @@ export default function HotelDetailScreen() {
         adults: params.adults,
         children: params.children,
         rooms: params.rooms,
+        roomsConfig: params.roomsConfig || '',
         currency: params.currency || getCurrency(),
         destination: params.destination || '',
         maxPricePerNight: params.maxPricePerNight || '',

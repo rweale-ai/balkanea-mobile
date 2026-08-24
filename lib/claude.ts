@@ -4,6 +4,7 @@ import { fetchAllKnowledge } from './knowledge'
 import { getTravelProfile, saveTravelProfile } from './travel-profile'
 import { describeBookings } from './bookings-store'
 import type { ItineraryItemDraft, ItineraryItemType } from './itinerary-store'
+import { validateRoomsConfig, totalAdults, totalChildren } from './rooms-config'
 
 // ── System prompts ─────────────────────────────────────────────────
 
@@ -49,6 +50,11 @@ Write your reply naturally — 2-3 warm sentences. Then on its own line:
 {"destination":"santorini","checkin":"YYYY-MM-DD","checkout":"YYYY-MM-DD","adults":2,"children":0,"rooms":1,"maxPricePerNight":150,"currency":"EUR","amenityPreferences":"pool, sea view"}
 
 "amenityPreferences" is optional -- only include it when the traveler actually mentioned a specific want (pool, quiet, sea view, family-friendly, etc.), as a short comma-separated phrase in their own words. Omit the field entirely if nothing specific was said. This gets remembered and used later (e.g. when summarizing hotel reviews) to weigh the answer against what they actually asked for -- so capture it whenever it comes up, not just on the final search.
+
+## If the traveler needs more than one room
+Do NOT silently split a large group across rooms yourself. Ask how they'd like to split up -- how many adults and children (with ages) in each room -- before searching. Once you know the split, include "roomsConfig" in the ---HOTELS--- JSON: an array with one entry per room, e.g. for 2 rooms (one with 2 adults, one with 2 adults and a 7-year-old):
+{"roomsConfig":[{"adults":2,"childAges":[]},{"adults":2,"childAges":[7]}],"rooms":2, ...rest same as above}
+When "roomsConfig" is present you can omit "adults"/"children" (they'll be computed from it), but always still include "rooms" matching its length. This only applies when more than one room is actually needed -- for a single room, use the format above exactly and don't ask this question.
 
 ## If still gathering info: just write your reply, no marker.
 
@@ -452,13 +458,24 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
     const jsonStr = text.slice(hotelIdx + hotelMarker.length).trim()
     try {
       const raw = JSON.parse(jsonStr)
+
+      // Only trust a per-room breakdown that passes validation (bounds
+      // matching RateHawk's real rules -- see lib/rooms-config.ts). When
+      // present and valid, it's the source of truth: rooms/adults/children
+      // are DERIVED from it, never taken from whatever raw.rooms/raw.adults
+      // the model separately emitted -- an inconsistency there (e.g.
+      // roomsConfig with 2 entries but raw.rooms: 1) must not let a smaller
+      // number reach anything that prices off it later. When absent or
+      // invalid, behavior is identical to before this field existed.
+      const roomsConfig = validateRoomsConfig(raw.roomsConfig)
       const searchParams: HotelSearchParams = {
         destination: raw.destination ?? '',
         checkin: raw.checkin ?? '',
         checkout: raw.checkout ?? '',
-        adults: raw.adults ?? 2,
-        children: raw.children ?? 0,
-        rooms: raw.rooms ?? 1,
+        adults: roomsConfig ? totalAdults(roomsConfig) : (raw.adults ?? 2),
+        children: roomsConfig ? totalChildren(roomsConfig) : (raw.children ?? 0),
+        rooms: roomsConfig ? roomsConfig.length : (raw.rooms ?? 1),
+        roomsConfig,
         maxPricePerNight: raw.maxPricePerNight,
         currency: raw.currency ?? 'EUR',
         amenityPreferences: raw.amenityPreferences,

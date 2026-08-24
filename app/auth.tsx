@@ -37,6 +37,8 @@ export default function AuthScreen() {
     adults?: string
     children?: string
     rooms?: string
+    roomsConfig?: string
+    additionalGuestNames?: string
     currency?: string
     destination?: string
   }>()
@@ -65,6 +67,8 @@ export default function AuthScreen() {
           adults: params.adults,
           children: params.children,
           rooms: params.rooms,
+          roomsConfig: params.roomsConfig,
+          additionalGuestNames: params.additionalGuestNames,
           currency: params.currency,
           destination: params.destination,
         },
