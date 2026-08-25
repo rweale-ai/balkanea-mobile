@@ -474,41 +474,61 @@ export default function BookingScreen() {
   const finalizeConfirmedBooking = async (booking: Booking) => {
     setPayState('confirming')
 
-    if (room?.book_hash && ratehawkFormRef.current && !ratehawkOrderRef.current) {
-      const finish = await finishRealBooking({
-        partnerOrderId: ratehawkFormRef.current.partnerOrderId,
-        paymentType: ratehawkFormRef.current.paymentType,
-        leadGuestName: fullName.trim(),
-        adultsCount: adults,
-        email: email.trim(),
-        phone: phone.trim(),
-      })
-      if (!isMountedRef.current) return
-      if (!finish.ok) {
-        await updateBookingStatus(booking.id, { status: 'pending' })
-        setPayState('bookingFailedAfterPayment')
-        return
+    // Everything below runs AFTER the guest's card has already been
+    // charged -- any unhandled throw here (a Supabase write failing, a
+    // notification-scheduling error, anything) must never leave the
+    // screen silently stuck on "Confirming with the hotel…" the way a
+    // missing .catch previously did. Fail closed into the same
+    // bookingFailedAfterPayment screen used for a real RateHawk
+    // commit failure: the guest was charged either way, so "you were
+    // charged, we've got it, check your bookings" is the right message
+    // regardless of which specific step broke, and ops can reconcile
+    // ratehawk_order_id/status from there.
+    try {
+      if (room?.book_hash && ratehawkFormRef.current && !ratehawkOrderRef.current) {
+        const finish = await finishRealBooking({
+          partnerOrderId: ratehawkFormRef.current.partnerOrderId,
+          paymentType: ratehawkFormRef.current.paymentType,
+          leadGuestName: fullName.trim(),
+          adultsCount: adults,
+          email: email.trim(),
+          phone: phone.trim(),
+        })
+        if (!isMountedRef.current) return
+        if (!finish.ok) {
+          await updateBookingStatus(booking.id, { status: 'pending' })
+          setPayState('bookingFailedAfterPayment')
+          return
+        }
+        ratehawkOrderRef.current = ratehawkFormRef.current.orderId
+        await updateBookingStatus(booking.id, { ratehawk_order_id: ratehawkOrderRef.current })
+      } else {
+        await reconfirmBooking(lock!.lockId)
       }
-      ratehawkOrderRef.current = ratehawkFormRef.current.orderId
-      await updateBookingStatus(booking.id, { ratehawk_order_id: ratehawkOrderRef.current })
-    } else {
-      await reconfirmBooking(lock!.lockId)
+
+      syncBookingToSalesforce({
+        guestName: fullName.trim(),
+        guestEmail: email.trim(),
+        guestPhone: phone.trim(),
+        hotelName: hotel!.name,
+        destination: params.destination ?? '',
+        checkin: params.checkin,
+        checkout: params.checkout,
+        totalPrice: grandTotal,
+        currency: bookingCurrency,
+        confirmationCode: booking.confirmation_code,
+      }).catch(() => { /* fire-and-forget */ })
+
+      router.replace({ pathname: '/booking-confirmed', params: { id: booking.id } })
+    } catch (err) {
+      if (!isMountedRef.current) return
+      console.warn('finalizeConfirmedBooking: unexpected failure after payment captured', err)
+      // Best-effort -- if this also throws (e.g. the same failure that
+      // got us here), still surface bookingFailedAfterPayment rather than
+      // leaving the guest stuck a second time.
+      await updateBookingStatus(booking.id, { status: 'pending' }).catch(() => {})
+      setPayState('bookingFailedAfterPayment')
     }
-
-    syncBookingToSalesforce({
-      guestName: fullName.trim(),
-      guestEmail: email.trim(),
-      guestPhone: phone.trim(),
-      hotelName: hotel!.name,
-      destination: params.destination ?? '',
-      checkin: params.checkin,
-      checkout: params.checkout,
-      totalPrice: grandTotal,
-      currency: bookingCurrency,
-      confirmationCode: booking.confirmation_code,
-    }).catch(() => { /* fire-and-forget */ })
-
-    router.replace({ pathname: '/booking-confirmed', params: { id: booking.id } })
   }
 
   const handlePay = async () => {
