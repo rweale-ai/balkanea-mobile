@@ -17,7 +17,7 @@ import { activeGateway } from '../lib/payment-gateway'
 import { supabase } from '../lib/supabase'
 import { getOrCreateIntent, updateIntent, referenceForLock } from '../lib/payment-intent'
 import { pollBookingPaymentState } from '../lib/payment-status'
-import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking } from '../lib/ratehawk'
+import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking, sendBookingConfirmationEmails } from '../lib/ratehawk'
 import type { RoomLock, RealBookingForm } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
@@ -521,6 +521,23 @@ export default function BookingScreen() {
         }
         ratehawkOrderRef.current = ratehawkFormRef.current.orderId
         await updateBookingStatus(booking.id, { ratehawk_order_id: ratehawkOrderRef.current })
+
+        // Fire-and-forget -- the backend itself retries fetching the
+        // voucher/invoice for up to ~35s, no reason to make the guest wait
+        // on top of everything else this screen already waits through.
+        sendBookingConfirmationEmails({
+          partnerOrderId: ratehawkFormRef.current.partnerOrderId,
+          ratehawkOrderId: ratehawkOrderRef.current,
+          confirmationCode: booking.confirmation_code,
+          guestEmail: email.trim(),
+          guestName: fullName.trim(),
+          hotelName: hotel!.name,
+          checkin: params.checkin,
+          checkout: params.checkout,
+          roomName: room.name,
+          totalPrice: grandTotal,
+          currency: bookingCurrency,
+        }).catch(() => { /* fire-and-forget */ })
       } else {
         await reconfirmBooking(lock!.lockId)
       }

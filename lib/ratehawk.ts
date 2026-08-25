@@ -188,6 +188,46 @@ export async function finishRealBooking(params: {
   return pollBookingStatus(params.partnerOrderId, params.onProgress)
 }
 
+// ─── Booking confirmation emails (real bookings only) ──────────────────
+
+// Fire-and-forget once finishRealBooking's poll reaches 'ok' -- see
+// booking.tsx's finalizeConfirmedBooking. The backend retries fetching the
+// voucher/invoice PDFs for up to ~35s itself (both generate asynchronously
+// on RateHawk's side), so this call can genuinely take a while; callers
+// should never await it before navigating the guest onward.
+export async function sendBookingConfirmationEmails(params: {
+  partnerOrderId: string
+  ratehawkOrderId: string
+  confirmationCode: string
+  guestEmail: string
+  guestName: string
+  hotelName: string
+  checkin: string
+  checkout: string
+  roomName: string
+  totalPrice: number
+  currency: string
+}): Promise<void> {
+  await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      step: 'send_confirmation_emails',
+      partner_order_id: params.partnerOrderId,
+      ratehawk_order_id: params.ratehawkOrderId,
+      confirmation_code: params.confirmationCode,
+      guest_email: params.guestEmail,
+      guest_name: params.guestName,
+      hotel_name: params.hotelName,
+      checkin: params.checkin,
+      checkout: params.checkout,
+      room_name: params.roomName,
+      total_price: params.totalPrice,
+      currency: params.currency,
+    }),
+  })
+}
+
 // ─── Voucher (real bookings only) ──────────────────────────────────────
 
 // Same endpoint (GET rather than POST) as the form/finish calls above --
