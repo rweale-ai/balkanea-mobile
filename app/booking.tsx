@@ -575,23 +575,27 @@ export default function BookingScreen() {
 
     setPayState('processing')
 
-    // Bankart's merchant account is only actually CONFIRMED to clear EUR --
-    // the one verified real end-to-end charge (2026-08-20, see project
-    // memory) ran in EUR, the app's default display currency. MKD was
-    // assumed usable alongside EUR (see docs/bankart-payment-config.md's
-    // error_code 1000 finding, 2026-08-24), but that finding only proves
-    // USD fails -- it never actually exercised MKD. A live MKD attempt
-    // against the real LA test hotel (2026-08-25) came back declined with
-    // the documented sandbox test card that's supposed to work, consistent
-    // with the merchant account being EUR-only. Switched to EUR until MKD
-    // is independently confirmed with Hristijan.
-    // There's no live USD FX feed in this codebase; TEST_USD_TO_EUR is a
+    // Bankart's merchant account only accepts MKD -- confirmed directly by
+    // Hristijan 2026-08-25 ("price must be in mkd"), after this had briefly
+    // been switched to EUR based on a wrong guess (the one prior confirmed
+    // real success turned out to be MKD too, per the actual payment_reference
+    // pulled from Supabase -- EUR was never actually verified working, see
+    // docs/bankart-payment-config.md). Switched back to MKD.
+    //
+    // NOTE: a real-hotel MKD attempt on 2026-08-25 (order_id
+    // pay_p-f6bfce28-5803-48b2-af36-862a5cf78316) failed with the same
+    // error_code 1000 as the EUR attempt, despite already being in MKD --
+    // so correct currency alone does not fully explain the failures seen so
+    // far. Flagged back to Hristijan; don't treat "must be in MKD" as the
+    // full fix until he confirms why that specific ref also failed.
+    //
+    // There's no live USD FX feed in this codebase; TEST_USD_TO_MKD is a
     // fixed placeholder to unblock testing the payment gateway itself, same
     // category as lib/currency.ts's EUR->MKD test rate -- replace with real
     // FX before this goes live. The guest still sees the real USD price
     // on-screen (payLabel/bookingCurrency use grandTotal, untouched below);
     // only the actual Bankart charge and the booking record's stored
-    // total_price/currency switch to EUR, so payment-notify.js's
+    // total_price/currency switch to MKD, so payment-notify.js's
     // amount/currency reconciliation matches what Bankart actually relays
     // back instead of mismatching against a USD total_price it never charged.
     //
@@ -600,9 +604,9 @@ export default function BookingScreen() {
     // already does this) rather than converting room.total_price and
     // multiplying after -- converting per room and summing would round once
     // per room instead of once total.
-    const TEST_USD_TO_EUR = 0.92
-    const payCurrency = room.book_hash ? 'EUR' as const : (currency === 'MKD' ? 'MKD' : 'EUR')
-    const amount = room.book_hash ? Math.round(grandTotal * TEST_USD_TO_EUR * 100) / 100 : convertPrice(grandTotal, payCurrency)
+    const TEST_USD_TO_MKD = 56.5
+    const payCurrency = room.book_hash ? 'MKD' as const : (currency === 'MKD' ? 'MKD' : 'EUR')
+    const amount = room.book_hash ? Math.round(grandTotal * TEST_USD_TO_MKD) : convertPrice(grandTotal, payCurrency)
     // Reference is derived from the room lock captured at the top of this
     // function, not a fresh lock.lockId read — a retry after this screen was
     // backgrounded reuses the same gateway transaction instead of risking a
