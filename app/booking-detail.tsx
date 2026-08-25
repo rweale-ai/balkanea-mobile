@@ -235,6 +235,16 @@ export default function BookingDetailScreen() {
             <Text style={s.codeValue}>{booking.confirmation_code}</Text>
           </View>
 
+          {/* Real RateHawk hotels only -- see booking-confirmed.tsx for why
+              this is separate from confirmation_code above: it's the number
+              RateHawk and the hotel itself actually know this booking by. */}
+          {booking.ratehawk_order_id && (
+            <View style={[s.codeBadge, s.hotelRefBadge]}>
+              <Text style={s.codeLabel}>{t.bookingDetail.hotelReference}</Text>
+              <Text style={[s.codeValue, s.hotelRefValue]}>{booking.ratehawk_order_id}</Text>
+            </View>
+          )}
+
           {/* ── Stay details ─────────────────────────────────────── */}
           <Text style={s.sectionTitle}>{t.bookingDetail.stayDetails}</Text>
           <View style={s.detailCard}>
@@ -512,6 +522,16 @@ const s = StyleSheet.create({
     color: Colors.text,
     letterSpacing: 1.5,
     fontSize: 22,
+  },
+  hotelRefBadge: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderStyle: 'solid',
+    marginTop: -Spacing.sm,
+  },
+  hotelRefValue: {
+    fontSize: 16,
+    letterSpacing: 1,
   },
 
   // Section title

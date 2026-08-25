@@ -65,6 +65,20 @@ export default function BookingConfirmedScreen() {
           <Text style={styles.codeValue}>{booking.confirmation_code}</Text>
         </View>
 
+        {/* Real RateHawk hotels only -- this is the number RateHawk's own
+            confirmation email and the hotel itself actually know this
+            booking by (e.g. "Order number 100051903"), completely
+            different from Balkanea's internal confirmation_code above.
+            Showing only the internal code here would leave a guest unable
+            to reference their stay if they ever need to contact the hotel
+            or RateHawk support directly. */}
+        {booking.ratehawk_order_id && (
+          <View style={[styles.codeBadge, styles.hotelRefBadge]}>
+            <Text style={styles.codeLabel}>{t.bookingConfirmed.hotelReference}</Text>
+            <Text style={[styles.codeValue, styles.hotelRefValue]}>{booking.ratehawk_order_id}</Text>
+          </View>
+        )}
+
         {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
@@ -197,6 +211,15 @@ const styles = StyleSheet.create({
     ...Typography.hero,
     color: Colors.primary,
     letterSpacing: 2,
+  },
+  hotelRefBadge: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    marginTop: -Spacing.md,
+  },
+  hotelRefValue: {
+    ...Typography.h3,
+    letterSpacing: 1,
   },
 
   /* Summary card */

@@ -133,6 +133,7 @@ const en = {
     title: 'Booking confirmed!',
     subtitle: 'Nea sent a confirmation to your email',
     confirmationCode: 'Confirmation code',
+    hotelReference: 'Hotel booking reference',
     viewDashboard: 'View dashboard',
     bookAnother: 'Book another stay',
     total: 'Total',
@@ -345,6 +346,7 @@ const en = {
   bookingDetail: {
     title: 'Booking details',
     confirmationCode: 'Confirmation code',
+    hotelReference: 'Hotel booking reference',
     stayDetails: 'Stay details',
     checkIn: 'Check-in',
     checkOut: 'Check-out',
@@ -466,6 +468,7 @@ const mk: typeof en = {
     title: 'Резервацијата е потврдена!',
     subtitle: 'Неа испрати потврда на твојата е-пошта',
     confirmationCode: 'Код за потврда',
+    hotelReference: 'Референца за резервација кај хотелот',
     viewDashboard: 'Погледни табла',
     bookAnother: 'Резервирај друг престој',
     total: 'Вкупно',
@@ -678,6 +681,7 @@ const mk: typeof en = {
   bookingDetail: {
     title: 'Детали за резервација',
     confirmationCode: 'Код за потврда',
+    hotelReference: 'Референца за резервација кај хотелот',
     stayDetails: 'Детали за престој',
     checkIn: 'Пристигнување',
     checkOut: 'Заминување',
