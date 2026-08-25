@@ -134,11 +134,21 @@ export interface RealBookingForm {
 // finishRealBooking below, never before it and never skipped. Call this as
 // soon as the guest reaches the payment step (room already prebooked/held),
 // then only call finishRealBooking once payment has actually succeeded.
-export async function createRealBookingForm(bookHash: string): Promise<
+//
+// partnerOrderId must be the SAME reference used for the Bankart charge
+// (booking.tsx passes referenceForLock(bookHash) -- the same value
+// getOrCreateIntent independently derives from the identical bookHash, so
+// they always match without needing to be threaded through explicitly).
+// Previously this generated its own unrelated random id
+// (`balkanea-<timestamp>-<random>`), which meant RateHawk's order and its
+// Bankart charge had no shared identifier at all -- reconciling the two
+// required cross-referencing timestamps across two separate log streams
+// (see the 2026-08-25 investigation in docs/bankart-payment-config.md).
+// The web booking flow (Hristijan's WooCommerce plugin) already does this
+// correctly -- its "Partner Order ID" is exactly this connecting id.
+export async function createRealBookingForm(bookHash: string, partnerOrderId: string): Promise<
   { ok: true } & RealBookingForm | { ok: false }
 > {
-  const partnerOrderId = `balkanea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

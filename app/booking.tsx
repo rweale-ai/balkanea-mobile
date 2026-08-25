@@ -15,7 +15,7 @@ import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bo
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { activeGateway } from '../lib/payment-gateway'
 import { supabase } from '../lib/supabase'
-import { getOrCreateIntent, updateIntent } from '../lib/payment-intent'
+import { getOrCreateIntent, updateIntent, referenceForLock } from '../lib/payment-intent'
 import { pollBookingPaymentState } from '../lib/payment-status'
 import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking } from '../lib/ratehawk'
 import type { RoomLock, RealBookingForm } from '../lib/ratehawk'
@@ -609,7 +609,11 @@ export default function BookingScreen() {
     // of opening a second one.
     if (room.book_hash && !ratehawkFormRef.current) {
       setPayState('confirming')
-      const form = await createRealBookingForm(bookHashForPay)
+      // Same reference getOrCreateIntent will independently derive below
+      // from this identical bookHashForPay -- passing it explicitly here
+      // just makes RateHawk's order and its Bankart charge share one id
+      // instead of two unrelated ones. See createRealBookingForm's comment.
+      const form = await createRealBookingForm(bookHashForPay, referenceForLock(bookHashForPay))
       if (!isMountedRef.current) return
       if (!form.ok) {
         setPayState('unavailable')
