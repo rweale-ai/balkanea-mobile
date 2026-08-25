@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  SafeAreaView, Alert, Image, Linking, Platform,
+  SafeAreaView, Alert, Image, Linking, Platform, ActivityIndicator,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -10,6 +10,8 @@ import { getBooking, cancelBooking, subscribeToBookings, isValidDate } from '../
 import { getItinerary, removeItineraryItem, type ItineraryItemType } from '../lib/itinerary-store'
 import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
+import { useVoucher } from '../lib/use-voucher'
+import { VoucherWebView } from '../components/VoucherWebView'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Booking, HotelSearchParams } from '../lib/types'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
@@ -52,6 +54,7 @@ export default function BookingDetailScreen() {
   const [neaSheetVisible, setNeaSheetVisible] = useState(false)
   const [itinerary, setItinerary] = useState(() => (id ? getItinerary(id) : undefined))
   const [topicSheet, setTopicSheet] = useState<ItineraryTopic | null>(null)
+  const voucher = useVoucher()
 
   // Refresh whenever this screen regains focus — an itinerary saved from
   // the chat tab should show up immediately on returning here.
@@ -245,6 +248,26 @@ export default function BookingDetailScreen() {
             </View>
           )}
 
+          {/* Voucher -- see lib/use-voucher.ts for why this needs
+              payment_reference specifically, not ratehawk_order_id. */}
+          {booking.ratehawk_order_id && booking.payment_reference && (
+            <TouchableOpacity
+              style={s.voucherBtn}
+              disabled={voucher.checking}
+              onPress={() => voucher.open(booking!.payment_reference!, {
+                pending: t.bookingDetail.voucherPending,
+                unavailable: t.bookingDetail.voucherUnavailable,
+              })}
+            >
+              {voucher.checking ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Ionicons name="document-text-outline" size={16} color={Colors.primary} />
+              )}
+              <Text style={s.voucherBtnText}>{t.bookingDetail.viewVoucher}</Text>
+            </TouchableOpacity>
+          )}
+
           {/* ── Stay details ─────────────────────────────────────── */}
           <Text style={s.sectionTitle}>{t.bookingDetail.stayDetails}</Text>
           <View style={s.detailCard}>
@@ -375,8 +398,15 @@ export default function BookingDetailScreen() {
             <DetailRow
               label={t.bookingDetail.totalPaid}
               value={formatPrice(booking.total_price)}
-              last
+              last={!booking.gateway_transaction_id}
             />
+            {booking.gateway_transaction_id && (
+              <DetailRow
+                label={t.bookingDetail.paymentReference}
+                value={booking.gateway_transaction_id}
+                last
+              />
+            )}
           </View>
 
           {/* ── State-specific bottom section ────────────────────── */}
@@ -420,6 +450,14 @@ export default function BookingDetailScreen() {
         onClose={() => setNeaSheetVisible(false)}
       />
       <ItineraryTopicSheet booking={booking} topic={topicSheet} onClose={() => setTopicSheet(null)} />
+      {voucher.url && (
+        <VoucherWebView
+          visible={voucher.visible}
+          url={voucher.url}
+          title={t.bookingDetail.voucherTitle}
+          onClose={voucher.close}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -532,6 +570,21 @@ const s = StyleSheet.create({
   hotelRefValue: {
     fontSize: 16,
     letterSpacing: 1,
+  },
+  voucherBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  voucherBtnText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
   },
 
   // Section title

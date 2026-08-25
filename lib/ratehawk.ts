@@ -187,3 +187,34 @@ export async function finishRealBooking(params: {
 
   return pollBookingStatus(params.partnerOrderId, params.onProgress)
 }
+
+// ─── Voucher (real bookings only) ──────────────────────────────────────
+
+// Same endpoint (GET rather than POST) as the form/finish calls above --
+// folded together on the backend to stay under Vercel's Hobby-plan
+// serverless-function cap, see Chat/api/ratehawk-book.js.
+export function voucherUrl(partnerOrderId: string): string {
+  return `${BACKEND_URL}/api/ratehawk-book?partner_order_id=${encodeURIComponent(partnerOrderId)}&language=en`
+}
+
+export type VoucherAvailability =
+  | { ok: true }
+  // RateHawk's own documented error codes -- 'pending' means it's still
+  // generating and is expected right after a booking confirms, not a
+  // failure; the others are genuine problems.
+  | { ok: false; error: string }
+
+// Checks whether the voucher is actually ready before the caller opens a
+// WebView at voucherUrl -- avoids the guest seeing a raw JSON error blob
+// rendered as a "PDF" when RateHawk hasn't generated it yet.
+export async function checkVoucherAvailability(partnerOrderId: string): Promise<VoucherAvailability> {
+  try {
+    const res = await fetch(voucherUrl(partnerOrderId))
+    const contentType = res.headers.get('content-type') || ''
+    if (contentType.includes('application/pdf')) return { ok: true }
+    const data = await res.json().catch(() => ({}))
+    return { ok: false, error: data.error || 'voucher_unavailable' }
+  } catch {
+    return { ok: false, error: 'network' }
+  }
+}

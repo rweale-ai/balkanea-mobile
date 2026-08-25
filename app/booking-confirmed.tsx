@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react'
 import {
   View, Text, TouchableOpacity,
-  StyleSheet, SafeAreaView, Platform,
+  StyleSheet, SafeAreaView, Platform, ActivityIndicator,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { getBooking } from '../lib/bookings-store'
 import { useLang } from '../lib/i18n'
+import { useVoucher } from '../lib/use-voucher'
+import { VoucherWebView } from '../components/VoucherWebView'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 
 export default function BookingConfirmedScreen() {
@@ -19,6 +21,8 @@ export default function BookingConfirmedScreen() {
     if (!id) return null
     return getBooking(id) || null
   }, [id])
+
+  const voucher = useVoucher()
 
   const currencySymbol = booking
     ? booking.currency === 'EUR' ? '€'
@@ -77,6 +81,30 @@ export default function BookingConfirmedScreen() {
             <Text style={styles.codeLabel}>{t.bookingConfirmed.hotelReference}</Text>
             <Text style={[styles.codeValue, styles.hotelRefValue]}>{booking.ratehawk_order_id}</Text>
           </View>
+        )}
+
+        {/* Voucher -- real bookings only (needs payment_reference, which
+            doubles as RateHawk's partner_order_id, see lib/use-voucher.ts).
+            RateHawk generates this async after booking, so it may not be
+            ready the instant this screen appears -- checkVoucherAvailability
+            (inside voucher.open) handles that as a friendly message rather
+            than a broken WebView. */}
+        {booking.ratehawk_order_id && booking.payment_reference && (
+          <TouchableOpacity
+            style={styles.voucherBtn}
+            disabled={voucher.checking}
+            onPress={() => voucher.open(booking.payment_reference!, {
+              pending: t.bookingConfirmed.voucherPending,
+              unavailable: t.bookingConfirmed.voucherUnavailable,
+            })}
+          >
+            {voucher.checking ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <Ionicons name="document-text-outline" size={16} color={Colors.primary} />
+            )}
+            <Text style={styles.voucherBtnText}>{t.bookingConfirmed.viewVoucher}</Text>
+          </TouchableOpacity>
         )}
 
         {/* Summary Card */}
@@ -141,6 +169,15 @@ export default function BookingConfirmedScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {voucher.url && (
+        <VoucherWebView
+          visible={voucher.visible}
+          url={voucher.url}
+          title={t.bookingConfirmed.voucherTitle}
+          onClose={voucher.close}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -220,6 +257,21 @@ const styles = StyleSheet.create({
   hotelRefValue: {
     ...Typography.h3,
     letterSpacing: 1,
+  },
+  voucherBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  voucherBtnText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
   },
 
   /* Summary card */
