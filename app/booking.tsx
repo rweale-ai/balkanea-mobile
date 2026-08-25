@@ -28,7 +28,7 @@ import { validateRoomsConfig } from '../lib/rooms-config'
 // ── Types ──────────────────────────────────────────────────────────
 
 type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network' | 'unavailable' | 'bookingFailedAfterPayment'
-type LockState = 'locking' | 'held' | 'renewing'
+type LockState = 'locking' | 'held' | 'renewing' | 'unavailable'
 type CardBrand = 'visa' | 'mc' | null
 
 // ── Card capture handle (PAN stays here, never lifted) ─────────────
@@ -376,6 +376,12 @@ export default function BookingScreen() {
       if (cancelled) return
       setLock(l)
       setLockState('held')
+    }).catch(() => {
+      // realLockRoom throws on a failed/timed-out prebook (e.g. RateHawk
+      // sandbox timeout) -- without this catch the promise rejection was
+      // silently swallowed and the screen sat on "Holding your room…"
+      // forever, with no error and no way out except leaving the screen.
+      if (!cancelled) setLockState('unavailable')
     })
     return () => { cancelled = true }
   }, [hotel?.hotel_id, room?.room_id])
@@ -396,7 +402,7 @@ export default function BookingScreen() {
         doLock(hotel, room).then(l => {
           setLock(l)
           setLockState('held')
-        })
+        }).catch(() => setLockState('unavailable'))
       }
     }
     tick()
@@ -887,6 +893,21 @@ export default function BookingScreen() {
             <Text style={s.holdBannerText}>
               {t.booking.roomHeld.replace('{{time}}', holdLabel)}
             </Text>
+          </View>
+        )}
+
+        {/* Room-lock failure banner -- the initial/renewal prebook call
+            itself failed (e.g. a RateHawk sandbox timeout), before there
+            was ever a hold to pay against. Same copy/action as the
+            confirm-gate failure below since both mean "this room isn't
+            holdable right now, pick another." */}
+        {lockState === 'unavailable' && (
+          <View style={s.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={Colors.error} />
+            <Text style={s.errorBannerText}>{t.booking.roomUnavailable}</Text>
+            <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.booking.chooseAnotherRoom}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
