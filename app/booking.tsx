@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useCallback, useEffect, forwardRef, u
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   SafeAreaView, TextInput, Alert, Platform, Image, KeyboardAvoidingView, Keyboard,
-  ActivityIndicator,
+  ActivityIndicator, Animated,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -258,6 +258,23 @@ export default function BookingScreen() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [payState, setPayState] = useState<PayState>('idle')
+  // Real progress (0-100) from RateHawk's own booking/finish/status poll --
+  // see finishRealBooking's onProgress. Only real-hotel bookings report
+  // this; the simulated path resolves in under a second so there's nothing
+  // meaningful to show progress for.
+  const [confirmProgress, setConfirmProgress] = useState(0)
+  // Animates toward each new confirmProgress value rather than jumping --
+  // real updates arrive in ~5-10% steps every ~5s (see finishRealBooking),
+  // so an eased transition between them reads as continuous progress
+  // instead of a visibly stepping bar.
+  const confirmProgressAnim = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.timing(confirmProgressAnim, {
+      toValue: confirmProgress,
+      duration: 4000,
+      useNativeDriver: false, // animating `width`, which the native driver can't do
+    }).start()
+  }, [confirmProgress])
   const [cardReady, setCardReady] = useState(false)
   const cardRef = useRef<CardCaptureHandle>(null)
   const [showWebViewPreview, setShowWebViewPreview] = useState(false)
@@ -473,6 +490,7 @@ export default function BookingScreen() {
   // back to 'pending' so support can find it.
   const finalizeConfirmedBooking = async (booking: Booking) => {
     setPayState('confirming')
+    setConfirmProgress(0)
 
     // Everything below runs AFTER the guest's card has already been
     // charged -- any unhandled throw here (a Supabase write failing, a
@@ -493,6 +511,7 @@ export default function BookingScreen() {
           adultsCount: adults,
           email: email.trim(),
           phone: phone.trim(),
+          onProgress: (percent) => { if (isMountedRef.current) setConfirmProgress(percent) },
         })
         if (!isMountedRef.current) return
         if (!finish.ok) {
@@ -916,6 +935,44 @@ export default function BookingScreen() {
           </View>
         )}
 
+        {/* Confirming-with-hotel progress -- only real-hotel bookings ever
+            report a nonzero confirmProgress (see finishRealBooking's
+            onProgress), so a simulated booking's near-instant reconfirmBooking
+            just shows the bar pinned at 0 for a moment rather than a
+            misleading full/empty jump. The subtext exists specifically
+            because real sandbox confirmation commonly takes 90-140s (see
+            project memory) -- a guest with no explanation for that reads it
+            as frozen and force-quits, which starts an entirely new booking
+            and a new real charge rather than cancelling anything. */}
+        {payState === 'confirming' && (
+          <View style={s.confirmProgressBanner}>
+            <View style={s.confirmProgressHeader}>
+              <Ionicons name="hourglass-outline" size={14} color={Colors.primary} />
+              <Text style={s.holdBannerText}>{t.booking.confirming}</Text>
+              {room?.book_hash && (
+                <Text style={s.confirmProgressPercent}>{Math.round(confirmProgress)}%</Text>
+              )}
+            </View>
+            {room?.book_hash && (
+              <View style={s.confirmProgressTrack}>
+                <Animated.View
+                  style={[
+                    s.confirmProgressFill,
+                    {
+                      width: confirmProgressAnim.interpolate({
+                        inputRange: [0, 100],
+                        outputRange: ['0%', '100%'],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ]}
+                />
+              </View>
+            )}
+            <Text style={s.confirmProgressSubtext}>{t.booking.confirmingSubtext}</Text>
+          </View>
+        )}
+
         {/* Room-lock failure banner -- the initial/renewal prebook call
             itself failed (e.g. a RateHawk sandbox timeout), before there
             was ever a hold to pay against. Same copy/action as the
@@ -1243,6 +1300,45 @@ const s = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
     fontSize: 12,
+  },
+
+  // Confirming-with-hotel progress
+  confirmProgressBanner: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  confirmProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  confirmProgressPercent: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 12,
+    marginLeft: 'auto',
+  },
+  confirmProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  confirmProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+  },
+  confirmProgressSubtext: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontSize: 11,
   },
 
   // Error banners

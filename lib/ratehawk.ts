@@ -90,7 +90,18 @@ function buildRoomGuests(leadGuestName: string, adultsCount: number) {
   return guests
 }
 
-async function pollBookingStatus(partnerOrderId: string): Promise<{ ok: boolean }> {
+// RateHawk's own booking/finish/status response carries a real `percent`
+// (0-100) tracking actual progress -- api/ratehawk-book-status.js already
+// passes it through, this just wasn't being read. onProgress lets the UI
+// show real confirmation progress instead of a generic spinner, which
+// matters here: real sandbox completion is commonly 90-140s (see project
+// memory), long enough that a guest with no feedback assumes the app is
+// frozen and force-quits mid-attempt -- which starts an entirely new
+// booking + a new real charge rather than actually cancelling anything.
+async function pollBookingStatus(
+  partnerOrderId: string,
+  onProgress?: (percent: number) => void,
+): Promise<{ ok: boolean }> {
   for (let attempt = 0; attempt < 30; attempt++) {
     const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
       method: 'POST',
@@ -98,6 +109,7 @@ async function pollBookingStatus(partnerOrderId: string): Promise<{ ok: boolean 
       body: JSON.stringify({ partner_order_id: partnerOrderId }),
     })
     const data = await res.json()
+    if (typeof data.percent === 'number') onProgress?.(data.percent)
     if (data.success && data.is_final) return { ok: data.status === 'ok' }
     await new Promise<void>(r => setTimeout(r, 5000))
   }
@@ -146,6 +158,7 @@ export async function finishRealBooking(params: {
   adultsCount: number
   email: string
   phone: string
+  onProgress?: (percent: number) => void
 }): Promise<{ ok: boolean }> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
@@ -162,5 +175,5 @@ export async function finishRealBooking(params: {
   const data = await res.json()
   if (!data.success) return { ok: false }
 
-  return pollBookingStatus(params.partnerOrderId)
+  return pollBookingStatus(params.partnerOrderId, params.onProgress)
 }

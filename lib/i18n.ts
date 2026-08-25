@@ -127,6 +127,7 @@ const en = {
     holdingRoom: 'Holding your room with the hotel…',
     roomHeld: 'Room held · {{time}}',
     renewingHold: 'Renewing your hold…',
+    confirmingSubtext: 'This can take a couple of minutes — please don\'t close the app.',
   },
   bookingConfirmed: {
     title: 'Booking confirmed!',
@@ -459,6 +460,7 @@ const mk: typeof en = {
     holdingRoom: 'Ја резервираме собата со хотелот…',
     roomHeld: 'Соба задржана · {{time}}',
     renewingHold: 'Се обновува задржувањето…',
+    confirmingSubtext: 'Ова може да потрае неколку минути — ве молиме не ја затворајте апликацијата.',
   },
   bookingConfirmed: {
     title: 'Резервацијата е потврдена!',
