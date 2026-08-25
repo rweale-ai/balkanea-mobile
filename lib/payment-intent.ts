@@ -45,8 +45,24 @@ async function saveAll(intents: Record<string, PaymentIntent>): Promise<void> {
   }
 }
 
+// Bankart's own merchantTransactionId cap is 50 chars, and Hristijan's
+// plugin appends its own "-<ms-timestamp>" suffix (14 chars) to whatever
+// reference we send before submitting to Bankart -- a step that happens
+// entirely on his side, invisible to us (his Notify webhook only relays a
+// generic error_code/message, never Bankart's actual validation error).
+// Confirmed 2026-08-25 via the raw errorMessage Hristijan pulled from his
+// own logs: our real-hotel references (`pay_p-<book_hash uuid>`, 42 chars)
+// plus his suffix hit 56 chars and got rejected outright; the shorter
+// simulated-stub references (`pay_lock_demo_*`, 22 chars) always stayed
+// under the cap, which is why only real bookings ever failed this way.
+// Stripping non-alphanumerics and truncating keeps this well under budget
+// (<=28 chars here, +14 for his suffix = 42, an 8-char margin) while
+// staying deterministic per lockId -- same retry-idempotency property as
+// before, just shorter. A 20-hex-char slice of a random UUID still carries
+// ~80 bits of entropy, far more than this needs for collision safety.
 export function referenceForLock(lockId: string): string {
-  return `pay_${lockId}`
+  const compact = lockId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)
+  return `pay_${compact}`
 }
 
 // Returns the existing intent for this lock if one is already in flight
