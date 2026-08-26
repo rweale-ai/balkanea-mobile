@@ -102,7 +102,14 @@ async function pollBookingStatus(
   partnerOrderId: string,
   onProgress?: (percent: number) => void,
 ): Promise<{ ok: boolean }> {
-  for (let attempt = 0; attempt < 30; attempt++) {
+  // 30 attempts (150s) was cutting it too close against the 90-140s range
+  // documented above -- reproduced live 2026-08-26 (Hotel Bachaumont,
+  // Paris): a real finish took ~90s end to end, and a guest's real attempt
+  // that day showed bookingFailedAfterPayment despite RateHawk's own
+  // confirmation email arriving shortly after, meaning the booking had
+  // actually succeeded -- the poll just gave up first. 45 attempts (225s)
+  // gives real margin above the documented worst case instead of ~10s.
+  for (let attempt = 0; attempt < 45; attempt++) {
     const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
