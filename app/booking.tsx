@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotels } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
-import { getCurrency, formatPrice, convertPrice } from '../lib/currency'
+import { getCurrency, formatPrice, convertPrice, convertQuoteToMKD } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
 import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
@@ -208,6 +208,7 @@ export default function BookingScreen() {
     hotelId: string
     roomId: string
     roomData: string
+    hotelCurrency: string
     checkin: string
     checkout: string
     adults: string
@@ -459,14 +460,28 @@ export default function BookingScreen() {
   // this line.
   const grandTotal = room.total_price * roomCount
 
-  // Real RateHawk hotels price in their own real currency (see the payCurrency
-  // comment in handlePay below) -- grandTotal/room.total_price for those are
-  // already in hotel.currency, not the app's selected display currency, so
-  // every display/storage of THIS booking's price must use this instead of
-  // the bare `currency` state. formatPrice(amount, 'USD') happens to render
-  // correctly as-is ($ prefix, no wrongful EUR->USD conversion) since 'USD'
-  // isn't in lib/currency.ts's RATES table.
-  const bookingCurrency = (room.book_hash ? hotel.currency : currency) as CurrencyCode
+  // Always the traveler's selected display currency -- see room-selection.tsx's
+  // identical activeCurrency for why this is correct even for real
+  // bookings: Chat/api/hotel-rooms.js only ever quotes USD when the
+  // traveler selected USD, EUR otherwise (including MKD), so
+  // formatPrice(grandTotal, bookingCurrency) already converts correctly
+  // given that invariant. Do NOT use hotel.currency/params.hotelCurrency
+  // here -- that's the real quote currency, needed below for the MKD
+  // payment conversion, but showing it instead of the traveler's actual
+  // selection is exactly the bug that made this screen ignore MKD.
+  const bookingCurrency = currency as CurrencyCode
+
+  // The REAL currency grandTotal is denominated in for a real RateHawk
+  // booking (EUR or USD, see Chat/api/hotel-rooms.js) -- distinct from
+  // bookingCurrency above, which is what's DISPLAYED, not what's real.
+  // params.hotelCurrency (not hotel.currency) because this screen's own
+  // searchHotels() re-search below gets a fresh hotel object whose currency
+  // is just the search step's placeholder default, not the real quote
+  // room-selection.tsx actually got back -- forwarded explicitly via route
+  // params for the same reason roomData is. Only meaningful when
+  // room.book_hash is set; simulated bookings have no real quote currency
+  // at all (always the app-wide simulated-EUR convention).
+  const quoteCurrency = (params.hotelCurrency === 'USD' ? 'USD' : 'EUR') as 'EUR' | 'USD'
 
   // Card entry only happens in-app for the simulated demo gateway — the
   // real gateway collects the card on Bankart's own WebView page, so
@@ -535,8 +550,12 @@ export default function BookingScreen() {
           checkin: params.checkin,
           checkout: params.checkout,
           roomName: room.name,
-          totalPrice: grandTotal,
-          currency: bookingCurrency,
+          // booking.total_price/currency, not grandTotal/bookingCurrency --
+          // those are the traveler's DISPLAYED price, not what was actually
+          // charged (always MKD, see the payCurrency comment in handlePay).
+          // The booking record already carries the correct real amount.
+          totalPrice: booking.total_price,
+          currency: booking.currency,
         }).catch(() => { /* fire-and-forget */ })
       } else {
         await reconfirmBooking(lock!.lockId)
@@ -550,8 +569,10 @@ export default function BookingScreen() {
         destination: params.destination ?? '',
         checkin: params.checkin,
         checkout: params.checkout,
-        totalPrice: grandTotal,
-        currency: bookingCurrency,
+        // Same reasoning as sendBookingConfirmationEmails above -- the real
+        // charged amount, not the traveler's displayed price.
+        totalPrice: booking.total_price,
+        currency: booking.currency,
         confirmationCode: booking.confirmation_code,
       }).catch(() => { /* fire-and-forget */ })
 
@@ -655,24 +676,35 @@ export default function BookingScreen() {
     // far. Flagged back to Hristijan; don't treat "must be in MKD" as the
     // full fix until he confirms why that specific ref also failed.
     //
-    // There's no live USD FX feed in this codebase; TEST_USD_TO_MKD is a
-    // fixed placeholder to unblock testing the payment gateway itself, same
-    // category as lib/currency.ts's EUR->MKD test rate -- replace with real
-    // FX before this goes live. The guest still sees the real USD price
-    // on-screen (payLabel/bookingCurrency use grandTotal, untouched below);
-    // only the actual Bankart charge and the booking record's stored
-    // total_price/currency switch to MKD, so payment-notify.js's
-    // amount/currency reconciliation matches what Bankart actually relays
-    // back instead of mismatching against a USD total_price it never charged.
+    // Payment is hardcoded to MKD always (per Ray, 2026-08-26) -- Bankart
+    // can't take anything else regardless of what the traveler sees
+    // on-screen, so this no longer branches on display currency at all.
+    // What DOES matter is what's being converted FROM: for a real booking,
+    // grandTotal is a real RateHawk quote in quoteCurrency (EUR or USD --
+    // see Chat/api/hotel-rooms.js, and the quoteCurrency comment above for
+    // why that's a DIFFERENT value from bookingCurrency/what's displayed),
+    // so it needs convertQuoteToMKD with the matching rate, not the
+    // app-wide simulated-EUR convertPrice below. Using the wrong one here
+    // silently over/undercharges by the EUR/USD spread -- there's no live
+    // FX feed for either rate, both are fixed approximations (real FX would
+    // replace lib/currency.ts's MKD_RATE_FROM_QUOTE table before this goes
+    // live). The guest still sees the real price in THEIR selected
+    // currency on-screen (payLabel/bookingCurrency use grandTotal,
+    // untouched below); only the actual Bankart charge and the booking
+    // record's stored total_price/currency switch to MKD, so
+    // payment-notify.js's amount/currency reconciliation matches what
+    // Bankart actually relays back instead of mismatching against a total
+    // it never charged.
     //
-    // Every other hotel keeps today's behavior: other display currencies
-    // fall back to EUR. Multiply by roomCount BEFORE converting (grandTotal
-    // already does this) rather than converting room.total_price and
-    // multiplying after -- converting per room and summing would round once
-    // per room instead of once total.
-    const TEST_USD_TO_MKD = 56.5
-    const payCurrency = room.book_hash ? 'MKD' as const : (currency === 'MKD' ? 'MKD' : 'EUR')
-    const amount = room.book_hash ? Math.round(grandTotal * TEST_USD_TO_MKD) : convertPrice(grandTotal, payCurrency)
+    // Simulated hotels keep today's behavior: always converted from the
+    // app-wide simulated-EUR convention via convertPrice. Multiply by
+    // roomCount BEFORE converting (grandTotal already does this) rather
+    // than converting room.total_price and multiplying after -- converting
+    // per room and summing would round once per room instead of once total.
+    const payCurrency = 'MKD' as const
+    const amount = room.book_hash
+      ? convertQuoteToMKD(grandTotal, quoteCurrency)
+      : convertPrice(grandTotal, payCurrency)
     // Reference is derived from the room lock captured at the top of this
     // function, not a fresh lock.lockId read — a retry after this screen was
     // backgrounded reuses the same gateway transaction instead of risking a
@@ -799,8 +831,12 @@ export default function BookingScreen() {
         rooms: parseInt(params.rooms ?? '1', 10),
         roomsConfig,
         roomGuestNames,
-        total_price: grandTotal,
-        currency: bookingCurrency,
+        // Must match what's actually charged (amount/payCurrency, both MKD
+        // -- computed above), not grandTotal/bookingCurrency, which are the
+        // traveler's DISPLAYED price/currency, not the real transaction --
+        // same reasoning as createPendingBooking's identical pairing above.
+        total_price: amount,
+        currency: payCurrency,
         guest_name: fullName.trim(),
         guest_email: email.trim(),
         guest_phone: phone.trim(),

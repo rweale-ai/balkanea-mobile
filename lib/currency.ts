@@ -97,3 +97,24 @@ export function convertPrice(eurAmount: number, currency: CurrencyCode): number 
   const rate = RATES[currency]
   return rate ? Math.round(eurAmount * rate) : eurAmount
 }
+
+// Bankart/NLB (the real payment gateway) only has an MKD merchant account —
+// confirmed directly by Hristijan, 2026-08-25 — so every real charge is MKD
+// regardless of what currency the traveler sees on screen. For a real
+// RateHawk booking, the amount being converted is a REAL quote (EUR or USD,
+// see Chat/api/hotel-rooms.js), NOT the app-wide simulated-EUR convention
+// RATES/convertPrice above assume — so it needs its own rate per quote
+// currency, not RATES.MKD. EUR uses the same peg as RATES.MKD (the denar is
+// EUR-pegged, so that rate is stable); USD is a plain approximate market
+// rate (no live FX feed here either) — using the wrong one silently over-
+// or under-charges the guest by the EUR/USD spread, so callers must pass
+// the room's actual quoted currency, never assume.
+const MKD_RATE_FROM_QUOTE: Record<'EUR' | 'USD', number> = {
+  EUR: 61.5,
+  USD: 56.5,
+}
+
+/** Converts a REAL quoted amount (already EUR or USD from RateHawk, not the app's simulated-EUR convention) to the MKD amount actually charged via Bankart. */
+export function convertQuoteToMKD(amount: number, quoteCurrency: 'EUR' | 'USD'): number {
+  return Math.round(amount * MKD_RATE_FROM_QUOTE[quoteCurrency])
+}

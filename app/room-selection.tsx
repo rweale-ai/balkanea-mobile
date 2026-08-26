@@ -75,12 +75,16 @@ export default function RoomSelectionScreen() {
       // in search-hotels.js returns real rooms directly, so re-fetching here
       // would just be a second, redundant hotelpage call.
       if (h?.hasLiveRates && h.room_types.length === 0) {
-        const room_types = await fetchRealRoomTypes(h.hotel_id, params.checkin, params.checkout, parseInt(params.adults || '2', 10))
+        const selectedCurrency = params.currency || getCurrency()
+        const { roomTypes, currency: quotedCurrency } = await fetchRealRoomTypes(h.hotel_id, params.checkin, params.checkout, parseInt(params.adults || '2', 10), selectedCurrency)
         if (cancelled) return
         // Empty means the real fetch failed or this hotel has no bookable
         // rates right now -- fall to the existing "not found" screen rather
-        // than render a room list with nothing in it.
-        setHotel(room_types.length > 0 ? { ...h, room_types } : null)
+        // than render a room list with nothing in it. currency is
+        // overwritten with whatever RateHawk actually quoted in (EUR or
+        // USD -- see fetchRealRoomTypes) -- h.currency from the search
+        // step was only ever a placeholder default, never a real quote.
+        setHotel(roomTypes.length > 0 ? { ...h, room_types: roomTypes, currency: quotedCurrency } : null)
       } else {
         setHotel(h)
       }
@@ -95,8 +99,6 @@ export default function RoomSelectionScreen() {
       (new Date(params.checkout).getTime() - new Date(params.checkin).getTime()) / 86400000
     ))
   }, [params.checkin, params.checkout])
-
-  const activeCurrency = (params.currency || getCurrency()) as CurrencyCode
 
   const recommendedRoomId = useMemo(() => {
     if (!hotel) return null
@@ -132,6 +134,18 @@ export default function RoomSelectionScreen() {
     )
   }
 
+  // Always the traveler's selected display currency, real hotels included.
+  // This works because Chat/api/hotel-rooms.js only ever quotes USD when
+  // the traveler selected USD (EUR otherwise, including for MKD) -- so
+  // formatPrice's existing EUR-base conversion is already correct: EUR
+  // selected -> EUR quote, shown directly; USD selected -> USD quote, shown
+  // directly (USD isn't in RATES, no conversion applied); MKD selected ->
+  // EUR quote, converted via RATES.MKD. Using hotel.currency here instead
+  // would show the raw quote currency and ignore the traveler's actual
+  // selection -- confirmed 2026-08-26, that's why this page kept showing
+  // USD/EUR regardless of what was picked.
+  const activeCurrency = (params.currency || getCurrency()) as CurrencyCode
+
   const handleBookRoom = (room: RoomType) => {
     router.push({
       pathname: '/booking',
@@ -145,6 +159,16 @@ export default function RoomSelectionScreen() {
         // selected room forward instead of re-deriving it. Simulated/
         // DB-content rooms keep using roomId only, unchanged.
         roomData: room.book_hash ? JSON.stringify(room) : '',
+        // Same problem as roomData above, for the same reason: booking.tsx's
+        // own independent searchHotels() re-search gets a fresh hotel object
+        // whose currency is just whatever the search step defaults to (not
+        // a real quote), not what THIS screen actually got back from
+        // fetchRealRoomTypes. Without this, booking.tsx's bookingCurrency
+        // silently reverts to that stale default -- confirmed 2026-08-26,
+        // this is why "confirm and pay" kept showing USD regardless of the
+        // traveler's selection. Empty for simulated rooms, which still
+        // follow the traveler's selected display currency as before.
+        hotelCurrency: room.book_hash ? hotel.currency : '',
         checkin: params.checkin,
         checkout: params.checkout,
         adults: params.adults,

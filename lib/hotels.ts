@@ -200,21 +200,32 @@ export function searchHotelsSync(params: HotelSearchParams): Hotel[] {
 // searchHotels above for why this isn't fetched for every search result).
 // Called once by whichever screen actually needs to show real rooms for this
 // specific hotel -- currently just room-selection.tsx.
+//
+// `currency` is the traveler's selected display currency -- passed straight
+// through to RateHawk when it's EUR or USD (real FX, see Chat/api/
+// hotel-rooms.js), otherwise the backend requests EUR as a base. The
+// response's `currency` field says which one was ACTUALLY used, since it
+// won't always match what was requested -- callers must overwrite
+// hotel.currency with this, not assume the request currency was honored.
 export async function fetchRealRoomTypes(
   hotelId: string,
   checkin: string,
   checkout: string,
   adults: number,
-): Promise<RoomType[]> {
+  currency: string,
+): Promise<{ roomTypes: RoomType[]; currency: string }> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hotel_id: hotelId, checkin, checkout, adults, children: [] }),
+      body: JSON.stringify({ hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
     })
     const data = await res.json()
-    return data.success && data.room_types ? data.room_types : []
+    return {
+      roomTypes: data.success && data.room_types ? data.room_types : [],
+      currency: data.currency || 'EUR',
+    }
   } catch {
-    return []
+    return { roomTypes: [], currency: 'EUR' }
   }
 }
