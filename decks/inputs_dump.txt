@@ -1,0 +1,74 @@
+A1: 'Balkanea Mobile — Cost & Margin Model'
+A2: 'All blue cells are editable — every number on the other tabs is a live formula off this tab. Change any input to compare scenarios.'
+A4: 'BOOKING VOLUME SCENARIOS'
+A5: 'Scenario A — bookings/day'
+B5: 10
+C5: 'Low-volume case'
+A6: 'Scenario B — bookings/day'
+B6: 100
+C6: 'High-volume case'
+A8: 'CONVERSION & REVENUE'
+A9: 'Chat-to-booking conversion rate'
+B9: 0.03
+C9: 'Luke, 7/21 call. Architecture deck modeled a 2-8% range — this is a single point estimate.'
+A10: 'Average booking value (EUR)'
+B10: 800
+C10: 'Illustrative example from the 6/30 Jasmina call — NOT a confirmed average. Confirm with Luke/Jasmina before relying on this.'
+A11: 'RateHawk margin (% of booking value)'
+B11: 0.03
+C11: 'Luke, 7/21 call, confirmed live on 8/4 call. Luke flagged (8/4): may differ once moving from sandbox to production — unconfirmed for production.'
+A12: 'EUR / USD exchange rate'
+B12: 1.08
+C12: 'Approximate — update to current rate as needed.'
+A14: 'AI RUNNING COST — NEA (ANTHROPIC API)'
+A15: 'Cost per chat session — Sonnet'
+B15: 0.08
+C15: 'As actually implemented (8-turn session, partial caching) — see architecture deck cost model.'
+A16: 'Cost per chat session — Haiku'
+B16: 0.03
+C16: 'Same structure, ~1/3 the rate.'
+A17: '% of sessions triggering a review/itinerary search'
+B17: 0.15
+A18: 'Cost per search (all-in)'
+B18: 0.025
+C18: 'Anthropic web-search fee + retrieved content as input tokens.'
+A19: 'Itinerary generation — fixed monthly cost'
+B19: 27
+C19: "Flat, not session-volume-scaled per architecture deck's cost model."
+A20: 'App infrastructure — fixed monthly cost'
+B20: 70
+C20: 'Vercel + Supabase base, excl. hotel DB hosting below.'
+A22: 'HOTEL DATABASE HOSTING (SUPABASE)'
+A23: 'Sandbox — monthly hosting cost'
+B23: 25
+C23: 'Actual sandbox run rate, Supabase Pro plan, confirmed 8/21.'
+A24: 'Production — monthly hosting cost'
+B24: 75
+C24: 'Actual production baseline once live, Supabase Pro.'
+A26: 'ONE-TIME / IMPLEMENTATION COSTS'
+A27: 'Apple Developer Program (annual)'
+B27: 99
+C27: 'Already paid — account approved.'
+A28: 'Google Play Developer account (one-time)'
+B28: 25
+C28: 'Not yet created — Ray owns this per 8/4 call.'
+A29: 'Claude Code build cost, if metered — low estimate'
+B29: 100
+C29: 'Engineering labor is near-zero marginal cost if on a Claude subscription. This range is only relevant if usage is metered via API.'
+A30: 'Claude Code build cost, if metered — high estimate'
+B30: 500
+C30: 'Wide range deliberately — dominated by debug/iteration cycles (RateHawk integration, WebView payment), not clean codegen.'
+A32: 'RATEHAWK PRODUCTION PREREQUISITES'
+A33: 'AWS static-IP relay -- monthly (base)'
+B33: 8
+C33: 'Required for RateHawk production certification only.'
+A34: 'AWS static-IP relay -- HA add-on, monthly (optional)'
+B34: 14
+C34: 'Standby instance + auto-failover.'
+A36: 'TESTING & STORE-ASSET DESIGN'
+A37: 'Day-rate for external testing/design time (if assumed)'
+B37: 0
+C37: 'Default 0.'
+A38: 'Estimated days (testing + store assets)'
+B38: 8
+C38: 'edit if scope changes'
