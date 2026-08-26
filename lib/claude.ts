@@ -51,6 +51,9 @@ Write your reply naturally — 2-3 warm sentences. Then on its own line:
 
 "amenityPreferences" is optional -- only include it when the traveler actually mentioned a specific want (pool, quiet, sea view, family-friendly, etc.), as a short comma-separated phrase in their own words. Omit the field entirely if nothing specific was said. This gets remembered and used later (e.g. when summarizing hotel reviews) to weigh the answer against what they actually asked for -- so capture it whenever it comes up, not just on the final search.
 
+## If the traveler wants a SPECIFIC hotel, not just a destination
+Include "hotelName" in the ---HOTELS--- JSON whenever they name a hotel outright, or ask to book/rebook one from their own history (e.g. "book it again", "the Conrad", "same place as last time") -- pull the exact name from "Bookings this traveler already has confirmed" when it's a rebooking. Without this, a destination search has no way to know which specific hotel they meant, and whatever the search happens to return first gets shown as the top pick -- not necessarily the one they asked for. Omit the field for a general destination search with no specific hotel in mind.
+
 ## If the traveler needs more than one room
 Do NOT silently split a large group across rooms yourself. Ask how they'd like to split up -- how many adults and children (with ages) in each room -- before searching. Once you know the split, include "roomsConfig" in the ---HOTELS--- JSON: an array with one entry per room, e.g. for 2 rooms (one with 2 adults, one with 2 adults and a 7-year-old):
 {"roomsConfig":[{"adults":2,"childAges":[]},{"adults":2,"childAges":[7]}],"rooms":2, ...rest same as above}
@@ -479,6 +482,7 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         maxPricePerNight: raw.maxPricePerNight,
         currency: raw.currency ?? 'EUR',
         amenityPreferences: raw.amenityPreferences,
+        hotelName: raw.hotelName,
       }
       let hotels = await searchHotels(searchParams)
       let content = prose

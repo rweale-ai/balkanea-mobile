@@ -47,6 +47,14 @@ export interface HotelSearchParams {
   // later features (review summaries, itinerary suggestions) can weigh
   // their answers against what the traveler actually asked for.
   amenityPreferences?: string
+  // Set when the traveler is asking for a SPECIFIC hotel by name (e.g.
+  // "book it again" against a past booking, or naming a hotel outright) --
+  // NOT a general preference. searchHotels uses this to reorder/filter
+  // results so the requested hotel is what actually gets shown as "Nea's
+  // top pick" (index 0), rather than whatever the destination search
+  // happened to sort first. See lib/claude.ts's system prompt for when the
+  // model is instructed to set this.
+  hotelName?: string
 }
 
 export interface Hotel {

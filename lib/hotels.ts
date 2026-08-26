@@ -133,7 +133,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
         // once, lazily, only for the one hotel a guest actually opens.
         const isLive = data.simulated === false
 
-        return data.results.map((h: any) => ({
+        const mapped = data.results.map((h: any) => ({
           ...h,
           guest_rating: h.guest_rating ?? 8.0,
           distance_to_center: h.distance_to_center ?? 1.0,
@@ -150,6 +150,25 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
           longitude: h.longitude ?? 0,
           hasLiveRates: isLive,
         }))
+
+        // Traveler asked for a SPECIFIC hotel by name (e.g. "book it again"
+        // against a past booking) -- a plain destination search has no way
+        // to know that, and the UI labels whatever comes back first as
+        // "Nea's top pick" (see app/(tabs)/index.tsx's isTopPick={idx===0}).
+        // Move a name match to the front rather than leaving it to
+        // whatever the destination search happened to sort first -- this
+        // was invisible while Los Angeles only ever returned one hotel
+        // (Conrad), and became a real bug once it returned 50 real ones.
+        if (params.hotelName) {
+          const needle = params.hotelName.trim().toLowerCase()
+          const matchIdx = mapped.findIndex((h: Hotel) => h.name.toLowerCase().includes(needle))
+          if (matchIdx > 0) {
+            const [match] = mapped.splice(matchIdx, 1)
+            mapped.unshift(match)
+          }
+        }
+
+        return mapped
       }
       // A genuine real search that just found nothing (e.g. the only live
       // RateHawk test hotel doesn't have a room under the requested budget)
