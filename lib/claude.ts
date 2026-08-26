@@ -487,6 +487,20 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
       let hotels = await searchHotels(searchParams)
       let content = prose
 
+      // A genuine zero-result answer under an amenity filter -- the backend
+      // (Chat/api/search-hotels.js) deliberately does NOT relax this
+      // itself, so an empty result here really does mean nothing matched.
+      // Retry once without it so the traveler gets real options instead of
+      // a dead end, and say so plainly. Checked before the price retry
+      // below since amenity is the more specific ask to explain.
+      if (hotels.length === 0 && searchParams.amenityPreferences) {
+        const relaxedHotels = await searchHotels({ ...searchParams, amenityPreferences: undefined })
+        if (relaxedHotels.length > 0) {
+          hotels = relaxedHotels
+          content = `I couldn't find a match for "${searchParams.amenityPreferences}" in ${searchParams.destination} for those dates — here are the best options I found instead:`
+        }
+      }
+
       // A genuine zero-result answer at the requested budget -- retry once
       // without the cap so the traveler gets real next-tier options instead
       // of a dead end, and say so plainly rather than silently swapping in

@@ -184,7 +184,7 @@ const en = {
   },
   explore: {
     title: 'Explore',
-    subtitle: 'Popular destinations from the Balkans',
+    subtitle: 'Real-time pricing, ready to book',
     searchPlaceholder: 'Search destinations…',
     findHotels: 'Find hotels',
     noDestinations: 'No destinations found',
@@ -528,7 +528,7 @@ const mk: typeof en = {
   },
   explore: {
     title: 'Истражи',
-    subtitle: 'Популарни дестинации од Балканот',
+    subtitle: 'Цени во реално време, спремни за резервација',
     searchPlaceholder: 'Барај дестинации…',
     findHotels: 'Најди хотели',
     noDestinations: 'Нема пронајдени дестинации',

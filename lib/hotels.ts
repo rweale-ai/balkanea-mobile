@@ -113,6 +113,11 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
         checkout: params.checkout,
         guests: params.adults + params.children,
         max_price_per_night: params.maxPricePerNight,
+        // Was captured (lib/travel-profile.ts) and shown back to the
+        // traveler in conversation, but never actually sent to the
+        // backend for filtering until now -- "only hotels with a pool"
+        // matched nothing against real amenity data, silently.
+        amenity_preferences: params.amenityPreferences,
       }),
     })
 
