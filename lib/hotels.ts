@@ -118,6 +118,12 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
         // backend for filtering until now -- "only hotels with a pool"
         // matched nothing against real amenity data, silently.
         amenity_preferences: params.amenityPreferences,
+        // For the 3 sandbox regions (LA/Paris/Dubai), search-hotels.js now
+        // requests real RateHawk rates in this currency (EUR/USD direct,
+        // MKD/other converted from a real EUR quote) instead of a fake
+        // simulated number -- was never sent at all before 2026-08-26, so
+        // results always came back USD-quoted regardless of selection.
+        currency: params.currency,
       }),
     })
 
