@@ -1,8 +1,8 @@
-slide count: 13
+slide count: 14
 --- Slide 1 ---
 BALKANEA MOBILE  —  SANDBOX / TEST READINESS UPDATE
 Cost, risk, and the path to submission
-RateHawk sandbox booking and payments are treated as working for this update -- see Risks for what that assumes. Cost model updated, certification and store submission plan attached.
+RateHawk sandbox booking and payments are now verified live end-to-end -- three real bookings processed today, including a fixed root-cause payment bug. See Risks for what's still genuinely open. Cost model updated, certification and store submission plan attached.
 Stage:  TestFlight (v1.0.7, build 11)      Systems:  RateHawk (sandbox, cert pending) · Bank checkout (MKD, live) · Supabase auth      Prepared:  August 2026 (update)
 --- Slide 2 ---
 01  —  AUTHENTICATION
@@ -36,11 +36,11 @@ Mobile's own hotel database is live
 850,218 hotels / 3,930,128 rooms imported and indexed across all 10 target countries (0 parse errors). Region-filtered, sorted queries benchmarked at ~0.2ms server-side. Hristijan already has Developer access to query it directly.
 CONFIRMED
 Full booking flow proven end-to-end in sandbox, including multi-room
-Search → prebook → create order → finish now runs successfully against RateHawk's certification test hotels (Conrad LA, Rosa Bell Motel) -- all 7 mandatory scenarios passed, real order IDs captured. Live-app wiring and the room-by-room guest picker UI are next -- see Risks and Plan.
+Search → prebook → create order → finish now runs successfully against RateHawk's certification test hotels (Conrad LA, Rosa Bell Motel) -- all 7 mandatory scenarios passed, real order IDs captured. Live-app wiring and the room-by-room guest picker UI are both built and verified -- three real bookings processed through the actual app today.
 --- Slide 4 ---
 03  —  PAYMENTS
 Bank checkout works end-to-end -- confirmed live with NLB, in MKD
-Confirmed 8/20: a real test-card payment cleared through NLB via Bankart, from the app's booking flow to a synced Salesforce lead. Settles in MKD only -- see Risks for the one open item.
+Confirmed 8/20 (demo hotel) and 8/25 (real RateHawk hotel, after fixing a merchantTransactionId length bug): real test-card payments clear through NLB via Bankart, from the app's booking flow to a synced Salesforce lead. Settles in MKD -- see Risks for what's still open.
 BALKANEA MOBILE  —  SANDBOX / TEST READINESS
 4
 SUPERSEDED
@@ -48,10 +48,10 @@ WooCommerce bridge — built, verified, ruled out
 Hristijan built and documented the ‘Mobile Payment Bridge’ plugin — WebView opens a guest WooCommerce order-pay page, status polled via REST. Verified live against a real staging order. But it's built entirely on WooCommerce's order-key model, which ‘no WooCommerce in the architecture’ now rules out.
 CONFIRMED LIVE
 Balkanea Payment Bridge -- built and confirmed working end-to-end, MKD settlement
-Hristijan's ‘Balkanea Payment Bridge’ plugin (signed HMAC links, Bankart Gateway V3 hosted card form, async Notify webhook) is live. Confirmed 8/20: a real test-card payment cleared through NLB, initiated from the actual mobile app booking flow -- 3DS, async postback, booking auto-confirm, and Salesforce sync all verified working end-to-end, settling in MKD (Bankart's only supported currency).
+Hristijan's ‘Balkanea Payment Bridge’ plugin (signed HMAC links, Bankart Gateway V3 hosted card form, async Notify webhook) is live. Confirmed 8/20 and re-confirmed 8/25 against a real RateHawk hotel, settling in MKD (Bankart's only supported currency). 8/25 also found and fixed the root cause of intermittent failures -- Hristijan's plugin was silently exceeding Bankart's 50-character reference limit on real-hotel bookings. Fixed app-side; charges now clear reliably.
 ACTION THIS WEEK
 Outstanding: mobile-responsive card page
-Bankart's hosted card page isn't mobile-responsive today — input fields misalign on phone and tablet, iOS and Android. That's the one open item blocking a clean guest-facing checkout; on Hristijan's side to fix.
+Bankart's hosted card page still isn't mobile-responsive, and also doesn't collect billing address or a separate ‘name on card’ field (needed since the payer isn't always the guest). A full written spec -- Balkanea's brand colors, autofill support, and these missing fields -- was sent to Hristijan 8/25. Still his to build.
 --- Slide 5 ---
 04  —  PROXY: Proposal VS AWS
 proxy proposal vs. what’s built on AWS
@@ -70,11 +70,11 @@ STABILITY
 Phase 1 as specified is also single-instance . HA to a future phase. Same posture as AWS.
 Single instance with standby instance, auto-restart on crash, fully rebuildable from source-controlled scripts. Box itself verified working; RateHawk-specific logic not yet built on either side. HA (standby instance + auto-failover
 SUPPORT
-No hosting provider or support commitment specified.
-Real AWS infrastructure (~99.99% published EC2 SLA). can add paid AWS support later if ever needed.
+No hosting provider or support commitment specified. 
+Real AWS infrastructure (~99.99% published EC2 SLA). can add paid AWS support later if ever needed. 
 SCALABILITY
-Redis/BullMQ/HA
-Redis/BullMQ/HA
+Redis/BullMQ/HA 
+Redis/BullMQ/HA 
 --- Slide 6 ---
 05  —  ALIGNMENT & RECOMMENDATION
 Same pattern as Analytics — the fastest path to go-live
@@ -87,7 +87,7 @@ MARRA-WIDE
 Recommendation: use the AWS build to reach go-live
 For the actual requirement -- a static IP RateHawk's production certification will accept -- the AWS build is live, verified, and ~$5–8/mo today, with no further engineering needed. Ivan's fuller proposal suits a mature, high-traffic system, but adopting it as specified means more cost and an unresolved question of who runs it -- neither of which certification itself requires. Fastest path: use what's already built and verified.
 RECOMMENDED
-63.185.27.197 - Elastic IP attached to the AWS proxy box in eu-central-1 (Frankfurt)
+63.185.27.197 - Elastic IP attached to the AWS proxy box in eu-central-1 (Frankfurt) 
 --- Slide 7 ---
 06  —  LIVE DEMO
 End-to-end payment now works — from the app
@@ -124,7 +124,7 @@ Apple review ~3–5 days (real travel payments = higher scrutiny; budget one rej
 --- Slide 9 ---
 08  —  ARCHITECTURE
 Planned production architecture
-Payments and RateHawk booking are treated as live for this update (see Risks for what that assumes); the admin portal's WooCommerce-parity gap is the one box still genuinely open below.
+Payments and RateHawk booking are now verified live, not just treated as such (see Risks for what's still open); the admin portal's WooCommerce-parity gap is the one box still genuinely open below.
 BALKANEA MOBILE  —  SANDBOX / TEST READINESS
 9
 CLIENT
@@ -141,7 +141,7 @@ balkanea_hotels_sbx
 850,218 hotels / 3.9M rooms, all 10 countries. Region-filtered search, daily refresh from RateHawk dump.
 LIVE
 balkanea_sbx
-Bookings, profiles, payment_reference / payment_state (MKD). Migration live; real booking writes still pending the app-side RateHawk wiring (Plan, Phase 2).
+Bookings, profiles, payment_reference/payment_state (MKD), ratehawk_order_id. Live -- three real bookings written today. New: voucher/invoice PDF fetch + automated confirmation emails via Resend.
 RateHawk
 Separate mobile Office (contract “balkanea-mobile”). Sandbox key 973 live and verified -- booking mechanics proven end-to-end against certification test hotels. Certification checklist submission is next, then production key.
 IN PROGRESS
@@ -165,7 +165,7 @@ BALKANEA MOBILE  —  SANDBOX / TEST READINESS
 10
 Near-zero marginal cost
 Engineering/AI labor
-Estimated $400 AI Cost (excludes the unscoped multi-room build -- see Risks)
+Estimated $1,000 engineering cost (Claude Code, near-zero if on subscription) -- reflects 8/25's payment debugging, reliability fixes, and new document/email features.
 Existing-team time · rate TBD
 Testing & design
 QA pass draws on TestFlight testers. Store-asset design (screenshots, listing copy) is a small, scoped task on top of UI that's already built and speced
@@ -179,11 +179,36 @@ LIVE — SCALES WITH USAGE
 Hotel database hosting (Supabase)
 Sandbox ~$25/mo, production ~$75/mo (Supabase Pro). Plus the AWS relay for RateHawk certification: ~$8/mo base, ~$22/mo with HA -- in the updated cost model.
 --- Slide 11 ---
-10  —  COST
+10  —  WHAT’S BEEN BUILT
+Full scope, real codebase size, and what it would have cost elsewhere
+Every feature below is built and verified, not planned. Right: an illustrative traditional-agency cost for the same scope — not a real quote, for contrast only.
+BALKANEA MOBILE  —  SANDBOX / TEST READINESS
+11
+SCOPE BUILT
+•  Cross-platform app shell (iOS / Android / Web) + AI concierge (Nea)
+•  850K-hotel content DB, region-filtered search
+•  Real RateHawk booking flow — search / prebook / finish / status, all 7 certification scenarios, multi-room (real per-room guest configurator, not the flat-integer gap flagged earlier)
+•  Real Bankart/NLB payment integration + voucher/invoice PDF retrieval
+•  Auth: Google OAuth, native Apple Sign-In, guest checkout
+•  Salesforce CRM sync, admin portal
+•  Automatic booking emails — guest confirmation + business notification, each with a RateHawk PDF attached (voucher / invoice), shipped today via Resend
+•  Push notifications
+•  Voice AI (LiveKit/Retell) — built and working, shelved for a leaner V1
+Languages: 2 — English + Macedonian (Cyrillic), the actual translated UI.
+Currencies: 9, across 11 countries — a separate locale/pricing display layer, not UI language. (11 countries is the destination-selector count, not a language count.)
+ACTUAL CODEBASE, ~10 WEEKS ELAPSED (first commit 6/18 → 8/25)
+Mobile: 17 screens · 12 components · 27 lib modules · ~14,700 lines TS/TSX · 7 migrations · 86 commits
+Backend: 12 endpoints · 12 lib modules · ~4,200 lines JS · 73 commits
+IF BUILT BY A TRADITIONAL AGENCY (ILLUSTRATIVE, NOT A REAL QUOTE)
+Subtotal ~$192K–303K, +15–20% PM/coordination → ~$220K–360K all-in.
+Typically 4–7+ months with a small team. Nearshore/offshore: ~40–50% of that (~$110K–180K), usually a longer timeline.
+This build: ~10 weeks, ~$1,000 estimated engineering cost (see Cost slide).
+--- Slide 12 ---
+11  —  COST
 Running cost vs. margin — 10 vs. 100 bookings/day
 3% chat-to-booking conversion, 3% RateHawk margin (Luke, July 21), €800 avg. booking value (illustrative — tbc). Same per-session cost baseline as the architecture deck ($0.08/session, Sonnet).
 BALKANEA MOBILE  —  SANDBOX / TEST READINESS
-11
+12
 10 bookings/day
 Bookings / month
 300
@@ -209,36 +234,36 @@ Net margin after running cost
 ~$69,205
 Running cost = ~11% of margin revenue
 Same story at both scales -- compute/infrastructure (now including the AWS static-IP relay required for RateHawk certification) is a small, roughly flat share of margin (~11–13%). Confirms Luke's own read from July 21: marketing/adoption is the real bottleneck, not running cost. On Haiku 4.5 instead of Sonnet, running cost drops to ~$518/mo (10's) and ~$3,555/mo (100's) -- further shrinking that share, at a quality trade-off worth testing before committing.
---- Slide 12 ---
-11  —  RISKS
-What "treated as working" assumes, and where it could break
-Payments and RateHawk booking are shown as working elsewhere in this deck for planning purposes. This is the honest gap between that and what is actually verified today.
-BALKANEA MOBILE  —  SANDBOX / TEST READINESS
-12
-Multi-room booking has no real product support in the app today
-RateHawk's booking API proves multi-room works end-to-end (real order IDs, mixed child ages tested) -- but the app itself has no room-by-room guest picker, a single flat guest-name field, and rooms passed through as an unused integer. Treated as working elsewhere in this deck per Ray's direction; it is not built. Scoped as its own multi-file build item on the Plan slide, not a small addition.
-BIGGEST GAP
-Real-hotel payments still fail intermittently, unresolved
-Bankart's merchant account is confirmed MKD-only. A real-hotel MKD payment attempt on 8/25 still failed with a generic Bankart-side error (error_code 1000, uuid: null) after currency, reference length, and format were all ruled out as causes. Root cause sits in Hristijan's plugin or Bankart's gateway, not the app -- treated as working for this update, but not yet clean on a real hotel.
-UNRESOLVED
-RateHawk's real booking flow isn't wired into the app yet
-Search → prebook → finish is proven only in standalone test scripts against RateHawk's sandbox -- lib/ratehawk.ts still runs the original simulated stub. Wiring it in has a real failure mode to design around first: RateHawk charges Balkanea's own deposit balance, not the guest's card, so a guest could be charged by Bankart while RateHawk's own booking finish independently fails.
-INTEGRATION GAP
-External review gates: RateHawk certification and store submission
-RateHawk won't issue production keys until Balkanea answers its full certification questionnaire (payment type, RPM limits, static-data sync method, a complete booking error-handling matrix) and the AWS static IP is whitelisted -- review time after that is RateHawk's, not ours. Google Play's 14-day closed-testing clock can't start until the Play Developer account exists (still not created).
-RATEHAWK & STORE-PACED
 --- Slide 13 ---
-12  —  STILL OPEN
+12  —  RISKS
+What's still open, now that payments and RateHawk are live
+Multi-room booking, real-hotel payments, and RateHawk’s live wiring -- all previously flagged here -- are now built, fixed, and verified as of 8/25. These are the risks that remain.
+BALKANEA MOBILE  —  SANDBOX / TEST READINESS
+13
+RateHawk's sandbox documents (voucher + invoice) return a blank placeholder, not real content
+Fetching both via RateHawk's real document endpoints returns byte-for-byte identical PDFs -- embedded metadata reads 'Acrobat Distiller 6.0 (Windows)', dated 2006-03-06, clearly a generic template, not a generated document. Not a bug in our integration (request/response plumbing verified correct) -- needs re-verification once production RateHawk credentials are active; sandbox may simply have no real content to render.
+SANDBOX LIMITATION
+A reliability bug caused three duplicate real charges today, before being fixed
+The booking screen could get stuck indefinitely on ‘Confirming with the hotel’ if a step failed after payment had already captured. Because real RateHawk confirmation genuinely takes 90-140+ seconds, this read as frozen; force-quitting and retrying created a brand-new charge each time. Result: three real Bankart charges for one intended test booking -- harmless only because it was a test card. Now fixed (proper error states + a real progress bar); the lesson is this exact bug class is what causes real duplicate charges against a real guest.
+FIXED TODAY
+Bankart's hosted card page still isn't mobile-responsive
+Input fields still misalign on phone and tablet, and the page has no billing-address or independent 'name on card' field (a guest can pay for someone else's booking). A full written spec -- brand colors, autofill attributes, missing fields -- was sent to Hristijan 8/25. Not yet built on his side.
+OPEN — HRISTIJAN
+Business-team booking notification email is hardcoded to a placeholder address
+New today: confirmed real RateHawk bookings now trigger automated emails -- the guest gets their voucher PDF, the business team gets the invoice PDF (Resend). The business recipient is currently hardcoded to Ray's own address as a placeholder, not a real shared team inbox -- needs to move before this is production-ready.
+PLACEHOLDER
+--- Slide 14 ---
+13  —  STILL OPEN
 What's still genuinely open, and who owns it
 The strategic risks are on the Risks slide. This is the operational punch list.
 BALKANEA MOBILE  —  SANDBOX / TEST READINESS
-13
+14
 Apple + Google Play accounts
 Apple: native Sign-in code shipped 8/5, still needs a Services ID + signed JWT from Ray's own Apple Developer account. Google Play: developer account still not created (confirmed not started as of the July 24 call) -- account verification itself takes calendar time independent of app readiness. Both Ray-owned, not build-gated.
 Bankart mobile-responsive checkout
-Bankart's hosted card page isn't mobile-responsive today -- input fields misalign on phone and tablet, iOS and Android. On Hristijan's side; the one item blocking a clean guest-facing checkout.
+Bankart's hosted card page isn't mobile-responsive today, and is missing billing-address and cardholder-name fields. Written spec sent to Hristijan 8/25 (design tokens, autofill attributes, field list). On his side to build.
 Admin portal WooCommerce-parity gap
 admin-payments.html covers bookings + payment state, with Capture/Void stubbed -- but doesn't yet cover WooCommerce's refunds/cancellations/invoicing. Gap inventoried, not yet built.
 deliverables to unblock this week
-From Ray: Apple Services ID/JWT, Google Play account creation. From Hristijan: Bankart mobile-responsive fix. From Claude: RateHawk app-wiring and the multi-room build per the Plan slide.
+From Ray: Apple Services ID/JWT, Google Play account. From Hristijan: mobile-responsive fix + billing/cardholder-name fields (spec sent 8/25). From Claude: RateHawk wiring + multi-room build are both done -- next is RateHawk's certification questionnaire.
 Store submission, once ready: no Google Play account yet · Apple review ~3–5 days · Google's 14-day closed-testing minimum · RateHawk cert runs in parallel.
