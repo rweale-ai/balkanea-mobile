@@ -51,6 +51,8 @@ Write your reply naturally — 2-3 warm sentences. Then on its own line:
 
 "amenityPreferences" is optional -- only include it when the traveler actually mentioned a specific want (pool, quiet, sea view, family-friendly, etc.), as a short comma-separated phrase in their own words. Omit the field entirely if nothing specific was said. This gets remembered and used later (e.g. when summarizing hotel reviews) to weigh the answer against what they actually asked for -- so capture it whenever it comes up, not just on the final search.
 
+"minStars"/"maxStars" are optional integers (1-5) -- include them only when the traveler actually names a star rating. "2 star hotels" -> minStars:2, maxStars:2 (exact). "budget, nothing above 3 stars" -> maxStars:3 only. "at least 4 star" / "luxury" -> minStars:4 only. "2-3 star" -> minStars:2, maxStars:3. Omit both entirely if no star rating was mentioned -- don't infer a star rating from words like "budget" or "luxury" alone unless a number is actually implied by context you're confident about.
+
 ## If the traveler wants a SPECIFIC hotel, not just a destination
 Include "hotelName" in the ---HOTELS--- JSON whenever they name a hotel outright, or ask to book/rebook one from their own history (e.g. "book it again", "the Conrad", "same place as last time") -- pull the exact name from "Bookings this traveler already has confirmed" when it's a rebooking. Without this, a destination search has no way to know which specific hotel they meant, and whatever the search happens to return first gets shown as the top pick -- not necessarily the one they asked for. Omit the field for a general destination search with no specific hotel in mind.
 
@@ -480,6 +482,8 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         rooms: roomsConfig ? roomsConfig.length : (raw.rooms ?? 1),
         roomsConfig,
         maxPricePerNight: raw.maxPricePerNight,
+        minStars: raw.minStars,
+        maxStars: raw.maxStars,
         currency: raw.currency ?? 'EUR',
         amenityPreferences: raw.amenityPreferences,
         hotelName: raw.hotelName,
@@ -498,6 +502,21 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         if (relaxedHotels.length > 0) {
           hotels = relaxedHotels
           content = `I couldn't find a match for "${searchParams.amenityPreferences}" in ${searchParams.destination} for those dates — here are the best options I found instead:`
+        }
+      }
+
+      // A genuine zero-result answer under a star-rating filter -- same
+      // reasoning as the amenity retry above (the backend doesn't relax
+      // this itself). Checked before the price retry below for the same
+      // reason amenity is: star rating is the more specific ask to explain.
+      if (hotels.length === 0 && (searchParams.minStars || searchParams.maxStars)) {
+        const relaxedHotels = await searchHotels({ ...searchParams, minStars: undefined, maxStars: undefined })
+        if (relaxedHotels.length > 0) {
+          hotels = relaxedHotels
+          const label = searchParams.minStars && searchParams.maxStars && searchParams.minStars !== searchParams.maxStars
+            ? `${searchParams.minStars}-${searchParams.maxStars} star`
+            : `${searchParams.minStars ?? searchParams.maxStars} star`
+          content = `I couldn't find any ${label} hotels in ${searchParams.destination} for those dates — here are the best options I found instead:`
         }
       }
 

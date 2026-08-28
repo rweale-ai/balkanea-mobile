@@ -93,6 +93,7 @@ function generateHotels(params: HotelSearchParams): Hotel[] {
   return hotels
     .filter(h => !params.maxPricePerNight || h.price_per_night <= params.maxPricePerNight)
     .filter(h => !params.minStars || h.stars >= params.minStars)
+    .filter(h => !params.maxStars || h.stars <= params.maxStars)
     .sort((a, b) => a.price_per_night - b.price_per_night)
 }
 
@@ -113,6 +114,13 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
         checkout: params.checkout,
         guests: params.adults + params.children,
         max_price_per_night: params.maxPricePerNight,
+        // Added 2026-08-27 -- minStars existed on this type but was never
+        // actually sent to the real backend (only the simulated fallback
+        // above honored it), so a real request for "2 star hotels" against
+        // a live sandbox region searched unconstrained and could surface
+        // any star rating.
+        min_stars: params.minStars,
+        max_stars: params.maxStars,
         // Was captured (lib/travel-profile.ts) and shown back to the
         // traveler in conversation, but never actually sent to the
         // backend for filtering until now -- "only hotels with a pool"

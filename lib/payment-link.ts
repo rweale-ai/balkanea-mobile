@@ -10,6 +10,15 @@ export interface PaymentLinkGuest {
   lastName?: string
   email?: string
   phone?: string
+  // Real billing address, collected in app/booking.tsx -- until 2026-08-27
+  // these were never sent at all, so the backend (Chat api/create-payment-link.js)
+  // silently fell back to a hardcoded Skopje/MK placeholder for every real
+  // card payment. country is an uppercase ISO 3166-1 alpha-2 code (matching
+  // the backend's 'MK' fallback), not lib/locale.ts's lowercase CountryCode.
+  address1?: string
+  city?: string
+  postcode?: string
+  country?: string
 }
 
 export interface PaymentLinkResult {

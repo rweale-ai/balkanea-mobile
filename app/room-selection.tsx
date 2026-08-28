@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
-  StyleSheet, SafeAreaView, Platform, ActivityIndicator,
+  StyleSheet, SafeAreaView, Platform, ActivityIndicator, Alert,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -13,6 +13,18 @@ import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
 import { validateRoomsConfig } from '../lib/rooms-config'
+import { currentCancellationStatus, formatCancellationDate } from '../lib/cancellation'
+
+// Real rooms (book_hash present) carry the actual RateHawk penalty schedule
+// via cancellation_policy -- use that instead of sniffing the display
+// string, which only ever said "free" or not and can't tell a room that's
+// still cancellable-with-a-penalty from a genuinely non-refundable one.
+// Simulated/DB-content rooms have no cancellation_policy at all, so they
+// keep the old string check as their only option.
+function roomIsFreeRightNow(room: RoomType): boolean {
+  if (room.cancellation_policy) return !!currentCancellationStatus(room.cancellation_policy).isFreeRightNow
+  return room.cancellation.toLowerCase().includes('free')
+}
 
 export default function RoomSelectionScreen() {
   const router = useRouter()
@@ -102,9 +114,7 @@ export default function RoomSelectionScreen() {
 
   const recommendedRoomId = useMemo(() => {
     if (!hotel) return null
-    const freeCancel = hotel.room_types.filter(r =>
-      r.cancellation.toLowerCase().includes('free')
-    )
+    const freeCancel = hotel.room_types.filter(roomIsFreeRightNow)
     if (freeCancel.length === 0) return hotel.room_types[0]?.room_id ?? null
     const sorted = [...freeCancel].sort((a, b) => a.price_per_night - b.price_per_night)
     return sorted[Math.floor(sorted.length / 2)].room_id
@@ -147,6 +157,21 @@ export default function RoomSelectionScreen() {
   const activeCurrency = (params.currency || getCurrency()) as CurrencyCode
 
   const handleBookRoom = (room: RoomType) => {
+    // Real (book_hash) bookings only ever commit ONE room with RateHawk --
+    // realLockRoom takes a single book_hash, and Chat lib/ratehawk.js's
+    // finishBooking hardcodes `rooms: [{ guests: roomsGuests }]`, a single
+    // entry, regardless of roomCount. Multi-room selection still works for
+    // simulated/DB-content hotels (each "room" there is fake, roomCount is
+    // just a price multiplier), but for a real hotel it would charge the
+    // guest for N rooms via Bankart while RateHawk's actual reservation
+    // reflects only 1 -- confirmed reachable 2026-08-27 (this screen
+    // multiplies price by roomCount for hasLiveRates hotels same as any
+    // other). Blocked here until real multi-room RateHawk booking (separate
+    // prebook/order per room) is built, rather than shipping the overcharge.
+    if (room.book_hash && roomCount > 1) {
+      Alert.alert(t.roomSelect.multiRoomUnavailableTitle, t.roomSelect.multiRoomUnavailableBody)
+      return
+    }
     router.push({
       pathname: '/booking',
       params: {
@@ -214,7 +239,22 @@ export default function RoomSelectionScreen() {
 
         {hotel.room_types.map(room => {
           const isRecommended = room.room_id === recommendedRoomId
-          const isFree = room.cancellation.toLowerCase().includes('free')
+          const cxStatus = room.cancellation_policy ? currentCancellationStatus(room.cancellation_policy) : null
+          const isFree = cxStatus ? !!cxStatus.isFreeRightNow : room.cancellation.toLowerCase().includes('free')
+          // Three real states for a real room: free right now, still
+          // cancellable but with a penalty, or genuinely non-refundable.
+          // Simulated rooms only ever have the old two (free / non-refundable).
+          const cxLabel = cxStatus
+            ? cxStatus.isNonRefundable
+              ? t.roomSelect.nonRefundable
+              : cxStatus.isFreeRightNow
+                ? t.roomSelect.freeCancelUntil.replace('{{date}}', cxStatus.freeCancellationBefore ? formatCancellationDate(cxStatus.freeCancellationBefore) : '')
+                : t.roomSelect.cancellationPenalty.replace('{{amount}}', `${cxStatus.penaltyAmount?.toFixed(2)}`)
+            : isFree
+              ? t.roomSelect.freeCancelUntil.replace('{{date}}', room.cancellation.replace(/^Free cancellation until\s*/i, ''))
+              : t.roomSelect.nonRefundable
+          const cxColor = cxStatus && !cxStatus.isFreeRightNow && !cxStatus.isNonRefundable ? Colors.accent : (isFree ? Colors.success : Colors.error)
+          const cxIcon = cxStatus && !cxStatus.isFreeRightNow && !cxStatus.isNonRefundable ? 'alert-circle' : (isFree ? 'checkmark-circle' : 'close-circle')
           return (
             <View key={room.room_id} style={[styles.roomCard, isRecommended && styles.roomCardRecommended]}>
               {isRecommended && (
@@ -240,9 +280,9 @@ export default function RoomSelectionScreen() {
                 </View>
 
                 <View style={styles.rcCancel}>
-                  <Ionicons name={isFree ? 'checkmark-circle' : 'close-circle'} size={13} color={isFree ? Colors.success : Colors.error} />
-                  <Text style={[styles.rcCancelText, { color: isFree ? Colors.success : Colors.error }]}>
-                    {isFree ? t.roomSelect.freeCancelUntil.replace('{{date}}', room.cancellation.replace(/^Free cancellation until\s*/i, '')) : t.roomSelect.nonRefundable}
+                  <Ionicons name={cxIcon} size={13} color={cxColor} />
+                  <Text style={[styles.rcCancelText, { color: cxColor }]}>
+                    {cxLabel}
                   </Text>
                 </View>
               </View>

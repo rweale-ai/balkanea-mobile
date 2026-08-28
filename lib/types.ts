@@ -40,7 +40,14 @@ export interface HotelSearchParams {
   // existed.
   roomsConfig?: RoomGuestConfig[]
   maxPricePerNight?: number
+  // Star rating filter -- minStars existed on this type before 2026-08-27
+  // but was only ever consumed by generateHotels() (the fully-simulated
+  // fallback); never sent to the real backend, never taught to Nea's
+  // tool-call schema in lib/claude.ts, so it had zero effect on any real
+  // search (sandbox Paris/LA/Dubai, or the content-DB path). Both wired
+  // through end-to-end now -- see lib/hotels.ts and Chat lib/hotel-db.js.
   minStars?: number
+  maxStars?: number
   currency: string
   // Free-text preferences the traveler mentioned (e.g. "pool, sea view,
   // quiet") -- not used for search filtering, just carried forward so
@@ -80,6 +87,25 @@ export interface Hotel {
   hasLiveRates?: boolean
 }
 
+// RateHawk's real cancellation_penalties shape (rate.payment_options.
+// payment_types[0].cancellation_penalties, verified live 2026-08-27 against
+// sandbox -- their docs site 403s automated fetches, this is not from the
+// public docs). A graduated schedule, not a single free/non-refundable
+// flag: a rate can have a free window, then one or more partial-penalty
+// tiers, then a full-penalty tier from some later date. Non-refundable =
+// free_cancellation_before: null + a single unconditional policy. See
+// lib/cancellation.ts for how this gets turned into "can I cancel free
+// right now."
+export interface CancellationPolicy {
+  policies: Array<{
+    start_at: string | null
+    end_at: string | null
+    amount_charge: string
+    amount_show: string
+  }>
+  free_cancellation_before: string | null
+}
+
 export interface RoomType {
   room_id: string
   name: string
@@ -94,6 +120,12 @@ export interface RoomType {
   // to run the real prebook/booking flow instead of the simulated stub. Absent
   // for every DB-content/simulated hotel, which keeps their behavior untouched.
   book_hash?: string
+  // Present only alongside book_hash (real rates carry the real schedule;
+  // simulated rooms have no real RateHawk terms to show). Persisted onto the
+  // Booking at booking time -- see lib/bookings-store.ts -- so the real
+  // terms locked in at booking are still known after the room/hotel search
+  // result that produced them is gone.
+  cancellation_policy?: CancellationPolicy
 }
 
 export interface Booking {
