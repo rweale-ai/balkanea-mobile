@@ -165,7 +165,7 @@ add_text(s, MARGIN, Emu(3350000), Emu(9800000), Emu(700000),
 add_text(s, MARGIN, Emu(4350000), Emu(9800000), Emu(300000),
          "No production files modified  •  Fully isolated fork plugin  •  Live RateHawk pricing on both sides",
          12, SUBTITLE_2)
-add_text(s, MARGIN, SLIDE_H - Emu(500000), Emu(6000000), Emu(300000), "2026-09-14", 11, SUBTITLE_2)
+add_text(s, MARGIN, SLIDE_H - Emu(500000), Emu(6000000), Emu(300000), "2026-09-14  •  performance re-run 2026-09-15", 11, SUBTITLE_2)
 
 # ============================== SLIDE 2 — WHAT WAS BUILT ==============================
 s = prs.slides.add_slide(BLANK)
@@ -240,15 +240,15 @@ add_card(s, Emu(4160000), Emu(1150000),
          "Verified", PILL_BLUE_BG, PILL_BLUE_TX)
 add_footer(s, 4)
 
-# ============================== SLIDE 5 — PERFORMANCE RESULTS (CHART) ==============================
+# ============================== SLIDE 5 — PERFORMANCE RESULTS (CHART) — RE-RUN 2026-09-15 ==============================
 s = prs.slides.add_slide(BLANK)
 set_bg(s, LIGHT_BG)
-add_section_header(s, Emu(560000), "04  —  PERFORMANCE RESULTS", "Full search, real Athens query, same dates on both sides")
+add_section_header(s, Emu(560000), "04  —  PERFORMANCE RESULTS", "Re-run 2026-09-15 — real Athens query, two fresh date ranges, both run orders")
 
 chart_data = CategoryChartData()
-chart_data.categories = ["Run 1 (cold)", "Run 2 (warm)", "Run 3 (warm)"]
-chart_data.add_series("Real production (MySQL)", (14.1, 10.4, 9.9))
-chart_data.add_series("Supabase (fork)", (17.7, 12.1, 12.4))
+chart_data.categories = ["Range A: Nov 15–18\n(MySQL run 1st)", "Range B: Dec 20–23\n(Supabase run 1st)"]
+chart_data.add_series("Real production (MySQL)", (66.9, 76.6))
+chart_data.add_series("Supabase (fork)", (122.3, 112.3))
 
 chart_left, chart_top, chart_w, chart_h = MARGIN, Emu(1500000), Emu(7300000), Emu(3550000)
 gframe = s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, chart_left, chart_top, chart_w, chart_h, chart_data)
@@ -270,7 +270,7 @@ series[1].format.fill.fore_color.rgb = AMBER_BAR
 chart.category_axis.tick_labels.font.size = Pt(10)
 chart.value_axis.tick_labels.font.size = Pt(9)
 chart.value_axis.has_title = True
-chart.value_axis.axis_title.text_frame.text = "Total seconds, full search → last chunk"
+chart.value_axis.axis_title.text_frame.text = "Total seconds, full search → result count settled"
 chart.value_axis.axis_title.text_frame.paragraphs[0].runs[0].font.size = Pt(9)
 
 # Right-side takeaway cards
@@ -281,11 +281,11 @@ card.adjustments[0] = 0.06
 card.fill.solid(); card.fill.fore_color.rgb = CARD_WHITE
 card.line.color.rgb = RGBColor(0xEC, 0xE6, 0xDC); card.line.width = Pt(0.75)
 card.shadow.inherit = False
-add_text(s, take_left + Emu(220000), Emu(1650000), take_w - Emu(440000), Emu(300000), "Real production is faster, cold and warm", 13, CARD_TITLE, bold=True, font=FONT_SB)
+add_text(s, take_left + Emu(220000), Emu(1650000), take_w - Emu(440000), Emu(300000), "Both sides got much slower since 9/14 — and it's not the database", 13, CARD_TITLE, bold=True, font=FONT_SB)
 add_text(s, take_left + Emu(220000), Emu(2000000), take_w - Emu(440000), Emu(1150000),
-         "MySQL is ahead by roughly 20–30% at every point measured (14.1s vs 17.7s cold; 9.9s vs "
-         "12.4s warm). This matches the pre-existing baseline from earlier testing this "
-         "week — today's DB fixes didn't close the gap.",
+         "MySQL now settles in 67–77s, Supabase in 112–122s — both far above the 14–18s "
+         "baseline from 9/14. The Supabase-slower gap holds in BOTH run orders (MySQL-first and "
+         "Supabase-first), so it isn't a warm-cache artifact — something got worse on both sides.",
          11, CARD_BODY, line_spacing=1.15)
 
 card2 = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, take_left, Emu(3400000), take_w, Emu(1650000))
@@ -293,18 +293,19 @@ card2.adjustments[0] = 0.06
 card2.fill.solid(); card2.fill.fore_color.rgb = CARD_WHITE
 card2.line.color.rgb = RGBColor(0xEC, 0xE6, 0xDC); card2.line.width = Pt(0.75)
 card2.shadow.inherit = False
-add_text(s, take_left + Emu(220000), Emu(3550000), take_w - Emu(440000), Emu(300000), "Why: chunk time isn't mostly DB time", 13, CARD_TITLE, bold=True, font=FONT_SB)
+add_text(s, take_left + Emu(220000), Emu(3550000), take_w - Emu(440000), Emu(300000), "Why: a repeating/duplicate request loop, worse on Supabase", 13, CARD_TITLE, bold=True, font=FONT_SB)
 add_text(s, take_left + Emu(220000), Emu(3900000), take_w - Emu(440000), Emu(1050000),
-         "Each chunk runs 3.3–4.5s, but the isolated DB fetch today's fixes target is ~350ms of "
-         "that. The rest — the still-MySQL-sourced amenities query, filter/sort work — is shared "
-         "architecture on both sides, and is where the next win likely has to come from.",
+         "Even driven by URL navigation (not a Search click), both sides fire literal duplicate "
+         "concurrent chunk requests and keep polling every ~4s well after real results stop "
+         "growing. Supabase's final hotel count (578–633) is ~2x MySQL's (295–326) for the "
+         "identical query — almost certainly duplicated chunks, not real extra inventory.",
          11, CARD_BODY, line_spacing=1.15)
 
 add_text(s, MARGIN, Emu(5250000), CONTENT_W, Emu(600000),
-         "Method: direct AJAX timing (initial + all DB chunks, real Athens search, same 14–15 Sep dates and "
-         "guest params on both sides, 259–266 hotels, 3 backend round-trips) — bypasses browser render time "
-         "so it isolates backend behavior equally. An earlier pass used a different, heavier date range and "
-         "produced inflated, non-comparable numbers — discarded.",
+         "Method: direct URL navigation (bypasses the known Search-click double-submit path), Performance "
+         "Resource Timing on admin-ajax.php, two Athens date ranges not touched in prior testing, each side "
+         "run both first and second to rule out order/warm-cache bias. “Settled” = displayed hotel count "
+         "and request count both unchanged for 20–30s. Full raw timings in Mobile/decks/perf_runs.json.",
          10, FOOTER_GRAY, line_spacing=1.2)
 add_footer(s, 5)
 
@@ -332,19 +333,118 @@ add_card(s, Emu(3260000), Emu(1550000),
          "By design", PILL_BLUE_BG, PILL_BLUE_TX)
 add_footer(s, 6)
 
-# ============================== SLIDE 7 — OPEN ITEMS / NEXT STEPS ==============================
+# ============================== SLIDE 7 — TEST SITE 3: SKELETON UX + HONEST NUMBER ==============================
 s = prs.slides.add_slide(BLANK)
 set_bg(s, LIGHT_BG)
-add_section_header(s, Emu(560000), "06  —  NEXT STEPS", "Open items and where this goes next")
+add_section_header(s, Emu(560000), "06  —  TEST SITE 3", "A third variant built to chase a 3\u20135s render \u2014 and the honest result")
+
+add_card(s, Emu(1560000), Emu(1150000),
+         "What was built \u2014 \u201c?fast=1\u201d on the same comparison URL",
+         "A front-end skeleton-loading overlay (6 pulsing placeholder cards) fires the instant Search is "
+         "clicked, replacing the spinner-only wait. Verified live: appears synchronously on click, is cleanly "
+         "replaced by real results with no errors. It changes what the wait feels like \u2014 it does not, and was "
+         "never claimed to, change the real backend timing.",
+         "Shipped")
+add_card(s, Emu(2810000), Emu(1150000),
+         "One lever intentionally not pursued: RateHawk's own hotels_limit",
+         "Production's WorldotaProvider.php has a commented-out hotels_limit parameter that could shrink the "
+         "live RateHawk response itself. Implementing it requires copying a file containing embedded API "
+         "credentials \u2014 blocked by this session's own credential-handling safeguards. Skipped rather than "
+         "worked around; flagged below for Hristijan's team to test directly on their own file.",
+         "Skipped", PILL_AMBER_BG, PILL_AMBER_TX)
+add_card(s, Emu(4060000), Emu(1450000),
+         "The honest number: 3\u20135s is not achieved for a genuinely cold first search",
+         "Measured with a MutationObserver on the real click-to-render path (not polling, which earlier gave "
+         "false 30\u201345s \u201cstall\u201d readings that turned out to just be the polling interval). Best clean "
+         "real-content case on a small, never-cached destination: 11.0s. On Athens \u2014 the flagship, "
+         "highest-inventory destination \u2014 a genuinely cold run measured 24.8s end to end. See the next slide "
+         "for exactly where that time goes.",
+         "Measured", PILL_BLUE_BG, PILL_BLUE_TX)
+add_footer(s, 7)
+
+# ============================== SLIDE 8 — COLD SEARCH BREAKDOWN ==============================
+s = prs.slides.add_slide(BLANK)
+set_bg(s, LIGHT_BG)
+add_section_header(s, Emu(560000), "07  —  WHERE THE TIME GOES", "Athens, cold search, click \u2192 hotels on screen: 24.8s broken down")
+
+chart_data2 = CategoryChartData()
+chart_data2.categories = ["Cold Athens search (24.8s total)"]
+chart_data2.add_series("WP nonce refresh", (33.6,))
+chart_data2.add_series("RateHawk + content fetch", (65.5,))
+chart_data2.add_series("Client render", (0.9,))
+
+bar_left, bar_top, bar_w, bar_h = MARGIN, Emu(1550000), Emu(7300000), Emu(1500000)
+gframe2 = s.shapes.add_chart(XL_CHART_TYPE.BAR_STACKED_100, bar_left, bar_top, bar_w, bar_h, chart_data2)
+chart2 = gframe2.chart
+chart2.has_legend = True
+chart2.legend.position = XL_LEGEND_POSITION.BOTTOM
+chart2.legend.include_in_layout = False
+plot2 = chart2.plots[0]
+plot2.has_data_labels = False
+s2 = chart2.series
+s2[0].format.fill.solid(); s2[0].format.fill.fore_color.rgb = PILL_BLUE_TX
+s2[1].format.fill.solid(); s2[1].format.fill.fore_color.rgb = AMBER_BAR
+s2[2].format.fill.solid(); s2[2].format.fill.fore_color.rgb = GREEN_BAR
+chart2.category_axis.tick_labels.font.size = Pt(10)
+chart2.value_axis.visible = False
+
+rows2 = [
+    ("WordPress nonce refresh (_getFreshNonce)", "8.4s  \u2014  33.6% of total. A plain security-token round trip to admin-ajax.php \u2014 zero RateHawk or DB work, pure WP overhead, and it happens BEFORE the real search call is even allowed to fire.", Emu(200000)),
+    ("Live RateHawk fetch + Supabase/MySQL content assembly", "16.3s  \u2014  65.5% of total. The actual hotel search: live pricing round trip plus joining in static content (name, photos, address) for all matching hotels.", Emu(200000)),
+    ("Client-side render (parse response, swap skeleton for real cards)", "0.2s  \u2014  0.9% of total. Effectively free \u2014 not a place to look for savings.", 0),
+]
+add_row_card(s, Emu(3150000), "The three components, in order", rows2, "Measured", PILL_BLUE_BG, PILL_BLUE_TX)
+add_text(s, MARGIN, Emu(5580000), CONTENT_W, Emu(880000),
+         "Bug found while instrumenting this: the search FORM submits TWICE per single click (two independent "
+         "\u201cForm submitted\u201d sequences from one click, confirmed via console log on synthetic and real "
+         "OS-level clicks alike). Lives in production's shared hotel-search.js, not this fork. The fork's own "
+         "generation-counter drops the stale duplicate, but the survivor sometimes then hit a hard client error "
+         "(\u201cSomething went wrong\u201d) instead of succeeding \u2014 seen after one plain click, 48s in. Doubles "
+         "real RateHawk API call volume and server load per search either way.",
+         10, FOOTER_GRAY, line_spacing=1.15)
+add_footer(s, 8)
+
+# ============================== SLIDE 9 — SIMPLE RECOMMENDATION (RE-RUN 2026-09-15) ==============================
+s = prs.slides.add_slide(BLANK)
+set_bg(s, LIGHT_BG)
+add_section_header(s, Emu(560000), "08  —  HOW TO MAKE IT FASTER", "One ranked list — by measured impact, biggest first")
+
+add_card(s, Emu(1560000), Emu(1650000),
+         "#1 — Stop the repeating/duplicate admin-ajax loop",
+         "Biggest lever by far. Confirmed today on BOTH sides: literal concurrent duplicate chunk requests, "
+         "plus a polling loop that keeps firing every ~4s well past when results stop growing. This alone is "
+         "most of the gap between today's 67–122s totals and 9/14's 14–18s baseline — and it's why Supabase "
+         "shows ~2x the hotel count MySQL does for the same query (duplicated chunks, not real inventory). "
+         "Fix: the same dedup/stale-response guard Fix 2 already added for the click path, plus stop the loop "
+         "on the real terminal chunk (hasMore:false) instead of retrying.",
+         "Backend")
+add_card(s, Emu(3360000), Emu(1200000),
+         "#2 — Batch or parallelize chunk fetches instead of one every ~4s",
+         "Total time now scales almost linearly with hotel count (17–19 calls for MySQL, 26–29 for Supabase) "
+         "because chunks fetch one at a time with a fixed pacing gap between them. Fetching 2–3 chunks "
+         "concurrently would cut total time roughly in proportion, on top of the #1 fix.",
+         "Backend")
+add_card(s, Emu(4710000), Emu(1200000),
+         "#3 — Take the WordPress nonce refresh off the critical path",
+         "Still a fixed ~8.4s tax (33.6% of the original 24.8s search) on every search before either fix above "
+         "even starts — pre-fetch it on page load, before Search is clicked. Smaller than #1/#2 today, but "
+         "free once they're done.",
+         "Backend")
+add_footer(s, 9)
+
+# ============================== SLIDE 10 — OPEN ITEMS / NEXT STEPS ==============================
+s = prs.slides.add_slide(BLANK)
+set_bg(s, LIGHT_BG)
+add_section_header(s, Emu(560000), "09  —  NEXT STEPS", "Open items and where this goes next")
 
 rows = [
-    ("Find the real bottleneck: the shared amenities/filter step, not the DB fetch", "Chunk time is 3.3\u20134.5s; today's fixes touch only ~350ms of that. The still-MySQL-sourced amenities query and filter/sort work dominate on both sides \u2014 that's where the next real win has to come from.", Emu(260000)),
+    ("Fix the double form-submission bug in shared hotel-search.js", "Real, reproducible: two full AJAX submissions per single click, confirmed via console log. Doubles RateHawk call volume per search and can surface as a hard client-side error on a plain click \u2014 likely affects real production too, since it's shared code.", Emu(260000)),
+    ("Find the real bottleneck: the RateHawk/content fetch, not the DB fetch", "It's 65.5% of the 24.8s total; today's DB fixes touch a much smaller slice. The still-MySQL-sourced amenities query and filter/sort work dominate on both sides \u2014 that's where the next real win has to come from.", Emu(260000)),
     ("Flag the today's-date plugin-directory incident to Hristijan", "Something outside this session replaced wp-content/plugins/ today, wiping the fork's files \u2014 worth checking blast radius on other plugins", Emu(260000)),
-    ("Real production page still renders blank", "Pre-existing, confirmed unrelated to this work \u2014 needs separate investigation on the tech team's side", Emu(160000)),
-    ("Engage Fable 5 on further user-facing speed options", "Beyond today's Tier-1 DB fixes \u2014 exploring what else moves the needle on perceived load time, in progress", 0),
+    ("Real production page still renders blank", "Pre-existing, confirmed unrelated to this work \u2014 needs separate investigation on the tech team's side", 0),
 ]
 add_row_card(s, Emu(1560000), "Open items", rows, "In progress", PILL_AMBER_BG, PILL_AMBER_TX)
-add_footer(s, 7)
+add_footer(s, 10)
 
 prs.save(r"C:\Users\raywe\Ray\Balkanea\Mobile\decks\Balkanea-Supabase-vs-MySQL-Comparison.pptx")
 print("Saved.")

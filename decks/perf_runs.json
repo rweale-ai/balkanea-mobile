@@ -1,0 +1,22 @@
+{
+  "test_date": "2026-09-15",
+  "method": "Direct URL navigation (no Search-button click, avoids known click-triggered double-submit path); Performance Resource Timing API polling admin-ajax.php entries; completion = displayed result count + admin-ajax entry count both stable for 20-30s+",
+  "range_A_2026-11-15_to_11-18": {
+    "order": "MySQL first, Supabase second (immediately after, same tab-switch)",
+    "mysql_hotel_search_popup_map": {"final_results": 326, "admin_ajax_count": 19, "completion_ms": 66865, "first_chunk_end_ms": 10041},
+    "supabase_hotel_search_supabase_compare": {"final_results": 633, "admin_ajax_count": 29, "completion_ms": 122348, "first_chunk_end_ms": 7485}
+  },
+  "range_B_2026-12-20_to_12-23_REVERSE_ORDER": {
+    "order": "Supabase first, MySQL second (run concurrently while Supabase tab still active)",
+    "supabase_hotel_search_supabase_compare": {"final_results": 578, "admin_ajax_count": 26, "completion_ms": 112251},
+    "mysql_hotel_search_popup_map": {"final_results": 295, "admin_ajax_count": 17, "completion_ms": 76564}
+  },
+  "key_findings": [
+    "MySQL/production page terminates cleanly in both runs: 17-19 admin-ajax calls, 66.9s-76.6s completion, 295-326 results.",
+    "Supabase fork does NOT terminate the same way in either run: 26-29 admin-ajax calls, 112-122s completion (roughly 1.5-1.8x slower), 578-633 results (roughly 1.8-2x MySQL's count).",
+    "Reproduced in both run orders (MySQL-then-Supabase, and Supabase-then-MySQL) -- rules out simple order/warm-cache bias as the explanation.",
+    "Literal concurrent duplicate admin-ajax requests observed on BOTH sides (identical startTime, two different durations) even though runs were driven by direct URL navigation, not a Search-button click -- meaning the previously-documented 'double form submission on click' bug is not the only source of duplication; something else re-triggers overlapping requests on page load too.",
+    "Supabase's much higher final result count is most likely NOT real extra inventory coverage -- it's consistent with duplicate chunks being appended to the results list multiple times without dedup, inflating both the perceived hotel count and the total time spent fetching/rendering than a real load requires.",
+    "This is a much larger, more active problem than the 20-30% MySQL-vs-Supabase gap documented in yesterday's deck (14-18s / 10-12s) -- current total completion times (67-122s) are 3-6x higher than that baseline, on both sides, dominated by this repeating-request behavior rather than by the DB layer."
+  ]
+}
