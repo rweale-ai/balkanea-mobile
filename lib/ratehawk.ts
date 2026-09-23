@@ -1,4 +1,5 @@
 // Simulated RateHawk API stub — real integration requires the sandbox
+import { ratehawkHeaders } from './ratehawk-env'
 // credentials Christian is confirming access for (see project memory:
 // balkanea-mobile booking flow, call with Jasmina 2026-06-30).
 //
@@ -51,7 +52,7 @@ const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
 export async function realLockRoom(bookHash: string): Promise<RoomLock> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-prebook`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({ book_hash: bookHash }),
   })
   const data = await res.json()
@@ -112,7 +113,7 @@ async function pollBookingStatus(
   for (let attempt = 0; attempt < 45; attempt++) {
     const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
       body: JSON.stringify({ partner_order_id: partnerOrderId }),
     })
     const data = await res.json()
@@ -158,7 +159,7 @@ export async function createRealBookingForm(bookHash: string, partnerOrderId: st
 > {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({ step: 'form', book_hash: bookHash, partner_order_id: partnerOrderId }),
   })
   const data = await res.json()
@@ -179,7 +180,7 @@ export async function finishRealBooking(params: {
 }): Promise<{ ok: boolean }> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({
       step: 'finish',
       partner_order_id: params.partnerOrderId,
@@ -217,7 +218,7 @@ export async function sendBookingConfirmationEmails(params: {
 }): Promise<void> {
   await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({
       step: 'send_confirmation_emails',
       partner_order_id: params.partnerOrderId,

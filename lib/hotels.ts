@@ -1,4 +1,5 @@
 import type { Hotel, HotelSearchParams, RoomType } from './types'
+import { ratehawkHeaders } from './ratehawk-env'
 
 const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
 
@@ -107,7 +108,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
   try {
     const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
       body: JSON.stringify({
         destination: params.destination,
         checkin: params.checkin,
@@ -231,7 +232,7 @@ export async function fetchRealRoomTypes(
   try {
     const res = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
       body: JSON.stringify({ hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
     })
     const data = await res.json()
