@@ -103,6 +103,9 @@ function hotelRow(rec, countryCode) {
     region.type ?? null, rec.latitude ?? null, rec.longitude ?? null, rec.phone ?? null,
     rec.email ?? null, rec.postal_code ?? null, rec.check_in_time ?? null, rec.check_out_time ?? null,
     jsonOrEmptyArray(rec.images), jsonOrEmptyArray(rec.amenity_groups), jsonOrEmptyArray(rec.description_struct),
+    // serp_filters -- added 2026-09-25, same dump field amenity_groups
+    // comes from -- see 20260925000000_hotel_serp_filters.sql.
+    jsonOrEmptyArray(rec.serp_filters),
     false, LANGUAGE, // is_deleted always false here -- deleted:true records never reach this function, see the split below
   ];
 }
@@ -122,7 +125,7 @@ const HOTEL_COLS = [
   'hid', 'country_code', 'slug', 'name', 'kind', 'star_rating', 'address',
   'region_id', 'region_name', 'region_type', 'latitude', 'longitude',
   'phone', 'email', 'postal_code', 'check_in_time', 'check_out_time',
-  'images', 'amenity_groups', 'description_struct', 'is_deleted', 'source_language',
+  'images', 'amenity_groups', 'description_struct', 'serp_filters', 'is_deleted', 'source_language',
 ];
 const HOTEL_UPDATE_COLS = HOTEL_COLS.filter((c) => c !== 'hid' && c !== 'country_code');
 
