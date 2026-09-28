@@ -148,6 +148,10 @@ export async function searchHotelsDetailed(params: HotelSearchParams): Promise<S
         // simulated number -- was never sent at all before 2026-08-26, so
         // results always came back USD-quoted regardless of selection.
         currency: params.currency,
+        // Real per-room composition (children with ages) when known, so
+        // live card prices match the room page and the booking charge
+        // (Chat search-hotels sandbox branch, 2026-09-28).
+        ...(params.roomsConfig ? { rooms: params.roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) } : {}),
       }),
     })
 

@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotelsDetailed, formatGuestRating } from '../lib/hotels'
+import { validateRoomsConfig } from '../lib/rooms-config'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -472,6 +473,7 @@ export default function ResultsScreen() {
     children?: string
     rooms?: string
     currency?: string
+    roomsConfig?: string
   }>()
 
   // Falls back to the shared preference (lib/currency.ts), not a hardcoded
@@ -490,6 +492,10 @@ export default function ResultsScreen() {
     children: parseInt(params.children ?? '0', 10),
     rooms: parseInt(params.rooms ?? '1', 10),
     currency,
+    roomsConfig: (() => {
+      if (!params.roomsConfig) return undefined
+      try { return validateRoomsConfig(JSON.parse(params.roomsConfig)) } catch { return undefined }
+    })(),
   }
 
   // Load hotels once on mount. searchHotels tries the real hotel-content DB
@@ -564,6 +570,7 @@ export default function ResultsScreen() {
         rooms: String(searchParams.rooms),
         currency,
         destination: params.destination ?? '',
+        roomsConfig: params.roomsConfig ?? '',
       },
     })
   }, [router, searchParams, currency, params.destination])

@@ -74,6 +74,7 @@ export default function RoomSelectionScreen() {
       adults: parseInt(params.adults || '2', 10),
       children: parseInt(params.children || '0', 10),
       rooms: parseInt(params.rooms || '1', 10),
+      roomsConfig,
       currency: params.currency || getCurrency(),
       // Must match the original search's price filter — see hotel-detail.tsx
       maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,

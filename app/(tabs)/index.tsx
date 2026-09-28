@@ -216,6 +216,9 @@ function MessageBubble({
                         children: String(block.searchParams?.children ?? 0),
                         rooms: String(block.searchParams?.rooms ?? 1),
                         currency: block.searchParams?.currency ?? currency,
+                        // Per-room composition (children's ages) so live
+                        // prices on the next screens are for the real stay.
+                        roomsConfig: block.searchParams?.roomsConfig ? JSON.stringify(block.searchParams.roomsConfig) : '',
                       },
                     })}
                   >
