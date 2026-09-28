@@ -1096,6 +1096,9 @@ export default function BookingScreen() {
             <Ionicons name="time-outline" size={14} color={Colors.primary} />
             <Text style={s.holdBannerText}>
               {lockState === 'locking' ? t.booking.holdingRoom : t.booking.renewingHold}
+              {/* A live RateHawk hold (prebook) measured 30-40s in the
+                  sandbox, 2026-09-28 -- say so, or it looks frozen. */}
+              {room?.book_hash ? ` ${t.booking.holdingRoomSubtext}` : ''}
             </Text>
           </View>
         )}
