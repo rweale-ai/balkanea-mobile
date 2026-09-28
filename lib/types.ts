@@ -125,6 +125,10 @@ export interface RoomType {
   // to run the real prebook/booking flow instead of the simulated stub. Absent
   // for every DB-content/simulated hotel, which keeps their behavior untouched.
   book_hash?: string
+  // Stable identity of a live RateHawk room across re-fetches (book_hash is
+  // single-use) -- how booking.tsx finds the same room again after a stale
+  // rate before payment.
+  match_hash?: string | null
   // Present only alongside book_hash (real rates carry the real schedule;
   // simulated rooms have no real RateHawk terms to show). Persisted onto the
   // Booking at booking time -- see lib/bookings-store.ts -- so the real
