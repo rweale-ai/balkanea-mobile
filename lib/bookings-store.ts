@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Booking } from './types'
 import { supabase } from './supabase'
 import { scheduleBookingNotifications, cancelBookingNotifications } from './notifications'
+import { cancelRealBooking } from './ratehawk'
 
 const STORAGE_KEY = 'balkanea_bookings'
 
@@ -275,9 +276,23 @@ export async function updateBookingStatus(
   if (becomingConfirmed && booking) scheduleBookingNotifications(booking)
 }
 
-export function cancelBooking(id: string): void {
+// A real hotel booking (ratehawk_order_id) is cancelled at RateHawk FIRST and
+// only marked cancelled here if that succeeds -- before 2026-09-28 this only
+// flipped the local status, so the hotel kept the room. Needs a signed-in
+// session (the backend verifies the booking is the user's); otherwise the
+// guest is sent to Balkanea support. Simulated bookings: unchanged.
+export type CancelResult = { ok: true } | { ok: false; reason: 'needs_support' | 'failed' }
+
+export async function cancelBooking(id: string): Promise<CancelResult> {
   const booking = cache.find(b => b.id === id)
-  if (!booking) return
+  if (!booking) return { ok: false, reason: 'failed' }
+
+  if (booking.ratehawk_order_id) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session || !booking.payment_reference) return { ok: false, reason: 'needs_support' }
+    const result = await cancelRealBooking(booking.payment_reference, session.access_token)
+    if (!result.ok) return { ok: false, reason: 'failed' }
+  }
 
   booking.status = 'cancelled'
   notify()
@@ -290,6 +305,7 @@ export function cancelBooking(id: string): void {
       persistLocal(cache)
     }
   })
+  return { ok: true }
 }
 
 export function getBookings(): Booking[] {

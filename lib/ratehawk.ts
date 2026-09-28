@@ -264,6 +264,26 @@ export async function sendBookingConfirmationEmails(params: {
   })
 }
 
+// ─── Cancellation (real bookings only) ─────────────────────────────────
+
+// Cancels a confirmed real booking at RateHawk (Chat ratehawk-book step
+// "cancel"). The backend checks the signed-in user owns the booking, so the
+// user's Supabase access token is required. Refunding the Bankart payment is
+// not part of this (handled by the Balkanea team).
+export async function cancelRealBooking(partnerOrderId: string, accessToken: string): Promise<{ ok: boolean }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, ...ratehawkHeaders() },
+      body: JSON.stringify({ step: 'cancel', partner_order_id: partnerOrderId }),
+    })
+    const data = await res.json()
+    return { ok: !!data.success }
+  } catch {
+    return { ok: false }
+  }
+}
+
 // ─── Voucher (real bookings only) ──────────────────────────────────────
 
 // Same endpoint (GET rather than POST) as the form/finish calls above --

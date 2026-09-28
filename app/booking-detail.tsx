@@ -132,7 +132,12 @@ export default function BookingDetailScreen() {
         {
           text: t.bookingDetail.cancelAction,
           style: 'destructive',
-          onPress: () => cancelBooking(booking.id),
+          onPress: async () => {
+            const result = await cancelBooking(booking.id)
+            if (!result.ok) {
+              Alert.alert(t.bookingDetail.cancelBooking, result.reason === 'needs_support' ? t.bookingDetail.cancelNeedsSupport : t.bookingDetail.cancelFailed)
+            }
+          },
         },
       ],
     )
