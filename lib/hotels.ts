@@ -1,7 +1,7 @@
 import type { Hotel, HotelSearchParams, RoomType, RoomGuestConfig } from './types'
 import { ratehawkHeaders, RATEHAWK_ENV } from './ratehawk-env'
 
-const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
+import { BACKEND_URL } from './backend-url'
 
 const ROOM_TEMPLATES: RoomType[] = [
   { room_id: 'std', name: 'Standard Double Room', max_guests: 2, price_per_night: 0, total_price: 0, meal_plan: 'Room only', cancellation: 'Free cancellation until 48h before check-in', beds: '1 double bed' },

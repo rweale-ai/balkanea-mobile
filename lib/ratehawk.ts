@@ -48,7 +48,7 @@ export async function reconfirmBooking(lockId: string): Promise<{ success: true 
 // charge captured. The form step's 60-minute lifetime and the prebook hash's
 // 24h lifetime both comfortably outlast a card-entry/3DS/gateway round trip.
 
-const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
+import { BACKEND_URL } from './backend-url'
 
 export async function realLockRoom(bookHash: string): Promise<RoomLock> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-prebook`, {
