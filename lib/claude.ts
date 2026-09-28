@@ -119,7 +119,14 @@ export async function sendMessage(
     ? `\n\n## Bookings this traveler already has confirmed\n${bookings}\nThese are already booked and paid — never say a hotel is "being sorted", "in progress", or ask the traveler to choose it again. If asked what they've booked, state these directly. Only revisit hotel search if the traveler explicitly asks to change or add a booking.`
     : ''
 
-  const system = `${BASE_SYSTEM_PROMPT}${langInstruction}${profileInstruction}${bookingsInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
+  // Nea was never told today's date, so "October 15th" came back as a past
+  // year (2024/2025 seen in testing), search-hotels rejected it as in the
+  // past, and searchHotels() fell back to fabricated hotels. Europe/Skopje
+  // since that's where the customers are.
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Skopje' })
+  const dateInstruction = `\n\n## Today's date\n${today}. Always search for future dates -- if a date the traveler gives has already passed this year, they mean next year.`
+
+  const system = `${BASE_SYSTEM_PROMPT}${dateInstruction}${langInstruction}${profileInstruction}${bookingsInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
 
   const result = await runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
   if (result.type === 'hotels' && result.searchParams) {
