@@ -13,6 +13,7 @@ import {
 import { searchHotelsSync } from '../../lib/hotels'
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
+import { cancellationTermsText } from '../../lib/cancellation'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 function formatDate(iso: string): string {
@@ -139,7 +140,8 @@ export default function DashboardScreen() {
   const handleCancel = useCallback((booking: Booking) => {
     Alert.alert(
       t.dashboard.cancelBooking,
-      t.dashboard.cancelConfirm.replace('{{hotel}}', booking.hotel.name),
+      // Real hotel bookings are cancelled at RateHawk -- show what it costs.
+      t.dashboard.cancelConfirm.replace('{{hotel}}', booking.hotel.name) + (booking.ratehawk_order_id ? `\n\n${cancellationTermsText(booking.room?.cancellation_policy, booking.currency, t.bookingDetail)}` : ''),
       [
         { text: t.dashboard.keep, style: 'cancel' },
         {

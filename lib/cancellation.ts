@@ -70,3 +70,23 @@ export function describeCancellationPolicy(
   }
   return `Cancelling now charges ${status.penaltyAmount!.toFixed(2)} ${currency ?? ''}`.trim()
 }
+
+// One line describing what cancelling right now costs, in the app's own
+// wording (pass t.bookingDetail). Shown in the cancel confirmation for real
+// hotel bookings, which are now cancelled at RateHawk -- so the penalty is
+// real. Same order of checks as booking-detail's cancellation section.
+export function cancellationTermsText(
+  policy: CancellationPolicy | null | undefined,
+  currency: string | undefined,
+  s: { cancellationUnknown: string; nonRefundable: string; freeCancel: string; freeCancelUntil: string; cancellationPenalty: string },
+): string {
+  const status = currentCancellationStatus(policy)
+  if (!status.known) return s.cancellationUnknown
+  if (status.isNonRefundable) return s.nonRefundable
+  if (status.isFreeRightNow) {
+    return status.freeCancellationBefore
+      ? s.freeCancelUntil.replace('{{date}}', formatCancellationDate(status.freeCancellationBefore))
+      : s.freeCancel
+  }
+  return s.cancellationPenalty.replace('{{amount}}', `${status.penaltyAmount?.toFixed(2)} ${currency ?? ''}`.trim())
+}

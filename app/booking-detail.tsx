@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import { getBooking, cancelBooking, subscribeToBookings, isValidDate } from '../lib/bookings-store'
-import { currentCancellationStatus, formatCancellationDate } from '../lib/cancellation'
+import { currentCancellationStatus, formatCancellationDate, cancellationTermsText } from '../lib/cancellation'
 import { getItinerary, removeItineraryItem, type ItineraryItemType } from '../lib/itinerary-store'
 import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
@@ -126,7 +126,10 @@ export default function BookingDetailScreen() {
     if (!booking) return
     Alert.alert(
       t.bookingDetail.cancelBooking,
-      t.bookingDetail.cancelConfirm.replace('{{hotel}}', booking.hotel.name),
+      // Real hotel bookings are now cancelled at RateHawk (not just in the
+      // app), so any penalty is real -- show the booking's own cancellation
+      // terms before the guest confirms. Refunds are handled by Balkanea.
+      t.bookingDetail.cancelConfirm.replace('{{hotel}}', booking.hotel.name) + (booking.ratehawk_order_id ? `\n\n${cancellationTermsText(booking.room?.cancellation_policy, booking.currency, t.bookingDetail)}` : ''),
       [
         { text: t.bookingDetail.cancelKeep, style: 'cancel' },
         {
