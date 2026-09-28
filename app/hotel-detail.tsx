@@ -7,7 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels } from '../lib/hotels'
+import { searchHotels, formatGuestRating } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -223,9 +223,11 @@ export default function HotelDetailScreen() {
                 <View key={i} style={styles.starDot} />
               ))}
             </View>
-            <View style={styles.ratingBadge}>
-              <Text style={styles.ratingText}>{hotel.guest_rating}</Text>
-            </View>
+            {hotel.guest_rating != null && (
+              <View style={styles.ratingBadge}>
+                <Text style={styles.ratingText}>{formatGuestRating(hotel)}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.infoRow}>

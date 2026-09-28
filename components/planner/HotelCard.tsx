@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import type { Hotel } from '../../lib/types'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
+import { formatGuestRating } from '../../lib/hotels'
 
 interface Props {
   hotel: Hotel
@@ -45,9 +46,9 @@ export function HotelCard({ hotel, nights, onPress }: Props) {
             <Text style={styles.name} numberOfLines={1}>{hotel.name}</Text>
             <View style={styles.ratingRow}>
               <Stars count={hotel.stars} />
-              {hotel.guest_rating > 0 && (
+              {hotel.guest_rating != null && hotel.guest_rating > 0 && (
                 <View style={styles.guestRating}>
-                  <Text style={styles.guestRatingText}>{hotel.guest_rating.toFixed(1)}</Text>
+                  <Text style={styles.guestRatingText}>{formatGuestRating(hotel)}</Text>
                 </View>
               )}
             </View>

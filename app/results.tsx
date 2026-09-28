@@ -8,7 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotelsDetailed } from '../lib/hotels'
+import { searchHotelsDetailed, formatGuestRating } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -198,7 +198,7 @@ function HotelCard({
         {/* Rating badge */}
         <View style={hc.ratingBadge}>
           <Ionicons name="star" size={11} color={Colors.star} />
-          <Text style={hc.ratingText}>{hotel.guest_rating.toFixed(1)}</Text>
+          <Text style={hc.ratingText}>{formatGuestRating(hotel)}</Text>
         </View>
       </View>
 
@@ -215,7 +215,7 @@ function HotelCard({
           {hotel.amenities.slice(0, 4).join(' · ')}
         </Text>
         <Text style={hc.reviews}>
-          {hotel.stars}★ · {Math.round(hotel.guest_rating * 100)} {t.results.reviews}
+          {hotel.stars}★{hotel.review_count ? ` · ${hotel.review_count} ${t.results.reviews}` : ''}
         </Text>
       </View>
     </TouchableOpacity>
@@ -547,7 +547,7 @@ export default function ResultsScreen() {
 
     if (sort === 'priceLow') list.sort((a, b) => a.price_per_night - b.price_per_night)
     else if (sort === 'priceHigh') list.sort((a, b) => b.price_per_night - a.price_per_night)
-    else if (sort === 'guestRating') list.sort((a, b) => b.guest_rating - a.guest_rating)
+    else if (sort === 'guestRating') list.sort((a, b) => (b.guest_rating ?? -1) - (a.guest_rating ?? -1)) // unrated last
 
     return list
   }, [allHotels, filters, sort])

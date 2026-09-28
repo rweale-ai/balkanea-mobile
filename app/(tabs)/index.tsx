@@ -23,6 +23,7 @@ import { useLang } from '../../lib/i18n'
 import { useCurrency, formatPrice } from '../../lib/currency'
 import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
+import { formatGuestRating } from '../../lib/hotels'
 
 const BALKANEA_PHONE = '+38923100200'
 
@@ -89,8 +90,8 @@ function InlineHotelCard({
         <Text style={s.hotelName} numberOfLines={1}>{hotel.name}</Text>
         <View style={s.hotelMeta}>
           <Ionicons name="star" size={10} color={Colors.star} />
-          <Text style={s.hotelRating}>{hotel.guest_rating > 0 ? hotel.guest_rating.toFixed(1) : '—'}</Text>
-          {hotel.guest_rating > 0 && (
+          <Text style={s.hotelRating}>{formatGuestRating(hotel)}</Text>
+          {hotel.guest_rating != null && hotel.guest_rating > 0 && (
             <Text style={s.hotelReviews}> · {hotel.stars}★</Text>
           )}
         </View>

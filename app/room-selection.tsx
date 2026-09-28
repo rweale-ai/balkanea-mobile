@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels, fetchRealRoomTypes } from '../lib/hotels'
+import { searchHotels, fetchRealRoomTypes, formatGuestRating } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -234,7 +234,7 @@ export default function RoomSelectionScreen() {
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.hotelLine}>
-          <Text style={styles.hotelLineBold}>{hotel.name}</Text> · {hotel.address.split(',')[0]} · ★ {hotel.guest_rating}
+          <Text style={styles.hotelLineBold}>{hotel.name}</Text> · {hotel.address.split(',')[0]}{hotel.guest_rating != null ? ` · ★ ${formatGuestRating(hotel)}` : ''}
         </Text>
 
         {hotel.room_types.map(room => {

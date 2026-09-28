@@ -170,7 +170,9 @@ export async function searchHotelsDetailed(params: HotelSearchParams): Promise<S
 
         const mapped = data.results.map((h: any) => ({
           ...h,
-          guest_rating: h.guest_rating ?? 8.0,
+          // Real rating or null -- no default (was a fabricated 8.0).
+          guest_rating: h.guest_rating ?? null,
+          review_count: h.review_count ?? 0,
           distance_to_center: h.distance_to_center ?? 1.0,
           images: h.images ?? [`https://picsum.photos/seed/${h.hotel_id}/800/600`],
           room_types: h.room_types ?? (isLive ? [] : ROOM_TEMPLATES.map((rt, i) => ({
@@ -265,4 +267,10 @@ export async function fetchRealRoomTypes(
   } catch {
     return { roomTypes: [], currency: 'EUR' }
   }
+}
+
+// Display helper for the real guest rating (null when RateHawk has none).
+// Shows "—" rather than any default -- see Hotel.guest_rating in types.ts.
+export function formatGuestRating(hotel: Pick<Hotel, 'guest_rating'>): string {
+  return hotel.guest_rating != null && hotel.guest_rating > 0 ? hotel.guest_rating.toFixed(1) : '—'
 }

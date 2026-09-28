@@ -68,7 +68,12 @@ export interface Hotel {
   hotel_id: string
   name: string
   stars: number
-  guest_rating: number
+  // Real guest score 0-10 from RateHawk's reviews data (sandbox:
+  // Chat sandbox.hotel_ratings), null when the hotel has none. Never a
+  // default -- the app used to show a made-up 8.0 for every real hotel.
+  guest_rating: number | null
+  // Real number of written reviews behind guest_rating (0 when none).
+  review_count?: number
   address: string
   distance_to_center: number
   price_per_night: number

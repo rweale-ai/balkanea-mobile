@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons'
 import type { Hotel } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
+import { formatGuestRating } from '../../lib/hotels'
 
 interface Props {
   hotelA: Hotel
@@ -65,7 +66,7 @@ export function HotelComparisonCard({ hotelA, hotelB, nights, currency, verdict,
             <Text style={styles.hotelName} numberOfLines={2}>{h.name}</Text>
             <View style={styles.ratingPill}>
               <Ionicons name="star" size={10} color={Colors.primary} />
-              <Text style={styles.ratingText}>{h.guest_rating}</Text>
+              <Text style={styles.ratingText}>{formatGuestRating(h)}</Text>
             </View>
           </View>
         ))}
