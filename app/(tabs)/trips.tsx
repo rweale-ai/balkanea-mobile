@@ -8,9 +8,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import {
   getUpcomingBookings, getPastBookings,
-  cancelBooking, subscribeToBookings, isValidDate, addBooking,
+  cancelBooking, subscribeToBookings, isValidDate,
 } from '../../lib/bookings-store'
-import { searchHotelsSync } from '../../lib/hotels'
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
 import { cancellationTermsText } from '../../lib/cancellation'
@@ -162,33 +161,6 @@ export default function DashboardScreen() {
     router.push(`/booking-detail?id=${id}`)
   }, [router])
 
-  // TEMPORARY — lets us verify the past/upcoming dashboard split on device.
-  // Remove once that's confirmed working.
-  const handleAddTestPastBooking = useCallback(async () => {
-    const checkinDate = new Date()
-    checkinDate.setDate(checkinDate.getDate() - 10)
-    const checkoutDate = new Date(checkinDate)
-    checkoutDate.setDate(checkoutDate.getDate() + 3)
-    const checkin = checkinDate.toISOString().split('T')[0]
-    const checkout = checkoutDate.toISOString().split('T')[0]
-
-    const results = searchHotelsSync({
-      destination: 'santorini', checkin, checkout, adults: 2, children: 0, rooms: 1, currency: 'EUR',
-    })
-    const hotel = results[0]
-    const room = hotel.room_types[0]
-
-    await addBooking({
-      hotel, room, checkin, checkout,
-      guests: { adults: 2, children: 0 },
-      rooms: 1,
-      total_price: room.total_price,
-      currency: 'EUR',
-      guest_name: 'Test Guest',
-      guest_email: 'test@example.com',
-      guest_phone: '',
-    })
-  }, [])
 
   const isEmpty = upcoming.length === 0 && past.length === 0
 
@@ -207,9 +179,6 @@ export default function DashboardScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={handleAddTestPastBooking} style={styles.testBtn}>
-            <Text style={styles.testBtnText}>🧪 Add test past booking (temporary)</Text>
-          </TouchableOpacity>
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyVisual}>
@@ -253,9 +222,6 @@ export default function DashboardScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={handleAddTestPastBooking} style={styles.testBtn}>
-          <Text style={styles.testBtnText}>🧪 Add test past booking (temporary)</Text>
-        </TouchableOpacity>
       </View>
       <SectionList
         sections={sections}
@@ -400,20 +366,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
-  },
-  testBtn: {
-    marginTop: Spacing.sm,
-    alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
-    borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-  },
-  testBtnText: {
-    ...Typography.caption,
-    color: '#92400E',
-    fontWeight: '600',
-    fontSize: 11,
   },
   headerRow: {
     flexDirection: 'row',
