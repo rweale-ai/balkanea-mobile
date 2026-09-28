@@ -1,5 +1,6 @@
 // Simulated RateHawk API stub — real integration requires the sandbox
 import { ratehawkHeaders } from './ratehawk-env'
+import type { RoomGuestConfig } from './types'
 // credentials Christian is confirming access for (see project memory:
 // balkanea-mobile booking flow, call with Jasmina 2026-06-30).
 //
@@ -167,6 +168,26 @@ export async function createRealBookingForm(bookHash: string, partnerOrderId: st
   return { ok: true, orderId: data.order_id, partnerOrderId, paymentType: data.payment_type }
 }
 
+// Per-room guests for RateHawk's finish step when the stay has a real
+// per-room composition (multi-room and/or children with ages) -- one entry
+// per room, in the same order and with the same adults/child ages the rate
+// was priced for (Chat lib/rooms-guests.js validates it). Each room's lead
+// guest is that room's named guest; extra adults and children follow the
+// existing co-traveler naming, children carry age + is_child.
+function buildFinishRooms(roomsConfig: RoomGuestConfig[], roomGuestNames: string[]) {
+  return roomsConfig.map((room, i) => {
+    const lead = splitName(roomGuestNames[i] || roomGuestNames[0] || 'Guest')
+    const guests: Array<{ first_name: string; last_name: string; age?: number; is_child?: boolean }> = [lead]
+    for (let a = 1; a < room.adults; a++) {
+      guests.push({ first_name: `${CO_TRAVELER_ORDINALS[a - 1] ?? 'Additional'} Guest`, last_name: lead.last_name })
+    }
+    room.childAges.forEach((age, c) => {
+      guests.push({ first_name: `Child${room.childAges.length > 1 ? ' ' + (c + 1) : ''}`, last_name: lead.last_name, age, is_child: true })
+    })
+    return { guests }
+  })
+}
+
 // Commits the order opened by createRealBookingForm. Only call this after
 // the guest's payment has been confirmed captured.
 export async function finishRealBooking(params: {
@@ -176,6 +197,11 @@ export async function finishRealBooking(params: {
   adultsCount: number
   email: string
   phone: string
+  // Real per-room composition + each room's lead guest name. When given,
+  // RateHawk gets one rooms[] entry per room (children with ages) instead
+  // of a single room holding every adult.
+  roomsConfig?: RoomGuestConfig[]
+  roomGuestNames?: string[]
   onProgress?: (percent: number) => void
 }): Promise<{ ok: boolean }> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
@@ -184,7 +210,9 @@ export async function finishRealBooking(params: {
     body: JSON.stringify({
       step: 'finish',
       partner_order_id: params.partnerOrderId,
-      guests: buildRoomGuests(params.leadGuestName, params.adultsCount),
+      ...(params.roomsConfig
+        ? { rooms: buildFinishRooms(params.roomsConfig, params.roomGuestNames ?? [params.leadGuestName]) }
+        : { guests: buildRoomGuests(params.leadGuestName, params.adultsCount) }),
       email: params.email,
       phone: params.phone,
       payment_type: params.paymentType,

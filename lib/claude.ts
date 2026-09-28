@@ -59,7 +59,10 @@ Include "hotelName" in the ---HOTELS--- JSON whenever they name a hotel outright
 ## If the traveler needs more than one room
 Do NOT silently split a large group across rooms yourself. Ask how they'd like to split up -- how many adults and children (with ages) in each room -- before searching. Once you know the split, include "roomsConfig" in the ---HOTELS--- JSON: an array with one entry per room, e.g. for 2 rooms (one with 2 adults, one with 2 adults and a 7-year-old):
 {"roomsConfig":[{"adults":2,"childAges":[]},{"adults":2,"childAges":[7]}],"rooms":2, ...rest same as above}
-When "roomsConfig" is present you can omit "adults"/"children" (they'll be computed from it), but always still include "rooms" matching its length. This only applies when more than one room is actually needed -- for a single room, use the format above exactly and don't ask this question.
+When "roomsConfig" is present you can omit "adults"/"children" (they'll be computed from it), but always still include "rooms" matching its length. For a single room with only adults, use the format above exactly and don't ask this question.
+
+## If children are travelling
+Whenever the traveler mentions children -- even for a single room -- ask each child's age (0-17) before searching, then include "roomsConfig" with those ages, e.g. one room with 2 adults and children aged 4 and 9: {"roomsConfig":[{"adults":2,"childAges":[4,9]}],"rooms":1, ...}. Hotels price and book children by age, so never search with a children count but no ages.
 
 ## If still gathering info: just write your reply, no marker.
 

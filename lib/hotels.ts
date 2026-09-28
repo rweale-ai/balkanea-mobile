@@ -1,4 +1,4 @@
-import type { Hotel, HotelSearchParams, RoomType } from './types'
+import type { Hotel, HotelSearchParams, RoomType, RoomGuestConfig } from './types'
 import { ratehawkHeaders, RATEHAWK_ENV } from './ratehawk-env'
 
 const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
@@ -252,16 +252,25 @@ export async function fetchRealRoomTypes(
   checkout: string,
   adults: number,
   currency: string,
+  // Real per-room composition (children with ages). When given, RateHawk
+  // prices ALL rooms in one rate and each returned room is tagged with
+  // priced_for_rooms -- see roomChargeTotal() in lib/rooms-config.ts.
+  roomsConfig?: RoomGuestConfig[],
 ): Promise<{ roomTypes: RoomType[]; currency: string }> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
-      body: JSON.stringify({ hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
+      body: JSON.stringify(roomsConfig
+        ? { hotel_id: hotelId, checkin, checkout, currency, rooms: roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) }
+        : { hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
     })
     const data = await res.json()
+    const roomTypes: RoomType[] = data.success && data.room_types ? data.room_types : []
     return {
-      roomTypes: data.success && data.room_types ? data.room_types : [],
+      roomTypes: roomsConfig && data.priced_rooms
+        ? roomTypes.map(rt => ({ ...rt, priced_for_rooms: data.priced_rooms }))
+        : roomTypes,
       currency: data.currency || 'EUR',
     }
   } catch {

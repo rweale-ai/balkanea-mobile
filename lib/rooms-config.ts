@@ -1,4 +1,4 @@
-import type { RoomGuestConfig } from './types'
+import type { RoomGuestConfig, RoomType } from './types'
 
 // The one choke point deciding whether a roomsConfig (LLM-produced, or
 // parsed back out of a route param) is trustworthy enough to multiply into
@@ -42,4 +42,25 @@ export function totalAdults(rooms: RoomGuestConfig[]): number {
 
 export function totalChildren(rooms: RoomGuestConfig[]): number {
   return rooms.reduce((sum, r) => sum + r.childAges.length, 0)
+}
+
+// The one place the booking total is computed -- used by BOTH the room
+// selection display and booking.tsx's charge amount, so what the guest sees
+// is exactly what they pay.
+//
+// A live RateHawk rate requested for the real per-room composition already
+// prices every room (room.priced_for_rooms === roomCount): use it as-is.
+// Everything else (simulated/DB-content rooms, single-room live rates) is a
+// per-room price, multiplied by the room count as before.
+export function roomChargeTotal(room: Pick<RoomType, 'total_price' | 'priced_for_rooms'>, roomCount: number): number {
+  if (room.priced_for_rooms && room.priced_for_rooms > 1) return room.total_price
+  return room.total_price * roomCount
+}
+
+// Live rates need the real per-room composition (children with ages) or
+// RateHawk prices and books the wrong thing -- true when this stay can't be
+// priced live yet: more than one room, or any children, without a valid
+// roomsConfig carrying ages.
+export function needsRoomDetailsForLiveRates(roomsConfig: RoomGuestConfig[] | undefined, roomCount: number, children: number): boolean {
+  return !roomsConfig && (roomCount > 1 || children > 0)
 }

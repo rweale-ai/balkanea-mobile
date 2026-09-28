@@ -24,7 +24,7 @@ import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType, Booking } from '../lib/types'
-import { validateRoomsConfig } from '../lib/rooms-config'
+import { validateRoomsConfig, roomChargeTotal } from '../lib/rooms-config'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -469,13 +469,16 @@ export default function BookingScreen() {
     )
   }
 
-  // The actual price for this booking -- room.total_price is priced for ONE
-  // room (matches RateHawk's real model: a rate is per room, price for N
-  // rooms = rate × N). Every place that used to read room.total_price
-  // directly for display or the real charge amount must use this instead;
-  // `grep -n "room.total_price" app/booking.tsx` should find nothing below
-  // this line.
-  const grandTotal = room.total_price * roomCount
+  // The actual price for this booking -- the same roomChargeTotal() the room
+  // selection screen displays, so what the guest saw is what they pay. A live
+  // rate priced for the real per-room composition (room.priced_for_rooms)
+  // already covers every room and is used as-is; any other room price is
+  // per room and multiplied by roomCount (2026-09-28 -- before this, a live
+  // RateHawk multi-room rate would have been multiplied a second time).
+  // Every place that reads the booking total for display or the real charge
+  // must use this; `grep -n "room.total_price" app/booking.tsx` should find
+  // nothing below this line.
+  const grandTotal = roomChargeTotal(room, roomCount)
 
   // Always the traveler's selected display currency -- see room-selection.tsx's
   // identical activeCurrency for why this is correct even for real
@@ -553,6 +556,10 @@ export default function BookingScreen() {
           paymentType: ratehawkFormRef.current.paymentType,
           leadGuestName: fullName.trim(),
           adultsCount: adults,
+          // Only for rates priced with the real per-room composition --
+          // RateHawk must book exactly the rooms/children it priced.
+          roomsConfig: room.priced_for_rooms ? roomsConfig : undefined,
+          roomGuestNames,
           email: email.trim(),
           phone: phone.trim(),
           onProgress: (percent) => { if (isMountedRef.current) setConfirmProgress(percent) },

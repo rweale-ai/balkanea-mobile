@@ -131,6 +131,12 @@ export interface RoomType {
   // terms locked in at booking are still known after the room/hotel search
   // result that produced them is gone.
   cancellation_policy?: CancellationPolicy
+  // Live RateHawk rates only: how many rooms this price already covers.
+  // Set when the rate was requested for the real per-room composition
+  // (fetchRealRoomTypes with roomsConfig) -- then total_price is the price
+  // for ALL rooms and must not be multiplied by the room count. See
+  // roomChargeTotal() in lib/rooms-config.ts.
+  priced_for_rooms?: number
 }
 
 export interface Booking {
