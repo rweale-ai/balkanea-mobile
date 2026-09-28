@@ -27,7 +27,9 @@ const NEA_URL = `${BACKEND_URL}/api/nea-chat`
 
 // Backend caps: 40 messages, 8,000 chars each, 60,000 total. Keep the most
 // recent turns that fit so long chats degrade gracefully instead of 400ing.
-function toWireMessages(messages: ChatMessage[]): Array<{ role: 'user' | 'assistant'; content: string }> {
+// keepLeadingAssistant: extraction turns the whole thing into one transcript,
+// so a conversation that opens with Nea must keep that turn.
+function toWireMessages(messages: ChatMessage[], keepLeadingAssistant = false): Array<{ role: 'user' | 'assistant'; content: string }> {
   const cleaned = messages
     .filter(m => m.content && m.content.trim().length > 0)
     .map(m => ({ role: m.role, content: m.content.trim().slice(0, 8000) }))
@@ -38,7 +40,7 @@ function toWireMessages(messages: ChatMessage[]): Array<{ role: 'user' | 'assist
     if (total > 60000) break
     out.unshift(cleaned[i])
   }
-  while (out.length && out[0].role !== 'user') out.shift()
+  if (!keepLeadingAssistant) while (out.length && out[0].role !== 'user') out.shift()
   return out
 }
 
@@ -233,7 +235,7 @@ export async function extractItineraryItems(
   messages: ChatMessage[],
   language: Language = 'en',
 ): Promise<ItineraryItemDraft[]> {
-  const wire = toWireMessages(messages)
+  const wire = toWireMessages(messages, true)
   if (wire.length === 0) return []
   try {
     const res = await fetch(NEA_URL, {
