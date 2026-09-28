@@ -420,6 +420,10 @@ export default function BookingScreen() {
     const same = roomTypes.find(r => r.match_hash === room.match_hash)
     if (!same) return 'none'
     if (same.total_price === room.total_price) {
+      // New book_hash -> new lock -> new payment/order reference: never let
+      // an earlier form or pending booking row carry the old one forward.
+      ratehawkFormRef.current = null
+      pendingBookingRef.current = null
       setHotelRoom({ hotel, room: same })
       return 'same'
     }
@@ -1214,6 +1218,8 @@ export default function BookingScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => {
+                ratehawkFormRef.current = null
+                pendingBookingRef.current = null
                 setHotelRoom({ hotel, room: priceChangedRoom })
                 setPriceChangedRoom(null)
                 setPayState('idle')
