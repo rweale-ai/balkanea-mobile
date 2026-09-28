@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import type { Hotel, HotelSearchParams, ChatMessage } from '../../lib/types'
-import { sendMessage } from '../../lib/claude'
+import { sendHotelMessage } from '../../lib/claude'
 import { getViewedHotels } from '../../lib/session-store'
 import { useLang } from '../../lib/i18n'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
@@ -72,6 +72,14 @@ interface Props {
 
 export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props) {
   const { t, lang } = useLang()
+  // Sent with every sheet message: the backend grounds answers in RateHawk's
+  // own guest reviews for this hotel (by id) when it has them.
+  const hotelSheetContext = useMemo(() => ({
+    hotelId: hotel.hotel_id,
+    hotelName: hotel.name,
+    hotelAddress: hotel.address,
+    tripSummary: travelerContext(searchParams).trim(),
+  }), [hotel.hotel_id, hotel.name, hotel.address, searchParams])
   const router = useRouter()
   // history[0] is the hidden initial user query; displayed messages start at index 1
   const [history, setHistory] = useState<SheetMsg[]>([])
@@ -111,10 +119,10 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     const msgs: SheetMsg[] = [{ role: 'user', content: initialQuery }]
     let streamed = ''
     try {
-      const resp = await sendMessage(toApiHistory(msgs), token => {
+      const resp = await sendHotelMessage(toApiHistory(msgs), token => {
         streamed += token
         setStreamingText(streamed)
-      }, lang)
+      }, lang, hotelSheetContext)
       setHistory([...msgs, { role: 'assistant', content: resp.content }])
     } catch {
       setHistory([...msgs, { role: 'assistant', content: 'Ask me anything about this hotel!' }])
@@ -134,10 +142,10 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
     setLoading(true)
     let streamed = ''
     try {
-      const resp = await sendMessage(toApiHistory(newHistory), token => {
+      const resp = await sendHotelMessage(toApiHistory(newHistory), token => {
         streamed += token
         setStreamingText(streamed)
-      }, lang)
+      }, lang, hotelSheetContext)
       setHistory([...newHistory, { role: 'assistant', content: resp.content }])
     } catch {
       setHistory([...newHistory, { role: 'assistant', content: 'Sorry, I had trouble with that. Please try again.' }])
@@ -145,7 +153,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       setStreamingText('')
       setLoading(false)
     }
-  }, [history, loading, lang])
+  }, [history, loading, lang, hotelSheetContext])
 
   const handleCompare = useCallback(async (other: Hotel) => {
     if (loading) return
@@ -162,10 +170,10 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       // query) — same generic-name ambiguity risk, so spell out both
       // addresses explicitly rather than relying on name alone.
       const prompt = `Compare ${hotel.name} (${hotel.address}) and ${other.name} (${other.address}) for this trip in 2-3 short sentences. These are specific properties at these addresses — ignore any other hotels that happen to share these names. Give a clear, confident verdict on which is the better choice and why.`
-      const resp = await sendMessage([...toApiHistory(priorHistory), { id: 'compare-prompt', timestamp: new Date(), role: 'user', content: prompt }], token => {
+      const resp = await sendHotelMessage([...toApiHistory(priorHistory), { id: 'compare-prompt', timestamp: new Date(), role: 'user', content: prompt }], token => {
         streamed += token
         setStreamingText(streamed)
-      }, lang)
+      }, lang, hotelSheetContext)
       setHistory(prev => [...prev, { role: 'compare', hotelA: hotel, hotelB: other, nights, verdict: resp.content }])
     } catch {
       setHistory(prev => [...prev, { role: 'assistant', content: 'Sorry, I had trouble comparing these. Please try again.' }])
@@ -173,7 +181,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
       setStreamingText('')
       setLoading(false)
     }
-  }, [hotel, history, loading, lang, searchParams, t])
+  }, [hotel, history, loading, lang, searchParams, t, hotelSheetContext])
 
   const handleBookFromCompare = useCallback((h: Hotel) => {
     onClose()
