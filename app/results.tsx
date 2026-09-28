@@ -8,7 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels } from '../lib/hotels'
+import { searchHotelsDetailed } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -498,6 +498,9 @@ export default function ResultsScreen() {
   // re-run the same search later and find the same hotel_id.
   const [allHotels, setAllHotels] = useState<Hotel[]>([])
   const [loading, setLoading] = useState(true)
+  // Why the list is empty, when the backend said: search failed (sandbox
+  // outage) vs. its own explanation (e.g. sandbox test-mode destinations).
+  const [searchNotice, setSearchNotice] = useState<{ unavailable: boolean; message?: string } | null>(null)
   useEffect(() => {
     let cancelled = false
     if (!params.destination) {
@@ -505,8 +508,9 @@ export default function ResultsScreen() {
       return
     }
     setLoading(true)
-    searchHotels(searchParams).then((results) => {
+    searchHotelsDetailed(searchParams).then(({ hotels: results, unavailable, message }) => {
       if (cancelled) return
+      setSearchNotice({ unavailable, message })
       setAllHotels(results)
       setLoading(false)
     })
@@ -609,8 +613,8 @@ export default function ResultsScreen() {
         ) : filtered.length === 0 ? (
           <View style={s.empty}>
             <Ionicons name="search-outline" size={48} color={Colors.border} />
-            <Text style={s.emptyTitle}>{t.results.noResults}</Text>
-            <Text style={s.emptySub}>{t.results.noResultsSub}</Text>
+            <Text style={s.emptyTitle}>{searchNotice?.unavailable ? t.results.searchUnavailable : t.results.noResults}</Text>
+            <Text style={s.emptySub}>{searchNotice?.unavailable ? t.results.searchUnavailableSub : (allHotels.length === 0 && searchNotice?.message) || t.results.noResultsSub}</Text>
             {activeFilters && (
               <TouchableOpacity style={s.clearBtn} onPress={clearFilters}>
                 <Text style={s.clearBtnText}>{t.results.clearFilters}</Text>

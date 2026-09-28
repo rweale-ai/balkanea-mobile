@@ -1,5 +1,5 @@
 import type { ChatMessage, PlannerResponse, HotelSearchParams } from './types'
-import { searchHotels } from './hotels'
+import { searchHotels, searchHotelsDetailed } from './hotels'
 import { fetchAllKnowledge } from './knowledge'
 import { getTravelProfile, saveTravelProfile } from './travel-profile'
 import { describeBookings } from './bookings-store'
@@ -495,7 +495,14 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         amenityPreferences: raw.amenityPreferences,
         hotelName: raw.hotelName,
       }
-      let hotels = await searchHotels(searchParams)
+      const firstSearch = await searchHotelsDetailed(searchParams)
+      // Search itself failed (e.g. a RateHawk sandbox outage) -- say so
+      // instead of showing "no hotels" or relaxing filters that weren't the
+      // problem.
+      if (firstSearch.unavailable) {
+        return { type: 'message', content: `${prose}\n\n${firstSearch.message ?? "I couldn't reach live hotel availability right now. Please try again in a minute."}` }
+      }
+      let hotels = firstSearch.hotels
       let content = prose
 
       // A genuine zero-result answer under an amenity filter -- the backend
@@ -539,6 +546,12 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         }
       }
 
+      // Nothing found even after relaxing -- pass on the backend's own
+      // explanation when it gave one (e.g. sandbox "Test mode: only Los
+      // Angeles, Paris and Dubai").
+      if (hotels.length === 0 && firstSearch.message) {
+        content = `${prose}\n\n${firstSearch.message}`
+      }
       return { type: 'hotels', content, hotels, searchParams }
     } catch {
       return { type: 'message', content: prose }

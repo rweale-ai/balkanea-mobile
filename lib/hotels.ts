@@ -1,5 +1,5 @@
 import type { Hotel, HotelSearchParams, RoomType } from './types'
-import { ratehawkHeaders } from './ratehawk-env'
+import { ratehawkHeaders, RATEHAWK_ENV } from './ratehawk-env'
 
 const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
 
@@ -104,7 +104,22 @@ function generateHotels(params: HotelSearchParams): Hotel[] {
 // project memory: balkanea-mobile booking flow, call with Jasmina
 // 2026-06-30). The simulated fallback below stands in for that B2C file
 // until real sandbox/production RateHawk credentials are available.
+export interface SearchOutcome {
+  hotels: Hotel[]
+  // true = the search itself failed (backend/RateHawk unreachable, e.g. the
+  // sandbox's HTTP 522 outages) -- NOT the same as a real zero-result search.
+  unavailable: boolean
+  // Backend's own explanation when there are no hotels (e.g. "Test mode:
+  // only Los Angeles, Paris and Dubai") or the failure reason.
+  message?: string
+}
+
 export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> {
+  return (await searchHotelsDetailed(params)).hotels
+}
+
+export async function searchHotelsDetailed(params: HotelSearchParams): Promise<SearchOutcome> {
+  let failMessage: string | undefined
   try {
     const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {
       method: 'POST',
@@ -188,7 +203,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
           }
         }
 
-        return mapped
+        return { hotels: mapped as Hotel[], unavailable: false }
       }
       // A genuine real search that just found nothing (e.g. the only live
       // RateHawk test hotel doesn't have a room under the requested budget)
@@ -197,14 +212,21 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
       // Callers that want a fallback (e.g. the chat flow retrying without
       // the price cap) see this as a real, empty result and can react to it.
       if (data.success) {
-        return []
+        return { hotels: [], unavailable: false, message: data.message }
       }
+      failMessage = data.error
     }
   } catch (e) {
-    console.log('Backend search unavailable, using simulated data')
+    console.log('Backend search unavailable')
   }
 
-  return generateHotels(params)
+  // Sandbox testing must never show fabricated hotels: a tester would try to
+  // book one, and an outage would look like real (fake) availability.
+  // Outside sandbox mode the old simulated fallback is unchanged.
+  if (RATEHAWK_ENV === 'sandbox') {
+    return { hotels: [], unavailable: true, message: failMessage }
+  }
+  return { hotels: generateHotels(params), unavailable: false }
 }
 
 export function searchHotelsSync(params: HotelSearchParams): Hotel[] {
