@@ -7,10 +7,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels } from '../lib/hotels'
+import { searchHotels, fetchRealRoomTypes } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice, convertPrice, convertQuoteToMKD } from '../lib/currency'
-import type { CurrencyCode } from '../lib/locale'
+import type { CurrencyCode, CountryCode } from '../lib/locale'
+import { CountryPickerField } from '../components/CountryPickerField'
 import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { activeGateway } from '../lib/payment-gateway'
@@ -23,7 +24,7 @@ import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType, Booking } from '../lib/types'
-import { validateRoomsConfig } from '../lib/rooms-config'
+import { validateRoomsConfig, roomChargeTotal } from '../lib/rooms-config'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -258,6 +259,22 @@ export default function BookingScreen() {
   })
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  // Real billing address for the Bankart charge -- added 2026-08-27. Until
+  // this existed, api/create-payment-link.js silently fell back to a
+  // hardcoded Skopje/MK placeholder for every real payment (confirmed by
+  // reading the code; nothing ever populated these fields client-side).
+  const [address1, setAddress1] = useState('')
+  const [city, setCity] = useState('')
+  const [postcode, setPostcode] = useState('')
+  const [country, setCountry] = useState<CountryCode | ''>('')
+  // Name as it appears on the card -- deliberately separate from fullName
+  // (the staying guest, per Ray 2026-08-27: Hristijan's plugin is dropping
+  // its own name/address form fields once his page is stripped down to
+  // card/exp/CVV only, so whatever we send as first_name/last_name in the
+  // payment payload becomes the actual Bankart cardholder name. Guest and
+  // payer are often the same person but not always (e.g. a parent booking
+  // for family), so this must be its own field, not derived from fullName.
+  const [cardholderName, setCardholderName] = useState('')
   const [payState, setPayState] = useState<PayState>('idle')
   // Real progress (0-100) from RateHawk's own booking/finish/status poll --
   // see finishRealBooking's onProgress. Only real-hotel bookings report
@@ -316,6 +333,20 @@ export default function BookingScreen() {
   const [lockState, setLockState] = useState<LockState>('locking')
   const [holdSeconds, setHoldSeconds] = useState(0)
 
+  // ── Pre-payment recovery (2026-09-28) ─────────────────────────────
+  // A live RateHawk rate can go stale between viewing it and holding it
+  // (rate_not_found at prebook or form -- seen repeatedly in the sandbox).
+  // Before any charge, re-fetch this hotel's rooms ONCE and find the same
+  // room by match_hash: same price -> re-hold it silently; different price
+  // -> show the new price and let the guest decide. Never after payment.
+  const recoveryAttemptedRef = useRef(false)
+  const [priceChangedRoom, setPriceChangedRoom] = useState<RoomType | null>(null)
+  const [roomRefreshed, setRoomRefreshed] = useState(false)
+  // Set when the hold locked a different price than room selection quoted
+  // (totals in the quote currency, before -> after). The Pay button already
+  // uses the locked price; this just tells the guest why it moved.
+  const [lockedPriceNote, setLockedPriceNote] = useState<{ from: number; to: number } | null>(null)
+
   const currency = (params.currency ?? getCurrency()) as CurrencyCode
 
   // Real RateHawk rooms (book_hash present) can't be re-found by id -- every
@@ -351,6 +382,7 @@ export default function BookingScreen() {
       adults: parseInt(params.adults ?? '2', 10),
       children: parseInt(params.children ?? '0', 10),
       rooms: parseInt(params.rooms ?? '1', 10),
+      roomsConfig,
       currency,
       // Must match the original search's price filter — see hotel-detail.tsx
       maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
@@ -377,11 +409,53 @@ export default function BookingScreen() {
   const adults = parseInt(params.adults ?? '2', 10)
   const children = parseInt(params.children ?? '0', 10)
 
+  // See recoveryAttemptedRef above. 'same' = re-held at the identical price
+  // (setHotelRoom -> the lock effect prebooks the new book_hash); 'changed' =
+  // priceChangedRoom set for the guest to confirm; 'none' = give up.
+  const tryRecoverRoom = async (): Promise<'same' | 'changed' | 'none'> => {
+    if (!hotel || !room?.book_hash || !room.match_hash || recoveryAttemptedRef.current) return 'none'
+    recoveryAttemptedRef.current = true
+    const { roomTypes } = await fetchRealRoomTypes(
+      hotel.hotel_id, params.checkin ?? '', params.checkout ?? '', adults,
+      params.currency ?? getCurrency(),
+      room.priced_for_rooms ? roomsConfig : undefined,
+    )
+    if (!isMountedRef.current) return 'none'
+    const same = roomTypes.find(r => r.match_hash === room.match_hash)
+    if (!same) return 'none'
+    if (same.total_price === room.total_price) {
+      // New book_hash -> new lock -> new payment/order reference: never let
+      // an earlier form or pending booking row carry the old one forward.
+      ratehawkFormRef.current = null
+      pendingBookingRef.current = null
+      setHotelRoom({ hotel, room: same })
+      return 'same'
+    }
+    setPriceChangedRoom(same)
+    return 'changed'
+  }
+
   // Hold the room with RateHawk as soon as the guest reaches this screen —
   // payment can't start until a lock exists (see lib/ratehawk.ts). Rooms with
   // a real book_hash (live RateHawk search, currently only Los Angeles) get a
   // real prebook call here -- cheap and non-committing, no order created yet.
   // Every other room keeps using the simulated stub, untouched.
+  // Live holds return the LOCKED price (Ray, 2026-09-29): the guest always
+  // pays exactly that. Apply it to the room when it differs from the quote
+  // (same room_id, so no re-hold). Returns false when it can't be trusted
+  // (a different currency than this booking's quote) -> treat as unavailable.
+  const applyLockedPrice = (l: RoomLock, h: Hotel, r: RoomType): boolean => {
+    if (!r.book_hash || l.lockedTotal == null) return true
+    if (l.lockedCurrency && l.lockedCurrency !== quoteCurrency) return false
+    const locked = Math.round(l.lockedTotal)
+    if (locked === r.total_price) return true // rounding only -- unchanged
+    const perRoomNights = Math.max(1, nights) * Math.max(1, r.priced_for_rooms || 1)
+    const lockedRoom: RoomType = { ...r, total_price: locked, price_per_night: Math.round(l.lockedTotal / perRoomNights) }
+    setLockedPriceNote({ from: roomChargeTotal(r, roomCount), to: roomChargeTotal(lockedRoom, roomCount) })
+    setHotelRoom({ hotel: h, room: lockedRoom })
+    return true
+  }
+
   const doLock = useCallback((h: Hotel, r: RoomType) => (
     r.book_hash ? realLockRoom(r.book_hash) : lockRoom(h.hotel_id, r.room_id)
   ), [])
@@ -392,14 +466,19 @@ export default function BookingScreen() {
     setLockState('locking')
     doLock(hotel, room).then(l => {
       if (cancelled) return
+      if (!applyLockedPrice(l, hotel, room)) { setLockState('unavailable'); return }
       setLock(l)
       setLockState('held')
-    }).catch(() => {
+    }).catch(async () => {
       // realLockRoom throws on a failed/timed-out prebook (e.g. RateHawk
       // sandbox timeout) -- without this catch the promise rejection was
       // silently swallowed and the screen sat on "Holding your room…"
       // forever, with no error and no way out except leaving the screen.
-      if (!cancelled) setLockState('unavailable')
+      if (cancelled) return
+      // Stale live rate -> one re-check before telling the guest it's gone
+      // (2026-09-28). 'same' re-runs this effect with the refreshed room.
+      const recovered = await tryRecoverRoom()
+      if (!cancelled && recovered !== 'same') setLockState('unavailable')
     })
     return () => { cancelled = true }
   }, [hotel?.hotel_id, room?.room_id])
@@ -418,6 +497,7 @@ export default function BookingScreen() {
       if (remaining === 0 && hotel && room && lockState !== 'renewing' && payState === 'idle') {
         setLockState('renewing')
         doLock(hotel, room).then(l => {
+          if (!applyLockedPrice(l, hotel, room)) { setLockState('unavailable'); return }
           setLock(l)
           setLockState('held')
         }).catch(() => setLockState('unavailable'))
@@ -452,13 +532,16 @@ export default function BookingScreen() {
     )
   }
 
-  // The actual price for this booking -- room.total_price is priced for ONE
-  // room (matches RateHawk's real model: a rate is per room, price for N
-  // rooms = rate × N). Every place that used to read room.total_price
-  // directly for display or the real charge amount must use this instead;
-  // `grep -n "room.total_price" app/booking.tsx` should find nothing below
-  // this line.
-  const grandTotal = room.total_price * roomCount
+  // The actual price for this booking -- the same roomChargeTotal() the room
+  // selection screen displays, so what the guest saw is what they pay. A live
+  // rate priced for the real per-room composition (room.priced_for_rooms)
+  // already covers every room and is used as-is; any other room price is
+  // per room and multiplied by roomCount (2026-09-28 -- before this, a live
+  // RateHawk multi-room rate would have been multiplied a second time).
+  // Every place that reads the booking total for display or the real charge
+  // must use this; `grep -n "room.total_price" app/booking.tsx` should find
+  // nothing below this line.
+  const grandTotal = roomChargeTotal(room, roomCount)
 
   // Always the traveler's selected display currency -- see room-selection.tsx's
   // identical activeCurrency for why this is correct even for real
@@ -488,7 +571,19 @@ export default function BookingScreen() {
   // there's nothing here for the guest to fill in or for canPay to gate on.
   const isSimulated = activeGateway.id === 'simulated'
   const allGuestNamesFilled = fullName.trim().length > 0 && additionalGuestNames.every(n => n.trim().length > 0)
-  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && payState === 'idle' && lockState === 'held'
+  // Address is only meaningful for the real gateway (it's what gets sent to
+  // Bankart) -- the simulated demo gateway never calls create-payment-link
+  // at all, so don't block that path on fields it has no use for.
+  const billingAddressFilled = isSimulated || (!!address1.trim() && !!city.trim() && !!postcode.trim() && !!country)
+  // Must be at least two tokens (first + last) -- this becomes Bankart's
+  // actual cardholder first_name/last_name once Hristijan's form stops
+  // asking for it, and a fabricated last name would mean sending made-up
+  // identity data to a real payment processor. Same reasoning existing
+  // splitName()/buildRoomGuests() in lib/ratehawk.ts don't apply here:
+  // those synthesize placeholder CO-TRAVELER names for RateHawk's guest
+  // list, not the actual person being charged.
+  const cardholderNameValid = isSimulated || cardholderName.trim().split(/\s+/).filter(Boolean).length >= 2
+  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && billingAddressFilled && cardholderNameValid && payState === 'idle' && lockState === 'held'
   const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, bookingCurrency)
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
@@ -524,6 +619,10 @@ export default function BookingScreen() {
           paymentType: ratehawkFormRef.current.paymentType,
           leadGuestName: fullName.trim(),
           adultsCount: adults,
+          // Only for rates priced with the real per-room composition --
+          // RateHawk must book exactly the rooms/children it priced.
+          roomsConfig: room.priced_for_rooms ? roomsConfig : undefined,
+          roomGuestNames,
           email: email.trim(),
           phone: phone.trim(),
           onProgress: (percent) => { if (isMountedRef.current) setConfirmProgress(percent) },
@@ -590,6 +689,7 @@ export default function BookingScreen() {
 
   const handlePay = async () => {
     if (!canPay || !lock) return
+    setRoomRefreshed(false)
 
     // Captured now, before any async step -- renewal freezes once payState
     // leaves 'idle' (see the countdown effect above), but this closes the
@@ -601,6 +701,8 @@ export default function BookingScreen() {
 
     if (!allGuestNamesFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
+    if (!billingAddressFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterAddress); return }
+    if (!cardholderNameValid) { Alert.alert(t.booking.missingInfo, t.booking.enterCardholderName); return }
 
     // The real gateway needs a Supabase row payment-notify.js can find and
     // update — a guest's pending booking only ever lives in on-device
@@ -654,6 +756,16 @@ export default function BookingScreen() {
       const form = await createRealBookingForm(bookHashForPay, referenceForLock(bookHashForPay))
       if (!isMountedRef.current) return
       if (!form.ok) {
+        // Nothing charged yet: re-check the room once. At the same price the
+        // lock effect re-holds it (new book_hash -> new, matching payment and
+        // order reference) and the guest just taps Pay again.
+        const recovered = await tryRecoverRoom()
+        if (!isMountedRef.current) return
+        if (recovered === 'same') {
+          setRoomRefreshed(true)
+          setPayState('idle')
+          return
+        }
         setPayState('unavailable')
         return
       }
@@ -712,13 +824,27 @@ export default function BookingScreen() {
     // RateHawk order above was actually confirmed against.
     const intent = await getOrCreateIntent(bookHashForPay, amount, payCurrency)
 
-    const [firstName, ...lastParts] = fullName.trim().split(/\s+/)
+    // Cardholder name, not fullName -- Hristijan's plugin is dropping its
+    // own name field once it's stripped down to card/exp/CVV only, so
+    // whatever we send here as first_name/last_name becomes the actual
+    // Bankart cardholder name (see cardholderNameValid above, which already
+    // guarantees at least two tokens for the real gateway).
+    const [cardFirstName, ...cardLastParts] = cardholderName.trim().split(/\s+/)
 
     const result = await activeGateway.createCheckoutSession({
       reference: intent.reference,
       amount,
       currency: payCurrency,
-      guest: { firstName, lastName: lastParts.join(' '), email: email.trim(), phone: phone.trim() },
+      guest: {
+        firstName: cardFirstName, lastName: cardLastParts.join(' '), email: email.trim(), phone: phone.trim(),
+        // Real values now (see billingAddressFilled above) -- country must
+        // be uppercase ISO 3166-1 alpha-2, matching the backend's 'MK'
+        // fallback (lib/locale.ts's CountryCode is lowercase).
+        address1: address1.trim(),
+        city: city.trim(),
+        postcode: postcode.trim(),
+        country: country ? country.toUpperCase() : undefined,
+      },
       simulateDecline: cardRef.current?.isDeclineDemo() ?? false,
     })
 
@@ -962,6 +1088,72 @@ export default function BookingScreen() {
           </Field>
         </View>
 
+        {/* ── Billing address (Bankart requires it -- see PaymentLinkGuest) ── */}
+        {!isSimulated && (
+          <>
+            <Text style={s.sectionTitle}>{t.booking.billingAddress}</Text>
+            <View style={s.fields}>
+              <Field label={t.booking.nameOnCard} icon="card-outline">
+                <TextInput
+                  style={s.fieldInput}
+                  value={cardholderName}
+                  onChangeText={setCardholderName}
+                  placeholder={t.booking.nameOnCardPlaceholder}
+                  placeholderTextColor={Colors.textLight}
+                  autoCapitalize="words"
+                  editable={!busy}
+                  textContentType="name"
+                />
+              </Field>
+              <Field label={t.booking.addressLine1} icon="location-outline">
+                <TextInput
+                  style={s.fieldInput}
+                  value={address1}
+                  onChangeText={setAddress1}
+                  placeholder="Makedonska 1"
+                  placeholderTextColor={Colors.textLight}
+                  autoCapitalize="words"
+                  editable={!busy}
+                  textContentType="streetAddressLine1"
+                  autoComplete="street-address"
+                />
+              </Field>
+              <Field label={t.booking.city} icon="business-outline">
+                <TextInput
+                  style={s.fieldInput}
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder="Skopje"
+                  placeholderTextColor={Colors.textLight}
+                  autoCapitalize="words"
+                  editable={!busy}
+                  textContentType="addressCity"
+                />
+              </Field>
+              <Field label={t.booking.postcode} icon="mail-open-outline">
+                <TextInput
+                  style={s.fieldInput}
+                  value={postcode}
+                  onChangeText={setPostcode}
+                  placeholder="1000"
+                  placeholderTextColor={Colors.textLight}
+                  editable={!busy}
+                  textContentType="postalCode"
+                />
+              </Field>
+              <Field label={t.booking.country} icon="flag-outline">
+                <CountryPickerField
+                  value={country}
+                  onChange={setCountry}
+                  placeholder={t.booking.selectCountry}
+                  title={t.booking.selectCountry}
+                  disabled={busy}
+                />
+              </Field>
+            </View>
+          </>
+        )}
+
         {/* ── Payment ─────────────────────────────────────────── */}
         <View style={s.payHeader}>
           <Text style={s.sectionTitle}>{t.booking.payTitle}</Text>
@@ -977,6 +1169,9 @@ export default function BookingScreen() {
             <Ionicons name="time-outline" size={14} color={Colors.primary} />
             <Text style={s.holdBannerText}>
               {lockState === 'locking' ? t.booking.holdingRoom : t.booking.renewingHold}
+              {/* A live RateHawk hold (prebook) measured 30-40s in the
+                  sandbox, 2026-09-28 -- say so, or it looks frozen. */}
+              {room?.book_hash ? ` ${t.booking.holdingRoomSubtext}` : ''}
             </Text>
           </View>
         )}
@@ -1035,7 +1230,48 @@ export default function BookingScreen() {
             was ever a hold to pay against. Same copy/action as the
             confirm-gate failure below since both mean "this room isn't
             holdable right now, pick another." */}
-        {lockState === 'unavailable' && (
+        {/* Pre-payment recovery: the same room is still there but at a new
+            price -- the guest decides (never charged the old amount). */}
+        {priceChangedRoom && hotel && (
+          <View style={s.errorBanner}>
+            <Ionicons name="pricetag-outline" size={16} color={Colors.error} />
+            <Text style={s.errorBannerText}>
+              {t.booking.priceChangedBody.replace('{{price}}', formatPrice(roomChargeTotal(priceChangedRoom, roomCount), bookingCurrency))}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                ratehawkFormRef.current = null
+                pendingBookingRef.current = null
+                setHotelRoom({ hotel, room: priceChangedRoom })
+                setPriceChangedRoom(null)
+                setPayState('idle')
+              }}
+              style={s.retryBtn}
+            >
+              <Text style={s.retryText}>{t.booking.continueAtNewPrice}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.booking.chooseAnotherRoom}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {lockedPriceNote && lockState === 'held' && payState === 'idle' && (
+          <View style={s.holdBanner}>
+            <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+            <Text style={s.holdBannerText}>
+              {t.booking.lockedPriceChanged
+                .replace('{{from}}', formatPrice(lockedPriceNote.from, bookingCurrency))
+                .replace('{{to}}', formatPrice(lockedPriceNote.to, bookingCurrency))}
+            </Text>
+          </View>
+        )}
+        {roomRefreshed && payState === 'idle' && lockState === 'held' && (
+          <View style={s.holdBanner}>
+            <Ionicons name="refresh-outline" size={14} color={Colors.primary} />
+            <Text style={s.holdBannerText}>{t.booking.roomRefreshed}</Text>
+          </View>
+        )}
+        {lockState === 'unavailable' && !priceChangedRoom && (
           <View style={s.errorBanner}>
             <Ionicons name="alert-circle" size={16} color={Colors.error} />
             <Text style={s.errorBannerText}>{t.booking.roomUnavailable}</Text>
@@ -1049,7 +1285,7 @@ export default function BookingScreen() {
             charge was attempted (see the confirm-gate in handlePay). Sends
             the guest back to pick a different room rather than retry the
             same now-unavailable one. */}
-        {payState === 'unavailable' && (
+        {payState === 'unavailable' && !priceChangedRoom && (
           <View style={s.errorBanner}>
             <Ionicons name="alert-circle" size={16} color={Colors.error} />
             <Text style={s.errorBannerText}>{t.booking.roomUnavailable}</Text>

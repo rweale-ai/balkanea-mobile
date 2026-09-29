@@ -43,6 +43,11 @@ export default function RootLayout() {
     const inAuth = segments[0] === 'auth'
     const authenticated = !!session || guest
 
+    // app/auth/callback.tsx (email/sign-in links, 2026-09-29) navigates by
+    // itself -- including staying put to show the new-password form while a
+    // password-reset session is already signed in.
+    if (inAuth && (segments as string[])[1] === 'callback') return
+
     if (!langChosen && !inLang) {
       router.replace('/language')
     } else if (langChosen && !authenticated && !inAuth && !inLang) {

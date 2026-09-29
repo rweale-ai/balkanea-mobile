@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import { supabase } from './supabase'
+import { BACKEND_URL } from './backend-url'
 import type { Session, User } from '@supabase/supabase-js'
 import * as WebBrowser from 'expo-web-browser'
 import * as AppleAuthentication from 'expo-apple-authentication'
@@ -7,12 +8,22 @@ import * as AppleAuthentication from 'expo-apple-authentication'
 export type AuthUser = User
 export type AuthSession = Session
 
+// Where Supabase's confirmation / password-reset emails send the user back
+// (2026-09-29): the app's own link, handled by app/auth/callback.tsx (via
+// app/+native-intent.tsx on phones). Must be allowed in Supabase ->
+// Authentication -> URL Configuration -> Redirect URLs ("balkanea://**" and
+// the web origin) or Supabase falls back to the Site URL.
+export function authCallbackUrl(): string {
+  return Platform.OS === 'web' ? `${window.location.origin}/auth/callback` : 'balkanea://auth/callback'
+}
+
 export async function signUp(email: string, password: string, fullName: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { full_name: fullName },
+      emailRedirectTo: authCallbackUrl(),
     },
   })
   if (error) throw error
@@ -129,8 +140,37 @@ export function onAuthStateChange(callback: (session: Session | null) => void) {
 }
 
 export async function resetPassword(email: string) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email)
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: authCallbackUrl() })
   if (error) throw error
+}
+
+// Sets the new password after the user opened a password-reset link (the
+// link signs them in with a short-lived recovery session first).
+export async function setNewPassword(password: string) {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
+// Deletes the signed-in user's own account (App Store / Google Play
+// requirement). The backend (Chat /api/delete-account) takes the user id
+// ONLY from this access token; confirmed bookings are kept (detached from
+// the account) for refunds and upcoming stays. Signs out on success.
+export async function deleteAccount(): Promise<{ ok: boolean }> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return { ok: false }
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/delete-account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({}),
+    })
+    const data = await res.json()
+    if (!data.success) return { ok: false }
+  } catch {
+    return { ok: false }
+  }
+  await supabase.auth.signOut().catch(() => {})
+  return { ok: true }
 }
 
 export async function updateProfile(updates: { full_name?: string; phone?: string; language?: string; currency?: string }) {

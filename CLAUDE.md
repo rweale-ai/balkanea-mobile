@@ -59,12 +59,45 @@ AI-first outbound hotel booking app for Balkan locals travelling internationally
 - **POST /api/search-hotels** — RateHawk hotel search (simulated until creds activate)
 - **Salesforce org:** balkaneacrm-dev-ed.develop.my.salesforce.com
 
+## Bookings table now shared with balkanea-web (2026-08-27)
+`supabase/migrations/008_booking_source.sql` adds a `source` column
+(`'web' | 'mobile'`, default `'mobile'`) to `bookings` so the ops portal
+(Chat repo `admin-bookings.js`/`admin-payments.html`) can tell channels
+apart — balkanea-web now writes its own bookings into this same table via
+Chat's new `api/create-booking.js` (service-role key, not this app's
+anon-key/RLS path). **This app's code is untouched** — every row it writes
+still gets `source: 'mobile'` from the column default, no release needed.
+The migration also drops `user_id`'s NOT NULL (web guests aren't Supabase
+Auth users); existing RLS policies (`auth.uid() = user_id`) are unaffected
+since they simply never match a null `user_id`. Migration not yet run
+against `cwohhfrupyeznbexjyaq` as of 2026-08-27 — until it is, the portal
+shows every row (including new mobile ones) as "pre-migration" rather than
+a real channel.
+
 ## Env vars (EXPO_PUBLIC_ prefix = available in client)
 - `EXPO_PUBLIC_CLAUDE_API_KEY` — Claude API key (omit for demo mode)
 
 ## Hard rules
 - Never commit .env files.
 - Use `StyleSheet.absoluteFill` not `StyleSheet.absoluteFillObject` (RN 0.85).
+
+## Team & collaboration
+This repo, its Vercel/Supabase/AWS infra, and its GitHub org are moving to
+Balkanea-owned accounts (2026-08-27) so Ray and Hristijan collaborate as
+peers under Balkanea's own ownership, not as guests in MARRA's accounts —
+see the migration runbook, `Balkanea-Infra-Ownership-Migration.md`.
+- Each developer runs Claude Code under their own account — never a shared
+  login. This repo's CLAUDE.md/AGENTS.md is the shared source of truth both
+  should be working from.
+- Work in feature branches, PR into `main`, at least one other person
+  reviews before merge — especially anything touching payment
+  (`app/booking.tsx`, `lib/payment-intent.ts`, `lib/currency.ts`) or the
+  real RateHawk booking flow (`lib/ratehawk.ts`). Solo direct-to-main
+  pushes were fine single-developer; not once there are two.
+- Real secrets (RateHawk keys, Bankart signing secret, Supabase service
+  role key, Anthropic key, etc.) live in Vercel's own env var store —
+  never in a shared plaintext file or chat message. Local `.env` is
+  per-developer and gitignored.
 
 ## Open items
 

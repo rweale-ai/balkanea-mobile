@@ -1,4 +1,6 @@
 // Simulated RateHawk API stub — real integration requires the sandbox
+import { ratehawkHeaders } from './ratehawk-env'
+import type { RoomGuestConfig } from './types'
 // credentials Christian is confirming access for (see project memory:
 // balkanea-mobile booking flow, call with Jasmina 2026-06-30).
 //
@@ -13,7 +15,17 @@
 export interface RoomLock {
   lockId: string
   expiresAt: number
+  // Live RateHawk holds only: the LOCKED price of this hold (covers every
+  // room of a multi-room rate) and its currency. What the guest pays.
+  lockedTotal?: number | null
+  lockedCurrency?: string | null
+  priceChanged?: boolean
 }
+
+// How far above the quoted price RateHawk may lock a room instead of failing
+// the hold (Ray, 2026-09-29: show the locked price, flag the change, guest
+// decides before paying). A business setting -- change here.
+export const PRICE_INCREASE_ALLOWANCE_PERCENT = 20
 
 const LOCK_DURATION_MS = 60_000
 
@@ -46,19 +58,22 @@ export async function reconfirmBooking(lockId: string): Promise<{ success: true 
 // charge captured. The form step's 60-minute lifetime and the prebook hash's
 // 24h lifetime both comfortably outlast a card-entry/3DS/gateway round trip.
 
-const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
+import { BACKEND_URL } from './backend-url'
 
 export async function realLockRoom(bookHash: string): Promise<RoomLock> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-prebook`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ book_hash: bookHash }),
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+    body: JSON.stringify({ book_hash: bookHash, price_increase_percent: PRICE_INCREASE_ALLOWANCE_PERCENT }),
   })
   const data = await res.json()
   if (!data.success) throw new Error(data.error || 'This room is no longer available')
   return {
     lockId: data.book_hash,
     expiresAt: Date.now() + LOCK_DURATION_MS,
+    lockedTotal: typeof data.show_amount === 'number' ? data.show_amount : null,
+    lockedCurrency: data.currency ?? null,
+    priceChanged: !!data.price_changed,
   }
 }
 
@@ -110,14 +125,22 @@ async function pollBookingStatus(
   // actually succeeded -- the poll just gave up first. 45 attempts (225s)
   // gives real margin above the documented worst case instead of ~10s.
   for (let attempt = 0; attempt < 45; attempt++) {
-    const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ partner_order_id: partnerOrderId }),
-    })
-    const data = await res.json()
-    if (typeof data.percent === 'number') onProgress?.(data.percent)
-    if (data.success && data.is_final) return { ok: data.status === 'ok' }
+    // One failed check (network blip, a 5xx from our backend or RateHawk,
+    // an unreadable body) must not end the wait -- the guest has already
+    // paid and the booking may still complete. Keep polling (ETG rule for
+    // 5xx/timeout/unknown on /booking/finish/status/, 2026-09-29).
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+        body: JSON.stringify({ partner_order_id: partnerOrderId }),
+      })
+      const data = await res.json()
+      if (typeof data.percent === 'number') onProgress?.(data.percent)
+      if (data.success && data.is_final) return { ok: data.status === 'ok' }
+    } catch (e) {
+      console.warn('ratehawk: status check failed, retrying', e)
+    }
     await new Promise<void>(r => setTimeout(r, 5000))
   }
   return { ok: false }
@@ -158,12 +181,32 @@ export async function createRealBookingForm(bookHash: string, partnerOrderId: st
 > {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({ step: 'form', book_hash: bookHash, partner_order_id: partnerOrderId }),
   })
   const data = await res.json()
   if (!data.success) return { ok: false }
   return { ok: true, orderId: data.order_id, partnerOrderId, paymentType: data.payment_type }
+}
+
+// Per-room guests for RateHawk's finish step when the stay has a real
+// per-room composition (multi-room and/or children with ages) -- one entry
+// per room, in the same order and with the same adults/child ages the rate
+// was priced for (Chat lib/rooms-guests.js validates it). Each room's lead
+// guest is that room's named guest; extra adults and children follow the
+// existing co-traveler naming, children carry age + is_child.
+function buildFinishRooms(roomsConfig: RoomGuestConfig[], roomGuestNames: string[]) {
+  return roomsConfig.map((room, i) => {
+    const lead = splitName(roomGuestNames[i] || roomGuestNames[0] || 'Guest')
+    const guests: Array<{ first_name: string; last_name: string; age?: number; is_child?: boolean }> = [lead]
+    for (let a = 1; a < room.adults; a++) {
+      guests.push({ first_name: `${CO_TRAVELER_ORDINALS[a - 1] ?? 'Additional'} Guest`, last_name: lead.last_name })
+    }
+    room.childAges.forEach((age, c) => {
+      guests.push({ first_name: `Child${room.childAges.length > 1 ? ' ' + (c + 1) : ''}`, last_name: lead.last_name, age, is_child: true })
+    })
+    return { guests }
+  })
 }
 
 // Commits the order opened by createRealBookingForm. Only call this after
@@ -175,15 +218,22 @@ export async function finishRealBooking(params: {
   adultsCount: number
   email: string
   phone: string
+  // Real per-room composition + each room's lead guest name. When given,
+  // RateHawk gets one rooms[] entry per room (children with ages) instead
+  // of a single room holding every adult.
+  roomsConfig?: RoomGuestConfig[]
+  roomGuestNames?: string[]
   onProgress?: (percent: number) => void
 }): Promise<{ ok: boolean }> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({
       step: 'finish',
       partner_order_id: params.partnerOrderId,
-      guests: buildRoomGuests(params.leadGuestName, params.adultsCount),
+      ...(params.roomsConfig
+        ? { rooms: buildFinishRooms(params.roomsConfig, params.roomGuestNames ?? [params.leadGuestName]) }
+        : { guests: buildRoomGuests(params.leadGuestName, params.adultsCount) }),
       email: params.email,
       phone: params.phone,
       payment_type: params.paymentType,
@@ -217,7 +267,7 @@ export async function sendBookingConfirmationEmails(params: {
 }): Promise<void> {
   await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
     body: JSON.stringify({
       step: 'send_confirmation_emails',
       partner_order_id: params.partnerOrderId,
@@ -233,6 +283,26 @@ export async function sendBookingConfirmationEmails(params: {
       currency: params.currency,
     }),
   })
+}
+
+// ─── Cancellation (real bookings only) ─────────────────────────────────
+
+// Cancels a confirmed real booking at RateHawk (Chat ratehawk-book step
+// "cancel"). The backend checks the signed-in user owns the booking, so the
+// user's Supabase access token is required. Refunding the Bankart payment is
+// not part of this (handled by the Balkanea team).
+export async function cancelRealBooking(partnerOrderId: string, accessToken: string): Promise<{ ok: boolean }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, ...ratehawkHeaders() },
+      body: JSON.stringify({ step: 'cancel', partner_order_id: partnerOrderId }),
+    })
+    const data = await res.json()
+    return { ok: !!data.success }
+  } catch {
+    return { ok: false }
+  }
 }
 
 // ─── Voucher (real bookings only) ──────────────────────────────────────

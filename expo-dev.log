@@ -201,3 +201,4 @@ Web  WARN  "shadow*" style props are deprecated. Use "boxShadow".
 Web  WARN  [expo-notifications] Listening to push token changes is not yet fully supported on web. Adding a listener will have no effect.
 Web  WARN  "textShadow*" style props are deprecated. Use "textShadow".
 Web  WARN  Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+Web Bundled 3060ms node_modules\expo-router\entry.js (1 module)

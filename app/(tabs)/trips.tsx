@@ -8,11 +8,11 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import {
   getUpcomingBookings, getPastBookings,
-  cancelBooking, subscribeToBookings, isValidDate, addBooking,
+  cancelBooking, subscribeToBookings, isValidDate,
 } from '../../lib/bookings-store'
-import { searchHotelsSync } from '../../lib/hotels'
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
+import { cancellationTermsText } from '../../lib/cancellation'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 function formatDate(iso: string): string {
@@ -139,13 +139,23 @@ export default function DashboardScreen() {
   const handleCancel = useCallback((booking: Booking) => {
     Alert.alert(
       t.dashboard.cancelBooking,
-      t.dashboard.cancelConfirm.replace('{{hotel}}', booking.hotel.name),
+      // Real hotel bookings are cancelled at RateHawk -- show what it costs.
+      t.dashboard.cancelConfirm.replace('{{hotel}}', booking.hotel.name) + (booking.ratehawk_order_id ? `\n\n${cancellationTermsText(booking.room?.cancellation_policy, booking.currency, t.bookingDetail)}` : ''),
       [
         { text: t.dashboard.keep, style: 'cancel' },
         {
           text: t.dashboard.cancelAction,
           style: 'destructive',
-          onPress: () => cancelBooking(booking.id),
+          onPress: async () => {
+            const result = await cancelBooking(booking.id)
+            if (!result.ok) {
+              Alert.alert(t.dashboard.cancelBooking, result.reason === 'needs_support' ? t.bookingDetail.cancelNeedsSupport : t.bookingDetail.cancelFailed)
+            } else if (booking.ratehawk_order_id) {
+              // Cancelled at the hotel; the card refund is handled by Balkanea
+              // (ops refund queue) -- no amount promised here.
+              Alert.alert(t.dashboard.cancelBooking, t.bookingDetail.cancelledRefundNote)
+            }
+          },
         },
       ]
     )
@@ -155,33 +165,6 @@ export default function DashboardScreen() {
     router.push(`/booking-detail?id=${id}`)
   }, [router])
 
-  // TEMPORARY — lets us verify the past/upcoming dashboard split on device.
-  // Remove once that's confirmed working.
-  const handleAddTestPastBooking = useCallback(async () => {
-    const checkinDate = new Date()
-    checkinDate.setDate(checkinDate.getDate() - 10)
-    const checkoutDate = new Date(checkinDate)
-    checkoutDate.setDate(checkoutDate.getDate() + 3)
-    const checkin = checkinDate.toISOString().split('T')[0]
-    const checkout = checkoutDate.toISOString().split('T')[0]
-
-    const results = searchHotelsSync({
-      destination: 'santorini', checkin, checkout, adults: 2, children: 0, rooms: 1, currency: 'EUR',
-    })
-    const hotel = results[0]
-    const room = hotel.room_types[0]
-
-    await addBooking({
-      hotel, room, checkin, checkout,
-      guests: { adults: 2, children: 0 },
-      rooms: 1,
-      total_price: room.total_price,
-      currency: 'EUR',
-      guest_name: 'Test Guest',
-      guest_email: 'test@example.com',
-      guest_phone: '',
-    })
-  }, [])
 
   const isEmpty = upcoming.length === 0 && past.length === 0
 
@@ -200,9 +183,6 @@ export default function DashboardScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={handleAddTestPastBooking} style={styles.testBtn}>
-            <Text style={styles.testBtnText}>🧪 Add test past booking (temporary)</Text>
-          </TouchableOpacity>
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyVisual}>
@@ -246,9 +226,6 @@ export default function DashboardScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={handleAddTestPastBooking} style={styles.testBtn}>
-          <Text style={styles.testBtnText}>🧪 Add test past booking (temporary)</Text>
-        </TouchableOpacity>
       </View>
       <SectionList
         sections={sections}
@@ -393,20 +370,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
-  },
-  testBtn: {
-    marginTop: Spacing.sm,
-    alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
-    borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-  },
-  testBtnText: {
-    ...Typography.caption,
-    color: '#92400E',
-    fontWeight: '600',
-    fontSize: 11,
   },
   headerRow: {
     flexDirection: 'row',

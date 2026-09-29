@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import { getBooking, cancelBooking, subscribeToBookings, isValidDate } from '../lib/bookings-store'
+import { currentCancellationStatus, formatCancellationDate, cancellationTermsText } from '../lib/cancellation'
 import { getItinerary, removeItineraryItem, type ItineraryItemType } from '../lib/itinerary-store'
 import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
@@ -101,6 +102,13 @@ export default function BookingDetailScreen() {
   // sense while the booking is still being finalized (pending/locked).
   const showHotelQA = !!booking && !isConfirmed && !isCancelled
 
+  // Real RateHawk terms, persisted on the room object at booking time (see
+  // room-selection.tsx / app/booking.tsx) -- room_data carries it through
+  // Supabase as-is (migration 003_bookings_jsonb.sql). null for any booking
+  // made before room_types carried cancellation_policy, or a simulated/
+  // DB-content booking that never had real terms.
+  const cxStatus = booking ? currentCancellationStatus(booking.room?.cancellation_policy) : { known: false }
+
   // Status badge
   const statusLabel = isCancelled
     ? t.bookingDetail.statusCancelled
@@ -118,13 +126,25 @@ export default function BookingDetailScreen() {
     if (!booking) return
     Alert.alert(
       t.bookingDetail.cancelBooking,
-      t.bookingDetail.cancelConfirm.replace('{{hotel}}', booking.hotel.name),
+      // Real hotel bookings are now cancelled at RateHawk (not just in the
+      // app), so any penalty is real -- show the booking's own cancellation
+      // terms before the guest confirms. Refunds are handled by Balkanea.
+      t.bookingDetail.cancelConfirm.replace('{{hotel}}', booking.hotel.name) + (booking.ratehawk_order_id ? `\n\n${cancellationTermsText(booking.room?.cancellation_policy, booking.currency, t.bookingDetail)}` : ''),
       [
         { text: t.bookingDetail.cancelKeep, style: 'cancel' },
         {
           text: t.bookingDetail.cancelAction,
           style: 'destructive',
-          onPress: () => cancelBooking(booking.id),
+          onPress: async () => {
+            const result = await cancelBooking(booking.id)
+            if (!result.ok) {
+              Alert.alert(t.bookingDetail.cancelBooking, result.reason === 'needs_support' ? t.bookingDetail.cancelNeedsSupport : t.bookingDetail.cancelFailed)
+            } else if (booking.ratehawk_order_id) {
+              // Cancelled at the hotel; the card refund is handled by Balkanea
+              // (ops refund queue) -- no amount promised here.
+              Alert.alert(t.bookingDetail.cancelBooking, t.bookingDetail.cancelledRefundNote)
+            }
+          },
         },
       ],
     )
@@ -419,10 +439,48 @@ export default function BookingDetailScreen() {
 
           {isUpcoming && (
             <>
-              <View style={s.freeCancelBanner}>
-                <Ionicons name="checkmark-circle" size={18} color={Colors.accent} />
-                <Text style={s.freeCancelText}>{t.bookingDetail.freeCancel}</Text>
-              </View>
+              {(() => {
+                // Real terms when known; otherwise say so rather than
+                // showing a generic "free cancellation" that may not be
+                // true — this banner used to always claim free cancellation
+                // regardless of the booking's actual terms or today's date.
+                if (!cxStatus.known) {
+                  return (
+                    <View style={s.cancelUnknownBanner}>
+                      <Ionicons name="information-circle" size={18} color={Colors.textSecondary} />
+                      <Text style={s.cancelUnknownText}>{t.bookingDetail.cancellationUnknown}</Text>
+                    </View>
+                  )
+                }
+                if (cxStatus.isNonRefundable) {
+                  return (
+                    <View style={s.cancelledBanner}>
+                      <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+                      <Text style={s.cancelledText}>{t.bookingDetail.nonRefundable}</Text>
+                    </View>
+                  )
+                }
+                if (cxStatus.isFreeRightNow) {
+                  return (
+                    <View style={s.freeCancelBanner}>
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.accent} />
+                      <Text style={s.freeCancelText}>
+                        {cxStatus.freeCancellationBefore
+                          ? t.bookingDetail.freeCancelUntil.replace('{{date}}', formatCancellationDate(cxStatus.freeCancellationBefore))
+                          : t.bookingDetail.freeCancel}
+                      </Text>
+                    </View>
+                  )
+                }
+                return (
+                  <View style={s.cancelPenaltyBanner}>
+                    <Ionicons name="alert-circle" size={18} color={Colors.star} />
+                    <Text style={s.cancelPenaltyText}>
+                      {t.bookingDetail.cancellationPenalty.replace('{{amount}}', `${cxStatus.penaltyAmount?.toFixed(2)} ${booking?.currency ?? ''}`.trim())}
+                    </Text>
+                  </View>
+                )
+              })()}
               <TouchableOpacity style={s.cancelBtn} onPress={handleCancel} activeOpacity={0.8}>
                 <Ionicons name="close-circle-outline" size={18} color={Colors.error} />
                 <Text style={s.cancelBtnText}>{t.bookingDetail.cancelBooking}</Text>
@@ -785,6 +843,30 @@ const s = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   cancelledText: { ...Typography.bodyMedium, color: Colors.textSecondary, fontWeight: '600' },
+
+  // Cancellation terms unknown (booking predates cancellation_policy tracking)
+  cancelUnknownBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.borderLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  cancelUnknownText: { ...Typography.bodyMedium, color: Colors.textSecondary, flex: 1 },
+
+  // Still cancellable, but a penalty applies right now
+  cancelPenaltyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  cancelPenaltyText: { ...Typography.bodyMedium, color: Colors.star, fontWeight: '600', flex: 1 },
 
   // Free cancel banner
   freeCancelBanner: {

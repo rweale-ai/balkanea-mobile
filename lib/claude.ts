@@ -1,156 +1,209 @@
 import type { ChatMessage, PlannerResponse, HotelSearchParams } from './types'
-import { searchHotels } from './hotels'
-import { fetchAllKnowledge } from './knowledge'
+import { mapBackendHotels } from './hotels'
 import { getTravelProfile, saveTravelProfile } from './travel-profile'
 import { describeBookings } from './bookings-store'
 import type { ItineraryItemDraft, ItineraryItemType } from './itinerary-store'
-import { validateRoomsConfig, totalAdults, totalChildren } from './rooms-config'
+import { BACKEND_URL } from './backend-url'
+import { ratehawkHeaders } from './ratehawk-env'
+import { getCurrency } from './currency'
+import { getResidency } from './residency'
 
-// ── System prompts ─────────────────────────────────────────────────
+// Nea -- every call goes through the Chat backend (/api/nea-chat), which
+// holds the Anthropic key and owns every prompt (Chat lib/nea.js,
+// lib/nea-prompts.js). Until 2026-09-28 this file called api.anthropic.com
+// directly with EXPO_PUBLIC_CLAUDE_API_KEY, which Expo bakes into the app
+// bundle -- anyone could extract it. The app now sends only structured
+// fields: kind, language, the (capped) conversation, and a few context
+// values. No code path here talks to Claude directly.
+//
+// Hotel search is a real server-side tool now (it used to be a
+// ---HOTELS--- marker parsed here): the backend runs it in-process with this
+// request's X-Ratehawk-Env (sandbox for the app) and returns the raw results,
+// shaped below by the same mapBackendHotels() as direct searches.
 
-const BASE_SYSTEM_PROMPT = `You are Nea, the AI travel advisor for Balkanea — a travel booking platform for Balkan locals travelling internationally. You speak fluent Macedonian and English. Your customers are primarily from North Macedonia.
+type Language = 'mk' | 'en'
+type Kind = 'chat' | 'hotel' | 'topic' | 'feedback'
 
-Your goal is to be the most knowledgeable travel advisor for the Balkans. You combine Balkanea's private insider knowledge (below) with real-time information from the web to give customers advice no booking platform can match.
+const NEA_URL = `${BACKEND_URL}/api/nea-chat`
 
-## Your strengths
-- You narrow thousands of options to 3-5 curated picks
-- You answer questions like "Is this area of Paris safe?" with confidence
-- You help people who say "I have €1,000 and want to go to Italy — where?"
-- You search for and summarise real guest reviews when asked about a specific hotel
-- You make customers feel comfortable when they're unsure about booking online
-- You reply in the same language the user writes in (Macedonian or English)
+// Backend caps: 40 messages, 8,000 chars each, 60,000 total. Keep the most
+// recent turns that fit so long chats degrade gracefully instead of 400ing.
+// keepLeadingAssistant: extraction turns the whole thing into one transcript,
+// so a conversation that opens with Nea must keep that turn.
+function toWireMessages(messages: ChatMessage[], keepLeadingAssistant = false): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const cleaned = messages
+    .filter(m => m.content && m.content.trim().length > 0)
+    .map(m => ({ role: m.role, content: m.content.trim().slice(0, 8000) }))
+  const out: typeof cleaned = []
+  let total = 0
+  for (let i = cleaned.length - 1; i >= 0 && out.length < 40; i--) {
+    total += cleaned[i].content.length
+    if (total > 60000) break
+    out.unshift(cleaned[i])
+  }
+  if (!keepLeadingAssistant) while (out.length && out[0].role !== 'user') out.shift()
+  return out
+}
 
-## Conversation approach
-- Be warm, enthusiastic, and knowledgeable — like a trusted friend who has been everywhere
-- Ask one or two questions at a time, never a long list
-- Keep responses concise — this is a mobile app
-- Popular outbound destinations from the Balkans: Greece (Santorini, Athens, Thessaloniki), Turkey (Istanbul, Antalya), Italy (Rome, Amalfi), Croatia (Dubrovnik, Split), Montenegro (Kotor, Budva), Egypt (Hurghada), France (Paris), Spain (Barcelona)
+function errorText(language: Language, kind: 'generic' | 'connection' | 'unavailable'): string {
+  if (kind === 'connection') {
+    return language === 'mk'
+      ? 'Проблем со врската. Проверете го интернетот и обидете се повторно.'
+      : 'Connection error. Please check your internet and try again.'
+  }
+  if (kind === 'unavailable') {
+    return language === 'mk'
+      ? 'Моментално не можам да ја проверам достапноста на хотелите. Обидете се повторно за една минута.'
+      : "I couldn't reach live hotel availability right now. Please try again in a minute."
+  }
+  return language === 'mk'
+    ? 'Се појави проблем. Обидете се повторно.'
+    : 'Sorry, I had trouble with that. Please try again.'
+}
 
-## Using web search
-When a user asks about hotel reviews, what guests think about a hotel, needs current information (events, prices, visa requirements), or is planning an itinerary (restaurants, tours, sights), use web_search to find it. Search for "[hotel name] reviews TripAdvisor", "[hotel name] guest reviews", or "[restaurant/tour name] [city]". Synthesise what you find into a clear, honest answer. You may search up to 3 times per response.
+// POSTs one turn and reads the SSE stream: { type:'text' } deltas, then
+// { type:'final', response } or { type:'error', content }.
+async function streamNea(
+  kind: Kind,
+  language: Language,
+  messages: ChatMessage[],
+  context: Record<string, unknown>,
+  onToken: (token: string) => void,
+): Promise<{ final: any | null; error: string | null }> {
+  const wire = toWireMessages(messages)
+  if (wire.length === 0) return { final: null, error: errorText(language, 'generic') }
 
-## Formatting your replies
-- Never use markdown bold (**text**). Instead prefix each restaurant, tour, or sight name with one relevant emoji so it's easy to scan on mobile: 🍽️ restaurants, 🎟️ tours/activities, 📍 landmarks/sights, 🏖️ beaches, 🎭 museums/culture.
-- When web_search finds a real website for a specific restaurant, tour, or attraction, link it inline as markdown: [Name](https://...). Only link URLs you actually found via web_search — never invent one.
+  let res: Response
+  try {
+    res = await fetch(NEA_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+      body: JSON.stringify({ kind, language, messages: wire, context }),
+    })
+  } catch {
+    return { final: null, error: errorText(language, 'connection') }
+  }
+  if (!res.ok || !res.body) {
+    const body = await res.text().catch(() => '')
+    console.error(`[Nea] HTTP ${res.status}:`, body.slice(0, 300))
+    let message = errorText(language, 'generic')
+    try { if (res.status === 429) message = JSON.parse(body).error || message } catch { /* keep default */ }
+    return { final: null, error: message }
+  }
 
-## If the traveler has already booked a hotel
-If a message says they've already booked, or gives a confirmation code, do NOT ask which hotel they want or try to search for hotels — that decision is made. Focus entirely on itinerary planning: restaurants, sights, tours, day-by-day plans.
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let final: any = null
+  let error: string | null = null
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let idx: number
+      // SSE events end with a blank line; a network chunk can split one.
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const line = buffer.slice(0, idx).trim()
+        buffer = buffer.slice(idx + 2)
+        if (!line.startsWith('data: ')) continue
+        let ev: any
+        try { ev = JSON.parse(line.slice(6)) } catch { continue }
+        if (ev.type === 'text') onToken(ev.text)
+        else if (ev.type === 'final') final = ev.response
+        else if (ev.type === 'error') error = ev.content
+      }
+    }
+  } catch (e) {
+    console.error('[Nea] stream error', e)
+  }
+  return { final, error: final ? null : (error ?? errorText(language, 'generic')) }
+}
 
-## Gathering info before searching for hotels
-1. Destination (or help them decide)
-2. When / how long
-3. How many people
-4. Budget feel (budget / mid-range / luxury)
-5. Any preferences (beach, city, all-inclusive, etc.)
-If any of this is already given under "Known traveler details" below, do NOT ask for it again — use it directly and only ask about what's still missing.
+function toPlannerResponse(final: any, language: Language): PlannerResponse {
+  if (final.type === 'hotels') {
+    const searchParams = final.searchParams as HotelSearchParams
+    // results null = the search itself failed (e.g. a RateHawk sandbox
+    // outage) -- say so; never substitute fabricated hotels.
+    if (final.results === null || final.unavailable) {
+      return { type: 'message', content: final.content || errorText(language, 'unavailable') }
+    }
+    saveTravelProfile(searchParams)
+    return {
+      type: 'hotels',
+      content: final.content,
+      hotels: mapBackendHotels(final.results, final.simulated, searchParams),
+      searchParams,
+    }
+  }
+  if (final.type === 'feedback') return { type: 'feedback', content: final.content, feedbackData: final.feedbackData }
+  if (final.type === 'escalation') return { type: 'escalation', content: final.content }
+  if (final.type === 'error') return { type: 'error', content: final.content }
+  return { type: 'message', content: final.content ?? '' }
+}
 
-## When you have enough info to search for hotels:
-Write your reply naturally — 2-3 warm sentences. Then on its own line:
----HOTELS---
-{"destination":"santorini","checkin":"YYYY-MM-DD","checkout":"YYYY-MM-DD","adults":2,"children":0,"rooms":1,"maxPricePerNight":150,"currency":"EUR","amenityPreferences":"pool, sea view"}
-
-"amenityPreferences" is optional -- only include it when the traveler actually mentioned a specific want (pool, quiet, sea view, family-friendly, etc.), as a short comma-separated phrase in their own words. Omit the field entirely if nothing specific was said. This gets remembered and used later (e.g. when summarizing hotel reviews) to weigh the answer against what they actually asked for -- so capture it whenever it comes up, not just on the final search.
-
-## If the traveler wants a SPECIFIC hotel, not just a destination
-Include "hotelName" in the ---HOTELS--- JSON whenever they name a hotel outright, or ask to book/rebook one from their own history (e.g. "book it again", "the Conrad", "same place as last time") -- pull the exact name from "Bookings this traveler already has confirmed" when it's a rebooking. Without this, a destination search has no way to know which specific hotel they meant, and whatever the search happens to return first gets shown as the top pick -- not necessarily the one they asked for. Omit the field for a general destination search with no specific hotel in mind.
-
-## If the traveler needs more than one room
-Do NOT silently split a large group across rooms yourself. Ask how they'd like to split up -- how many adults and children (with ages) in each room -- before searching. Once you know the split, include "roomsConfig" in the ---HOTELS--- JSON: an array with one entry per room, e.g. for 2 rooms (one with 2 adults, one with 2 adults and a 7-year-old):
-{"roomsConfig":[{"adults":2,"childAges":[]},{"adults":2,"childAges":[7]}],"rooms":2, ...rest same as above}
-When "roomsConfig" is present you can omit "adults"/"children" (they'll be computed from it), but always still include "rooms" matching its length. This only applies when more than one room is actually needed -- for a single room, use the format above exactly and don't ask this question.
-
-## If still gathering info: just write your reply, no marker.
-
-## If the customer wants a human agent or request is too complex:
-Write a warm handoff message, then on its own line:
----ESCALATE---
-
-Never include markers mid-sentence. They appear on their own line at the very end.`
-
-const FEEDBACK_SYSTEM_PROMPT = `You are Nea, the AI travel advisor for Balkanea. A customer has just returned from a trip and you are collecting feedback to help future travellers.
-
-Your job: have a warm, natural conversation to understand their experience. Aim for 3-5 questions maximum. Ask about:
-1. Overall impression — what they loved
-2. Any disappointments or surprises
-3. Specific details that would help future guests (room tips, restaurant recommendations, things to avoid)
-4. Who they would recommend this hotel to
-
-Keep it conversational and friendly. Thank them warmly for sharing. Once you have enough feedback (at least 3 exchanges), end your final message with:
----FEEDBACK---
-{"hotel":"[hotel name]","destination":"[destination]","positives":"[what guests loved]","negatives":"[issues or disappointments, or null]","highlights":"[specific tips for future guests]","recommended_for":"[type of traveller this suits]","rating":[1-5]}
-
-The JSON must be valid and on one line immediately after the marker.`
-
-// ── API config ─────────────────────────────────────────────────────
-
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
-// Sonnet 4.6: supports web search, better reasoning for review synthesis
-const MODEL = 'claude-sonnet-4-6'
-
-// Using the widely-supported basic variant — no beta header required
-const WEB_SEARCH_TOOLS = [
-  { type: 'web_search_20250305', name: 'web_search' },
-]
-
-// ── Main send function ─────────────────────────────────────────────
+// ── Main Nea planner ───────────────────────────────────────────────
 
 export async function sendMessage(
   messages: ChatMessage[],
   onToken: (token: string) => void,
-  language: 'mk' | 'en' = 'en',
+  language: Language = 'en',
 ): Promise<PlannerResponse> {
-  const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
-  if (!apiKey) return simulateResponse(messages, onToken)
-
-  const knowledge = await fetchAllKnowledge()
-  const langInstruction = language === 'mk'
-    ? '\n\n## LANGUAGE\nThe user has selected Macedonian. ALWAYS reply in Macedonian (Cyrillic script) regardless of what language the user types in.'
-    : '\n\n## LANGUAGE\nAlways reply in English.'
-
-  const profile = getTravelProfile()
-  const profileInstruction = Object.keys(profile).length > 0
-    ? `\n\n## Known traveler details (from a previous conversation — do not ask for these again)\n${JSON.stringify(profile)}`
-    : ''
-
-  const bookings = describeBookings()
-  const bookingsInstruction = bookings
-    ? `\n\n## Bookings this traveler already has confirmed\n${bookings}\nThese are already booked and paid — never say a hotel is "being sorted", "in progress", or ask the traveler to choose it again. If asked what they've booked, state these directly. Only revisit hotel search if the traveler explicitly asks to change or add a booking.`
-    : ''
-
-  const system = `${BASE_SYSTEM_PROMPT}${langInstruction}${profileInstruction}${bookingsInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
-
-  const result = await runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
-  if (result.type === 'hotels' && result.searchParams) {
-    saveTravelProfile(result.searchParams)
-  }
-  return result
+  const { final, error } = await streamNea('chat', language, messages, {
+    currency: getCurrency(),
+    profile: getTravelProfile(),
+    bookings: describeBookings(),
+    // Same residency the app's own searches use (lib/residency.ts).
+    residency: getResidency(),
+  }, onToken)
+  if (!final) return { type: 'error', content: error ?? errorText(language, 'generic') }
+  return toPlannerResponse(final, language)
 }
 
-// Feedback conversation — different system prompt, no hotel search tools
+// ── "Ask Nea about this hotel" sheet ───────────────────────────────
+// The backend grounds answers in RateHawk's own guest reviews for this
+// hotel when it has them, labelled separately from web results.
+
+export interface HotelSheetContext {
+  hotelId: string
+  hotelName: string
+  hotelAddress: string
+  // Short plain-English trip summary (e.g. "a couple, visiting in May").
+  tripSummary?: string
+}
+
+export async function sendHotelMessage(
+  messages: ChatMessage[],
+  onToken: (token: string) => void,
+  language: Language,
+  hotel: HotelSheetContext,
+): Promise<PlannerResponse> {
+  const { final, error } = await streamNea('hotel', language, messages, {
+    hotelId: hotel.hotelId,
+    hotelName: hotel.hotelName,
+    hotelAddress: hotel.hotelAddress,
+    tripSummary: hotel.tripSummary,
+  }, onToken)
+  if (!final) return { type: 'error', content: error ?? errorText(language, 'generic') }
+  return toPlannerResponse(final, language)
+}
+
+// ── Post-trip feedback ─────────────────────────────────────────────
+
 export async function sendFeedbackMessage(
   messages: ChatMessage[],
   onToken: (token: string) => void,
+  language: Language = 'en',
 ): Promise<PlannerResponse> {
-  const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
-  if (!apiKey) {
-    // Simulate a feedback response in demo mode
-    const reply = "Thank you so much for sharing! Your experience will help future travellers make the perfect choice. The Balkanea team will review your feedback and use it to guide others."
-    for (let i = 0; i < reply.length; i += 2) {
-      onToken(reply.slice(i, i + 2))
-      await new Promise<void>(r => setTimeout(r, 16))
-    }
-    return { type: 'message', content: reply }
-  }
-
-  return runMessageLoop(apiKey, FEEDBACK_SYSTEM_PROMPT, messages, onToken, [])
+  const { final, error } = await streamNea('feedback', language, messages, {}, onToken)
+  if (!final) return { type: 'error', content: error ?? errorText(language, 'generic') }
+  return toPlannerResponse(final, language)
 }
 
 // ── Topic-scoped conversation (restaurants / tours) ──────────────────
 //
-// Dashboard tiles used to route flights/restaurants/tours into the same
-// shared chat thread as the main planner tab, so picking one topic then
-// another left the conversation reading like an interleaved mess. These
-// give restaurants/tours their own scoped conversation instead.
+// Restaurants/tours get their own scoped conversation rather than the main
+// planner thread.
 
 export type ItineraryTopic = 'restaurants' | 'tours'
 
@@ -161,109 +214,41 @@ export interface TopicContext {
   checkout: string
 }
 
-function topicSystemPrompt(
-  topic: ItineraryTopic,
-  context: TopicContext,
-  language: 'mk' | 'en',
-  knowledge: string,
-): string {
-  const focus = topic === 'restaurants' ? 'restaurants' : 'tours, activities, and things to do'
-  const emoji = topic === 'restaurants' ? '🍽️' : '🎟️'
-  const langInstruction = language === 'mk'
-    ? 'ALWAYS reply in Macedonian (Cyrillic script) regardless of what language the traveler types in.'
-    : 'Always reply in English.'
-
-  return `You are Nea, the AI travel advisor for Balkanea. This traveler has already booked their hotel — ${context.hotelName} in ${context.city}, ${context.checkin} to ${context.checkout}. That's decided; never suggest changing it or ask which hotel they want.
-
-This conversation is only about ${focus} for that trip. If the traveler asks about hotels, flights, or anything unrelated, gently say that's handled elsewhere in the app and steer back to ${focus}.
-
-Recommend specific, real places with one short reason each. Prefix each recommendation with ${emoji}. Use web_search when it would help (current hours, real reviews, current events). Keep replies concise — this is a mobile app. ${langInstruction}
-
-${knowledge}`.trim()
-}
-
 export async function sendTopicMessage(
   messages: ChatMessage[],
   onToken: (token: string) => void,
   topic: ItineraryTopic,
   context: TopicContext,
-  language: 'mk' | 'en' = 'en',
+  language: Language = 'en',
 ): Promise<PlannerResponse> {
-  const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
-  if (!apiKey) return simulateTopicResponse(topic, onToken)
-
-  const knowledge = await fetchAllKnowledge()
-  const system = topicSystemPrompt(topic, context, language, knowledge ?? '')
-  return runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
-}
-
-async function simulateTopicResponse(
-  topic: ItineraryTopic,
-  onToken: (token: string) => void,
-): Promise<PlannerResponse> {
-  const reply = topic === 'restaurants'
-    ? "🍽️ Here are a few favourites nearby — tell me a price range or vibe (romantic, family, local) and I'll narrow it down."
-    : "🎟️ Here are a few popular options — let me know if you'd rather something relaxed or more active and I'll tailor it."
-  for (let i = 0; i < reply.length; i += 2) {
-    onToken(reply.slice(i, i + 2))
-    await new Promise<void>(r => setTimeout(r, 16))
-  }
-  return { type: 'message', content: reply }
+  const { final, error } = await streamNea('topic', language, messages, { topic, ...context }, onToken)
+  if (!final) return { type: 'error', content: error ?? errorText(language, 'generic') }
+  return toPlannerResponse(final, language)
 }
 
 // ── Structured itinerary extraction ───────────────────────────────────
 //
-// Used both by the main planner's "Ask Nea to plan your trip" flow and by
-// the topic-scoped sheets' "Add to trip" action. Returns dated line items
-// instead of a saved chat transcript, so the itinerary a traveler sees is
-// a real plan (with reservations they can review/remove), not a wall of text.
-
-const ITEMS_SYSTEM_PROMPT = (language: 'mk' | 'en') => `You extract concrete travel-itinerary items from a conversation between a traveler and Nea, an AI travel advisor, for a trip with an already-booked hotel.
-
-Only include restaurants, tours/activities, sights, or other plans the traveler showed real interest in, or that Nea recommended and the traveler didn't reject. Never include the hotel itself. Skip anything still undecided, greetings, or small talk.
-
-Respond with ONLY a JSON array (no other text), in this exact shape:
-[{"type":"restaurant","title":"...","description":"one short sentence","date":"YYYY-MM-DD or null"}]
-Valid "type" values: "restaurant", "tour", "sight", "note". Only set "date" if a specific day was clearly mentioned; otherwise use null.
-${language === 'mk' ? 'Write "title" and "description" in Macedonian (Cyrillic).' : 'Write "title" and "description" in English.'}
-If nothing concrete was discussed, respond with exactly: []`
+// Used by the main planner's "Ask Nea to plan your trip" flow and by the
+// topic sheets' "Add to trip" action. Returns dated line items, validated
+// here again whatever the backend sends.
 
 const VALID_ITEM_TYPES: ItineraryItemType[] = ['restaurant', 'tour', 'sight', 'note']
 
 export async function extractItineraryItems(
   messages: ChatMessage[],
-  language: 'mk' | 'en' = 'en',
+  language: Language = 'en',
 ): Promise<ItineraryItemDraft[]> {
-  const transcript = messages
-    .filter(m => m.content.trim().length > 0)
-    .map(m => `${m.role === 'user' ? 'Traveler' : 'Nea'}: ${m.content}`)
-    .join('\n\n')
-  if (!transcript) return []
-
-  const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY
-  if (!apiKey) return [] // demo mode — no model available to extract structured items
-
+  const wire = toWireMessages(messages, true)
+  if (wire.length === 0) return []
   try {
-    const res = await fetch(CLAUDE_API_URL, {
+    const res = await fetch(NEA_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 800,
-        system: ITEMS_SYSTEM_PROMPT(language),
-        messages: [{ role: 'user', content: transcript }],
-      }),
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+      body: JSON.stringify({ kind: 'extract', language, messages: wire }),
     })
     if (!res.ok) return []
     const data = await res.json()
-    const text: string = data.content?.[0]?.text?.trim() ?? '[]'
-    const raw = JSON.parse(text)
-    if (!Array.isArray(raw)) return []
-
+    const raw = Array.isArray(data.items) ? data.items : []
     return raw
       .map((r: Record<string, unknown>): ItineraryItemDraft | null => {
         const title = String(r?.title ?? '').trim().slice(0, 120)
@@ -273,292 +258,8 @@ export async function extractItineraryItems(
         const description = r?.description ? String(r.description).trim().slice(0, 400) : undefined
         return { type, title, description, date }
       })
-      .filter((i): i is ItineraryItemDraft => i !== null)
+      .filter((i: ItineraryItemDraft | null): i is ItineraryItemDraft => i !== null)
   } catch {
     return []
-  }
-}
-
-// ── Core streaming loop ────────────────────────────────────────────
-
-// Handles pause_turn from web search by looping up to 5 iterations.
-async function runMessageLoop(
-  apiKey: string,
-  system: string,
-  userMessages: ChatMessage[],
-  onToken: (token: string) => void,
-  tools: object[],
-): Promise<PlannerResponse> {
-  // Filter out empty-content messages — these cause 400 errors from the API
-  // and can cascade if a previous request failed mid-stream
-  const formatted: object[] = userMessages
-    .filter(m => m.content && m.content.trim().length > 0)
-    .map(m => ({ role: m.role, content: m.content }))
-
-  // Ensure messages alternate roles properly (Claude requirement)
-  const deduplicated: object[] = []
-  for (const msg of formatted) {
-    const last = deduplicated[deduplicated.length - 1] as any
-    if (last && last.role === (msg as any).role) {
-      // Merge consecutive same-role messages
-      last.content += '\n' + (msg as any).content
-    } else {
-      deduplicated.push({ ...(msg as any) })
-    }
-  }
-
-  let conversationMessages = deduplicated
-  let fullText = ''
-
-  for (let iteration = 0; iteration < 5; iteration++) {
-    const result = await streamOnce(
-      apiKey, system, conversationMessages, onToken, tools, iteration === 0,
-    )
-    fullText += result.text
-
-    if (result.stopReason !== 'pause_turn') break
-
-    // Web search needed more iterations — continue with accumulated content
-    conversationMessages = [
-      ...conversationMessages,
-      { role: 'assistant', content: result.rawContent },
-    ]
-  }
-
-  return await parseStreamedResponse(fullText)
-}
-
-interface StreamResult {
-  text: string
-  stopReason: string
-  rawContent: object[]
-}
-
-async function streamOnce(
-  apiKey: string,
-  system: string,
-  messages: object[],
-  onToken: (token: string) => void,
-  tools: object[],
-  isFirstIteration: boolean,
-): Promise<StreamResult> {
-  let res: Response
-  try {
-    // Cache the system prompt (knowledge base + language instruction) for 5 min.
-    // Cached tokens cost 10% and process near-instantly, reducing rate limit pressure.
-    const cachedSystem = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-
-    const body: Record<string, unknown> = {
-      model: MODEL,
-      max_tokens: 2048,
-      stream: true,
-      system: cachedSystem,
-      messages,
-    }
-    if (tools.length > 0) body.tools = tools
-
-    res = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-      },
-      body: JSON.stringify(body),
-    })
-  } catch {
-    return { text: 'Connection error. Please check your internet and try again.', stopReason: 'error', rawContent: [] }
-  }
-
-  if (!res.ok || !res.body) {
-    const errBody = await res.text().catch(() => '')
-    console.error(`[Nea] API error ${res.status}:`, errBody)
-    return { text: 'Sorry, I had trouble with that. Please try again.', stopReason: 'error', rawContent: [] }
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let text = ''
-  let stopReason = 'end_turn'
-
-  // Track all content blocks for pause_turn continuation
-  const rawContent: Record<string, unknown>[] = []
-  let currentBlockIndex = -1
-
-  try {
-    outer: while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('data: ')) continue
-        const payload = line.slice(6).trim()
-        if (payload === '[DONE]') break outer
-        try {
-          const event = JSON.parse(payload)
-
-          if (event.type === 'content_block_start') {
-            currentBlockIndex = event.index
-            rawContent[event.index] = { ...event.content_block }
-          }
-
-          if (event.type === 'content_block_delta') {
-            if (event.delta?.type === 'text_delta') {
-              const token: string = event.delta.text
-              text += token
-              // Only stream tokens on first iteration to avoid confusing the UI during web search
-              if (isFirstIteration) onToken(token)
-              const block = rawContent[event.index]
-              if (block) {
-                block.text = ((block.text as string) ?? '') + token
-              }
-            }
-          }
-
-          if (event.type === 'message_delta') {
-            stopReason = event.delta?.stop_reason ?? 'end_turn'
-          }
-        } catch { /* skip malformed SSE lines */ }
-      }
-    }
-  } finally {
-    reader.releaseLock()
-  }
-
-  return { text, stopReason, rawContent }
-}
-
-// ── Response parser ────────────────────────────────────────────────
-
-async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
-  const hotelMarker = '---HOTELS---'
-  const escalateMarker = '---ESCALATE---'
-  const feedbackMarker = '---FEEDBACK---'
-
-  const escalateIdx = text.indexOf(escalateMarker)
-  if (escalateIdx !== -1) {
-    const prose = text.slice(0, escalateIdx).trim()
-    return { type: 'escalation', content: prose || "I'll connect you with a Balkanea agent who can help." }
-  }
-
-  const feedbackIdx = text.indexOf(feedbackMarker)
-  if (feedbackIdx !== -1) {
-    const prose = text.slice(0, feedbackIdx).trim()
-    const jsonStr = text.slice(feedbackIdx + feedbackMarker.length).trim()
-    try {
-      const data = JSON.parse(jsonStr)
-      return { type: 'feedback', content: prose, feedbackData: data }
-    } catch {
-      return { type: 'message', content: prose }
-    }
-  }
-
-  const hotelIdx = text.indexOf(hotelMarker)
-  if (hotelIdx !== -1) {
-    const prose = text.slice(0, hotelIdx).trim()
-    const jsonStr = text.slice(hotelIdx + hotelMarker.length).trim()
-    try {
-      const raw = JSON.parse(jsonStr)
-
-      // Only trust a per-room breakdown that passes validation (bounds
-      // matching RateHawk's real rules -- see lib/rooms-config.ts). When
-      // present and valid, it's the source of truth: rooms/adults/children
-      // are DERIVED from it, never taken from whatever raw.rooms/raw.adults
-      // the model separately emitted -- an inconsistency there (e.g.
-      // roomsConfig with 2 entries but raw.rooms: 1) must not let a smaller
-      // number reach anything that prices off it later. When absent or
-      // invalid, behavior is identical to before this field existed.
-      const roomsConfig = validateRoomsConfig(raw.roomsConfig)
-      const searchParams: HotelSearchParams = {
-        destination: raw.destination ?? '',
-        checkin: raw.checkin ?? '',
-        checkout: raw.checkout ?? '',
-        adults: roomsConfig ? totalAdults(roomsConfig) : (raw.adults ?? 2),
-        children: roomsConfig ? totalChildren(roomsConfig) : (raw.children ?? 0),
-        rooms: roomsConfig ? roomsConfig.length : (raw.rooms ?? 1),
-        roomsConfig,
-        maxPricePerNight: raw.maxPricePerNight,
-        currency: raw.currency ?? 'EUR',
-        amenityPreferences: raw.amenityPreferences,
-        hotelName: raw.hotelName,
-      }
-      let hotels = await searchHotels(searchParams)
-      let content = prose
-
-      // A genuine zero-result answer under an amenity filter -- the backend
-      // (Chat/api/search-hotels.js) deliberately does NOT relax this
-      // itself, so an empty result here really does mean nothing matched.
-      // Retry once without it so the traveler gets real options instead of
-      // a dead end, and say so plainly. Checked before the price retry
-      // below since amenity is the more specific ask to explain.
-      if (hotels.length === 0 && searchParams.amenityPreferences) {
-        const relaxedHotels = await searchHotels({ ...searchParams, amenityPreferences: undefined })
-        if (relaxedHotels.length > 0) {
-          hotels = relaxedHotels
-          content = `I couldn't find a match for "${searchParams.amenityPreferences}" in ${searchParams.destination} for those dates — here are the best options I found instead:`
-        }
-      }
-
-      // A genuine zero-result answer at the requested budget -- retry once
-      // without the cap so the traveler gets real next-tier options instead
-      // of a dead end, and say so plainly rather than silently swapping in
-      // pricier hotels with no explanation.
-      if (hotels.length === 0 && searchParams.maxPricePerNight) {
-        const relaxedHotels = await searchHotels({ ...searchParams, maxPricePerNight: undefined })
-        if (relaxedHotels.length > 0) {
-          hotels = relaxedHotels
-          content = `Sorry, I couldn't find any hotels in ${searchParams.destination} within your budget for those dates — here's the best next-tier option I found instead:`
-        }
-      }
-
-      return { type: 'hotels', content, hotels, searchParams }
-    } catch {
-      return { type: 'message', content: prose }
-    }
-  }
-
-  return { type: 'message', content: text.trim() }
-}
-
-// ── Demo mode ──────────────────────────────────────────────────────
-
-async function simulateResponse(
-  messages: ChatMessage[],
-  onToken: (token: string) => void,
-): Promise<PlannerResponse> {
-  const reply = await buildSimulatedReply(messages)
-  const prose = reply.content
-  for (let i = 0; i < prose.length; i += 2) {
-    onToken(prose.slice(i, i + 2))
-    await new Promise<void>(r => setTimeout(r, 16))
-  }
-  if (reply.type === 'hotels' && reply.searchParams) {
-    saveTravelProfile(reply.searchParams)
-  }
-  return reply
-}
-
-async function buildSimulatedReply(messages: ChatMessage[]): Promise<PlannerResponse> {
-  const count = messages.filter(m => m.role === 'user').length
-  const lastMsg = messages[messages.length - 1]?.content?.toLowerCase() ?? ''
-
-  if (lastMsg.includes('speak to') || lastMsg.includes('human') || lastMsg.includes('agent')) {
-    return { type: 'escalation', content: "Of course! I'll connect you with a Balkanea travel agent. During business hours they can take your call directly. Otherwise, I'll take your details and they'll call you back within a few hours." }
-  }
-  if (count === 1) return { type: 'message', content: "I'd love to help you find the perfect getaway! Where are you thinking of going? Popular spots from Macedonia right now are Greece, Turkey, Italy, and Croatia — or I can help you decide if you're not sure yet." }
-  if (count === 2) return { type: 'message', content: "Great choice! When are you thinking of going, and how many of you will be travelling? Most of our customers travel as couples or families of 3-4." }
-  if (count === 3) return { type: 'message', content: "Perfect! And roughly what budget are you thinking per night? Budget (under €70), mid-range (€70–€150), or treat yourself (€150+)?" }
-
-  const searchParams: HotelSearchParams = {
-    destination: 'santorini', checkin: '2026-08-10', checkout: '2026-08-15',
-    adults: 2, children: 0, rooms: 1, maxPricePerNight: 200, currency: 'EUR',
-  }
-  return {
-    type: 'hotels',
-    content: "Here are my top picks for Santorini! I've chosen hotels with great views and breakfast included, all within your budget. What do you think — shall I adjust anything?",
-    hotels: await searchHotels(searchParams),
-    searchParams,
   }
 }

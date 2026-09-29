@@ -1,0 +1,31 @@
+-- Adds hotels.serp_filters -- per Hristijan's request (Slack, 2026-09-25):
+-- extend hotel data with RateHawk's SERP filter tags, the same way
+-- amenity_groups already is.
+--
+-- Confirmed via RateHawk docs (docs.emergingtravel.com, fetched
+-- 2026-09-25): `serp_filters` is a field already present on the SAME
+-- hotel-content dump record `import_hotels_poc.js`/
+-- `import_hotels_incremental.js` already parse (hotel/info/dump/ +
+-- hotel/info/incremental_dump/) -- "List of amenities for the hotel
+-- selection based on a cumulative set of features", e.g.
+-- ["has_breakfast", "has_pool", "air-conditioning", ...]. This is NOT a
+-- new endpoint call and does NOT need a new entry in the VPN relay's
+-- allowlist (Chat/infra/vpn-relay/relay.js) -- it rides along on the same
+-- dump call those two scripts already make.
+--
+-- The full catalog of valid serp_filter codes + human-readable labels
+-- (e.g. "has_breakfast" -> "Breakfast included") lives in a separate,
+-- tiny, near-static reference endpoint: GET /api/content/v1/filter_values
+-- (also returns star_rating and kind enums). NOT pulled into this schema
+-- -- ~20-ish rows, effectively a lookup table, not hotel data. If/when the
+-- app needs human-readable filter labels rather than raw codes, fetch that
+-- endpoint once and cache it (a config table or even a hardcoded map) --
+-- a decision for whoever builds the filter UI, not decided here.
+--
+-- JSONB, not a typed/array column -- matching amenity_groups' own
+-- precedent in this schema, and because this is still docs-derived only
+-- (the RateHawk relay's VPN tunnel is down as of 2026-09-25, so this has
+-- not been checked against one real dump record either).
+alter table hotels add column serp_filters jsonb;
+
+comment on column hotels.serp_filters is 'RateHawk SERP filter tags for this hotel (e.g. ["has_breakfast","has_pool"]), from the same hotel-content dump amenity_groups comes from. Codes map to labels via GET /api/content/v1/filter_values (not stored here -- a small, separate, near-static reference catalog). Docs-derived, not yet verified against a real dump record.';
