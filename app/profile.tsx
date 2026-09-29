@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { getUser, signOut } from '../lib/auth'
+import { getUser, signOut, deleteAccount } from '../lib/auth'
+import { getUpcomingBookings } from '../lib/bookings-store'
+import { clearTravelProfile } from '../lib/travel-profile'
 import { setGuestMode } from '../lib/guest'
 import { useLang, setLang } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
@@ -207,6 +209,7 @@ export default function ProfileScreen() {
   // nothing to real bookings.
   const { currency, setCurrency } = useCurrency()
   const [notif, setNotif] = useState<NotifPrefs>(DEFAULT_NOTIF)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     getUser().then(u => {
@@ -246,6 +249,49 @@ export default function ProfileScreen() {
       },
     ])
   }, [t])
+
+  // In-app account deletion (2026-09-29) -- required by App Store guideline
+  // 5.1.1(v) and Google Play for any app that lets users create an account.
+  // Two confirmations. Upcoming bookings are kept server-side (detached from
+  // the account, see Chat lib/supabase-admin.js deleteUserAccount), so say
+  // so before the user decides. Alert.alert is a no-op on react-native-web,
+  // hence window.confirm there.
+  const handleDeleteAccount = useCallback(() => {
+    const upcoming = getUpcomingBookings().length
+    const first = upcoming > 0
+      ? `${t.profile.deleteAccountConfirm}
+
+${t.profile.deleteAccountBookings.replace('{{count}}', String(upcoming))}`
+      : t.profile.deleteAccountConfirm
+    const run = async () => {
+      setDeleting(true)
+      const { ok } = await deleteAccount()
+      if (!ok) {
+        setDeleting(false)
+        if (Platform.OS === 'web') window.alert(t.profile.deleteAccountFailed)
+        else Alert.alert(t.profile.deleteAccount, t.profile.deleteAccountFailed)
+        return
+      }
+      clearTravelProfile()
+      await setGuestMode(false)
+      router.replace('/auth')
+    }
+    if (Platform.OS === 'web') {
+      if (window.confirm(first) && window.confirm(t.profile.deleteAccountFinal)) run()
+      return
+    }
+    Alert.alert(t.profile.deleteAccount, first, [
+      { text: t.profile.cancel, style: 'cancel' },
+      {
+        text: t.profile.deleteAccountAction,
+        style: 'destructive',
+        onPress: () => Alert.alert(t.profile.deleteAccount, t.profile.deleteAccountFinal, [
+          { text: t.profile.cancel, style: 'cancel' },
+          { text: t.profile.deleteAccountAction, style: 'destructive', onPress: run },
+        ]),
+      },
+    ])
+  }, [t, router])
 
   // Build avatar initials from name
   const initials = userName
@@ -347,6 +393,13 @@ export default function ProfileScreen() {
           <Text style={s.signOutText}>{t.profile.signOut}</Text>
         </TouchableOpacity>
 
+        {/* ── Delete account (signed-in users only) ─────────── */}
+        {userEmail ? (
+          <TouchableOpacity style={s.deleteBtn} onPress={handleDeleteAccount} disabled={deleting} activeOpacity={0.6}>
+            <Text style={s.deleteText}>{deleting ? t.auth.pleaseWait : t.profile.deleteAccount}</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* ── Version ────────────────────────────────────────── */}
         <Text style={s.version}>{t.profile.version} {APP_VERSION} · {UPDATE_LABEL}</Text>
       </ScrollView>
@@ -439,6 +492,8 @@ const s = StyleSheet.create({
     ...Shadows.sm,
   },
   signOutText: { ...Typography.button, color: Colors.text },
+  deleteBtn: { alignItems: 'center', paddingVertical: Spacing.md, marginTop: Spacing.xs },
+  deleteText: { ...Typography.body, color: Colors.error },
 
   // Version
   version: {

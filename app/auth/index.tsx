@@ -10,11 +10,11 @@ import * as AppleAuthentication from 'expo-apple-authentication'
 import {
   signIn, signUp, signInWithGoogle, signInWithApple,
   isAppleNativeSignInAvailable, signInWithAppleNative,
-} from '../lib/auth'
-import { setGuestMode } from '../lib/guest'
-import { useLang } from '../lib/i18n'
-import type { Language } from '../lib/i18n'
-import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
+} from '../../lib/auth'
+import { setGuestMode } from '../../lib/guest'
+import { useLang } from '../../lib/i18n'
+import type { Language } from '../../lib/i18n'
+import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import Constants from 'expo-constants'
 
 type Mode = 'signin' | 'signup'
@@ -121,7 +121,7 @@ export default function AuthScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
           <View style={styles.logoSection}>
-            <Image source={require('../assets/balkanea-logo.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={require('../../assets/balkanea-logo.png')} style={styles.logo} resizeMode="contain" />
             <Text style={styles.tagline}>{t.auth.tagline}</Text>
           </View>
 
