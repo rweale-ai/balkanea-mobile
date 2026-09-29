@@ -11,6 +11,7 @@ import {
   signIn, signUp, signInWithGoogle, signInWithApple,
   isAppleNativeSignInAvailable, signInWithAppleNative,
 } from '../../lib/auth'
+import { showMessage } from '../../lib/alert'
 import { setGuestMode } from '../../lib/guest'
 import { useLang } from '../../lib/i18n'
 import type { Language } from '../../lib/i18n'
@@ -80,26 +81,24 @@ export default function AuthScreen() {
 
   const handleEmailSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert(t.auth.missingFields, t.auth.enterEmailPassword)
+      showMessage(t.auth.missingFields, t.auth.enterEmailPassword)
       return
     }
     if (mode === 'signup' && !fullName.trim()) {
-      Alert.alert(t.auth.missingFields, t.auth.enterFullName)
+      showMessage(t.auth.missingFields, t.auth.enterFullName)
       return
     }
     setLoading(true)
     try {
       if (mode === 'signup') {
         await signUp(email.trim(), password, fullName.trim())
-        Alert.alert(t.auth.checkEmail, t.auth.confirmationSent, [
-          { text: 'OK', onPress: () => setMode('signin') },
-        ])
+        showMessage(t.auth.checkEmail, t.auth.confirmationSent, () => setMode('signin'))
       } else {
         await signIn(email.trim(), password)
         goAfterAuth()
       }
     } catch (err: any) {
-      Alert.alert(t.auth.error, err?.message ?? 'Something went wrong')
+      showMessage(t.auth.error, err?.message ?? 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -131,7 +130,7 @@ export default function AuthScreen() {
             {/* Social login */}
             <View style={styles.socialRow}>
               <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}
-                onPress={async () => { try { await signInWithGoogle(); goAfterAuth() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? t.auth.googleSignInFailed) } }}>
+                onPress={async () => { try { await signInWithGoogle(); goAfterAuth() } catch (e: any) { showMessage(t.auth.error, e?.message ?? t.auth.googleSignInFailed) } }}>
                 <Text style={styles.googleIcon}>G</Text>
                 <Text style={styles.socialText}>{t.auth.google}</Text>
               </TouchableOpacity>
@@ -147,14 +146,14 @@ export default function AuthScreen() {
                       goAfterAuth()
                     } catch (e: any) {
                       if (e?.code !== 'ERR_REQUEST_CANCELED') {
-                        Alert.alert(t.auth.error, e?.message ?? t.auth.appleSignInFailed)
+                        showMessage(t.auth.error, e?.message ?? t.auth.appleSignInFailed)
                       }
                     }
                   }}
                 />
               ) : (
                 <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}
-                  onPress={async () => { try { await signInWithApple(); goAfterAuth() } catch (e: any) { Alert.alert(t.auth.error, e?.message ?? t.auth.appleSignInFailed) } }}>
+                  onPress={async () => { try { await signInWithApple(); goAfterAuth() } catch (e: any) { showMessage(t.auth.error, e?.message ?? t.auth.appleSignInFailed) } }}>
                   <Ionicons name="logo-apple" size={18} color={Colors.text} />
                   <Text style={styles.socialText}>{t.auth.apple}</Text>
                 </TouchableOpacity>
