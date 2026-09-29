@@ -16,6 +16,7 @@ import type { Hotel, HotelSearchParams } from '../lib/types'
 import { trackViewedHotel } from '../lib/session-store'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
 import { validateRoomsConfig } from '../lib/rooms-config'
+import { HotelReviews } from '../components/hotel/HotelReviews'
 
 export default function HotelDetailScreen() {
   const router = useRouter()
@@ -267,6 +268,9 @@ export default function HotelDetailScreen() {
             ))}
           </ScrollView>
         </View>
+
+        {/* Real RateHawk guest reviews -- live hotels only; hidden when none */}
+        {hotel.hasLiveRates && <HotelReviews hotelId={hotel.hotel_id} />}
 
         {/* Ask Nea about reviews */}
         <View style={styles.section}>

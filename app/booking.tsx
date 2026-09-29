@@ -342,6 +342,10 @@ export default function BookingScreen() {
   const recoveryAttemptedRef = useRef(false)
   const [priceChangedRoom, setPriceChangedRoom] = useState<RoomType | null>(null)
   const [roomRefreshed, setRoomRefreshed] = useState(false)
+  // Set when the hold locked a different price than room selection quoted
+  // (totals in the quote currency, before -> after). The Pay button already
+  // uses the locked price; this just tells the guest why it moved.
+  const [lockedPriceNote, setLockedPriceNote] = useState<{ from: number; to: number } | null>(null)
 
   const currency = (params.currency ?? getCurrency()) as CurrencyCode
 
@@ -436,6 +440,22 @@ export default function BookingScreen() {
   // a real book_hash (live RateHawk search, currently only Los Angeles) get a
   // real prebook call here -- cheap and non-committing, no order created yet.
   // Every other room keeps using the simulated stub, untouched.
+  // Live holds return the LOCKED price (Ray, 2026-09-29): the guest always
+  // pays exactly that. Apply it to the room when it differs from the quote
+  // (same room_id, so no re-hold). Returns false when it can't be trusted
+  // (a different currency than this booking's quote) -> treat as unavailable.
+  const applyLockedPrice = (l: RoomLock, h: Hotel, r: RoomType): boolean => {
+    if (!r.book_hash || l.lockedTotal == null) return true
+    if (l.lockedCurrency && l.lockedCurrency !== quoteCurrency) return false
+    const locked = Math.round(l.lockedTotal)
+    if (locked === r.total_price) return true // rounding only -- unchanged
+    const perRoomNights = Math.max(1, nights) * Math.max(1, r.priced_for_rooms || 1)
+    const lockedRoom: RoomType = { ...r, total_price: locked, price_per_night: Math.round(l.lockedTotal / perRoomNights) }
+    setLockedPriceNote({ from: roomChargeTotal(r, roomCount), to: roomChargeTotal(lockedRoom, roomCount) })
+    setHotelRoom({ hotel: h, room: lockedRoom })
+    return true
+  }
+
   const doLock = useCallback((h: Hotel, r: RoomType) => (
     r.book_hash ? realLockRoom(r.book_hash) : lockRoom(h.hotel_id, r.room_id)
   ), [])
@@ -446,6 +466,7 @@ export default function BookingScreen() {
     setLockState('locking')
     doLock(hotel, room).then(l => {
       if (cancelled) return
+      if (!applyLockedPrice(l, hotel, room)) { setLockState('unavailable'); return }
       setLock(l)
       setLockState('held')
     }).catch(async () => {
@@ -476,6 +497,7 @@ export default function BookingScreen() {
       if (remaining === 0 && hotel && room && lockState !== 'renewing' && payState === 'idle') {
         setLockState('renewing')
         doLock(hotel, room).then(l => {
+          if (!applyLockedPrice(l, hotel, room)) { setLockState('unavailable'); return }
           setLock(l)
           setLockState('held')
         }).catch(() => setLockState('unavailable'))
@@ -1231,6 +1253,16 @@ export default function BookingScreen() {
             <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
               <Text style={s.retryText}>{t.booking.chooseAnotherRoom}</Text>
             </TouchableOpacity>
+          </View>
+        )}
+        {lockedPriceNote && lockState === 'held' && payState === 'idle' && (
+          <View style={s.holdBanner}>
+            <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+            <Text style={s.holdBannerText}>
+              {t.booking.lockedPriceChanged
+                .replace('{{from}}', formatPrice(lockedPriceNote.from, bookingCurrency))
+                .replace('{{to}}', formatPrice(lockedPriceNote.to, bookingCurrency))}
+            </Text>
           </View>
         )}
         {roomRefreshed && payState === 'idle' && lockState === 'held' && (

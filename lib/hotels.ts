@@ -1,5 +1,6 @@
 import type { Hotel, HotelSearchParams, RoomType, RoomGuestConfig } from './types'
 import { ratehawkHeaders, RATEHAWK_ENV } from './ratehawk-env'
+import { getResidency } from './residency'
 
 import { BACKEND_URL } from './backend-url'
 
@@ -129,6 +130,8 @@ export async function searchHotelsDetailed(params: HotelSearchParams): Promise<S
         checkin: params.checkin,
         checkout: params.checkout,
         guests: params.adults + params.children,
+        // Guest's residency (lib/residency.ts) -- same value on every pricing call.
+        residency: getResidency(),
         max_price_per_night: params.maxPricePerNight,
         // Added 2026-08-27 -- minStars existed on this type but was never
         // actually sent to the real backend (only the simulated fallback
@@ -273,8 +276,8 @@ export async function fetchRealRoomTypes(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
       body: JSON.stringify(roomsConfig
-        ? { hotel_id: hotelId, checkin, checkout, currency, rooms: roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) }
-        : { hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
+        ? { hotel_id: hotelId, checkin, checkout, currency, residency: getResidency(), rooms: roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) }
+        : { hotel_id: hotelId, checkin, checkout, adults, children: [], currency, residency: getResidency() }),
     })
     const data = await res.json()
     const roomTypes: RoomType[] = data.success && data.room_types ? data.room_types : []
@@ -293,4 +296,42 @@ export async function fetchRealRoomTypes(
 // Shows "—" rather than any default -- see Hotel.guest_rating in types.ts.
 export function formatGuestRating(hotel: Pick<Hotel, 'guest_rating'>): string {
   return hotel.guest_rating != null && hotel.guest_rating > 0 ? hotel.guest_rating.toFixed(1) : '—'
+}
+
+// Real RateHawk guest reviews for one hotel (sandbox: Chat
+// sandbox.hotel_ratings via search-hotels mode 'hotel_reviews'). Empty
+// result = no reviews; errors resolve to null (the page just hides them).
+export interface HotelReview {
+  id?: number
+  review_plus: string | null
+  review_minus: string | null
+  created: string | null
+  rating: number | null
+  trip_type?: string | null
+}
+export interface HotelReviews {
+  rating: number | null
+  detailed_ratings: Record<string, number | string | null> | null
+  reviews: HotelReview[]
+  review_count: number
+}
+
+export async function fetchHotelReviews(hotelId: string): Promise<HotelReviews | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+      body: JSON.stringify({ mode: 'hotel_reviews', hotel_id: hotelId }),
+    })
+    const data = await res.json()
+    if (!data.success) return null
+    return {
+      rating: typeof data.rating === 'number' ? data.rating : null,
+      detailed_ratings: data.detailed_ratings ?? null,
+      reviews: Array.isArray(data.reviews) ? data.reviews : [],
+      review_count: data.review_count ?? 0,
+    }
+  } catch {
+    return null
+  }
 }

@@ -15,7 +15,17 @@ import type { RoomGuestConfig } from './types'
 export interface RoomLock {
   lockId: string
   expiresAt: number
+  // Live RateHawk holds only: the LOCKED price of this hold (covers every
+  // room of a multi-room rate) and its currency. What the guest pays.
+  lockedTotal?: number | null
+  lockedCurrency?: string | null
+  priceChanged?: boolean
 }
+
+// How far above the quoted price RateHawk may lock a room instead of failing
+// the hold (Ray, 2026-09-29: show the locked price, flag the change, guest
+// decides before paying). A business setting -- change here.
+export const PRICE_INCREASE_ALLOWANCE_PERCENT = 20
 
 const LOCK_DURATION_MS = 60_000
 
@@ -54,13 +64,16 @@ export async function realLockRoom(bookHash: string): Promise<RoomLock> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-prebook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
-    body: JSON.stringify({ book_hash: bookHash }),
+    body: JSON.stringify({ book_hash: bookHash, price_increase_percent: PRICE_INCREASE_ALLOWANCE_PERCENT }),
   })
   const data = await res.json()
   if (!data.success) throw new Error(data.error || 'This room is no longer available')
   return {
     lockId: data.book_hash,
     expiresAt: Date.now() + LOCK_DURATION_MS,
+    lockedTotal: typeof data.show_amount === 'number' ? data.show_amount : null,
+    lockedCurrency: data.currency ?? null,
+    priceChanged: !!data.price_changed,
   }
 }
 
