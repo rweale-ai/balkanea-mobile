@@ -1,5 +1,6 @@
 import type { Hotel, HotelSearchParams, RoomType, RoomGuestConfig } from './types'
 import { ratehawkHeaders, RATEHAWK_ENV } from './ratehawk-env'
+import { getResidency } from './residency'
 
 import { BACKEND_URL } from './backend-url'
 
@@ -129,6 +130,8 @@ export async function searchHotelsDetailed(params: HotelSearchParams): Promise<S
         checkin: params.checkin,
         checkout: params.checkout,
         guests: params.adults + params.children,
+        // Guest's residency (lib/residency.ts) -- same value on every pricing call.
+        residency: getResidency(),
         max_price_per_night: params.maxPricePerNight,
         // Added 2026-08-27 -- minStars existed on this type but was never
         // actually sent to the real backend (only the simulated fallback
@@ -266,8 +269,8 @@ export async function fetchRealRoomTypes(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
       body: JSON.stringify(roomsConfig
-        ? { hotel_id: hotelId, checkin, checkout, currency, rooms: roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) }
-        : { hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
+        ? { hotel_id: hotelId, checkin, checkout, currency, residency: getResidency(), rooms: roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) }
+        : { hotel_id: hotelId, checkin, checkout, adults, children: [], currency, residency: getResidency() }),
     })
     const data = await res.json()
     const roomTypes: RoomType[] = data.success && data.room_types ? data.room_types : []

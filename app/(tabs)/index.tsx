@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getUser, signOut } from '../../lib/auth'
 import { useLang } from '../../lib/i18n'
 import { useCurrency, formatPrice } from '../../lib/currency'
+import { setResidency } from '../../lib/residency'
 import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import { formatGuestRating } from '../../lib/hotels'
@@ -475,6 +476,8 @@ export default function SearchScreen() {
               currency={currency}
               onCountryChange={(c) => {
                 setCountry(c)
+                // An explicit pick is the guest's residency for RateHawk pricing.
+                setResidency(c)
                 setAppLang(c === 'mk' ? 'mk' : 'en')
               }}
               onCurrencyChange={setCurrency}
