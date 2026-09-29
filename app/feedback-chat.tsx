@@ -18,7 +18,7 @@ import type { ChatMessage } from '../lib/types'
 
 export default function FeedbackChatScreen() {
   const router = useRouter()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const params = useLocalSearchParams<{
     hotelName: string
     destination: string
@@ -66,7 +66,7 @@ export default function FeedbackChatScreen() {
       ))
     }
 
-    const response = await sendFeedbackMessage(allMessages, onToken)
+    const response = await sendFeedbackMessage(allMessages, onToken, lang)
     rawConversationRef.current += `Nea: ${response.content}\n`
 
     if (response.type === 'feedback' && response.feedbackData) {

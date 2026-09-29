@@ -173,46 +173,7 @@ export async function searchHotelsDetailed(params: HotelSearchParams): Promise<S
         // display per-room detail, multiplied by every screen that re-searches
         // (RateHawk's own error set includes endpoint_exceeded_limit). Fetch
         // once, lazily, only for the one hotel a guest actually opens.
-        const isLive = data.simulated === false
-
-        const mapped = data.results.map((h: any) => ({
-          ...h,
-          // Real rating or null -- no default (was a fabricated 8.0).
-          guest_rating: h.guest_rating ?? null,
-          review_count: h.review_count ?? 0,
-          distance_to_center: h.distance_to_center ?? 1.0,
-          images: h.images ?? [`https://picsum.photos/seed/${h.hotel_id}/800/600`],
-          room_types: h.room_types ?? (isLive ? [] : ROOM_TEMPLATES.map((rt, i) => ({
-            ...rt,
-            room_id: `${h.hotel_id}-${rt.room_id}`,
-            price_per_night: h.price_per_night + i * 20,
-            total_price: (h.price_per_night + i * 20) * nightsBetween(params.checkin, params.checkout),
-          }))),
-          cancellation_policy: h.cancellation_policy ?? 'Contact hotel for cancellation policy',
-          meal_plan: h.meal_plan ?? 'Room only',
-          latitude: h.latitude ?? 0,
-          longitude: h.longitude ?? 0,
-          hasLiveRates: isLive,
-        }))
-
-        // Traveler asked for a SPECIFIC hotel by name (e.g. "book it again"
-        // against a past booking) -- a plain destination search has no way
-        // to know that, and the UI labels whatever comes back first as
-        // "Nea's top pick" (see app/(tabs)/index.tsx's isTopPick={idx===0}).
-        // Move a name match to the front rather than leaving it to
-        // whatever the destination search happened to sort first -- this
-        // was invisible while Los Angeles only ever returned one hotel
-        // (Conrad), and became a real bug once it returned 50 real ones.
-        if (params.hotelName) {
-          const needle = params.hotelName.trim().toLowerCase()
-          const matchIdx = mapped.findIndex((h: Hotel) => h.name.toLowerCase().includes(needle))
-          if (matchIdx > 0) {
-            const [match] = mapped.splice(matchIdx, 1)
-            mapped.unshift(match)
-          }
-        }
-
-        return { hotels: mapped as Hotel[], unavailable: false }
+        return { hotels: mapBackendHotels(data.results, data.simulated, params), unavailable: false }
       }
       // A genuine real search that just found nothing (e.g. the only live
       // RateHawk test hotel doesn't have a room under the requested budget)
@@ -236,6 +197,52 @@ export async function searchHotelsDetailed(params: HotelSearchParams): Promise<S
     return { hotels: [], unavailable: true, message: failMessage }
   }
   return { hotels: generateHotels(params), unavailable: false }
+}
+
+// Shape raw /api/search-hotels results into app Hotels. Shared by
+// searchHotelsDetailed() and Nea's search_hotels tool results
+// (lib/claude.ts), which come back from the backend in the same raw shape.
+export function mapBackendHotels(results: any[], simulated: unknown, params: HotelSearchParams): Hotel[] {
+  const isLive = simulated === false
+
+  const mapped = results.map((h: any) => ({
+    ...h,
+    // Real rating or null -- no default (was a fabricated 8.0).
+    guest_rating: h.guest_rating ?? null,
+    review_count: h.review_count ?? 0,
+    distance_to_center: h.distance_to_center ?? 1.0,
+    images: h.images ?? [`https://picsum.photos/seed/${h.hotel_id}/800/600`],
+    room_types: h.room_types ?? (isLive ? [] : ROOM_TEMPLATES.map((rt, i) => ({
+      ...rt,
+      room_id: `${h.hotel_id}-${rt.room_id}`,
+      price_per_night: h.price_per_night + i * 20,
+      total_price: (h.price_per_night + i * 20) * nightsBetween(params.checkin, params.checkout),
+    }))),
+    cancellation_policy: h.cancellation_policy ?? 'Contact hotel for cancellation policy',
+    meal_plan: h.meal_plan ?? 'Room only',
+    latitude: h.latitude ?? 0,
+    longitude: h.longitude ?? 0,
+    hasLiveRates: isLive,
+  }))
+
+  // Traveler asked for a SPECIFIC hotel by name (e.g. "book it again"
+  // against a past booking) -- a plain destination search has no way
+  // to know that, and the UI labels whatever comes back first as
+  // "Nea's top pick" (see app/(tabs)/index.tsx's isTopPick={idx===0}).
+  // Move a name match to the front rather than leaving it to
+  // whatever the destination search happened to sort first -- this
+  // was invisible while Los Angeles only ever returned one hotel
+  // (Conrad), and became a real bug once it returned 50 real ones.
+  if (params.hotelName) {
+    const needle = params.hotelName.trim().toLowerCase()
+    const matchIdx = mapped.findIndex((h: Hotel) => h.name.toLowerCase().includes(needle))
+    if (matchIdx > 0) {
+      const [match] = mapped.splice(matchIdx, 1)
+      mapped.unshift(match)
+    }
+  }
+
+  return mapped
 }
 
 export function searchHotelsSync(params: HotelSearchParams): Hotel[] {
