@@ -117,3 +117,19 @@ changed, or submit the 2026-08-24 order ids for those two.
    `EXPO_PUBLIC_CLAUDE_API_KEY` from Mobile `.env` and EAS.
 5. Add a real per-IP rate limit on `/api/nea-chat` before production traffic.
 6. Switching the app to test production later: `EXPO_PUBLIC_RATEHAWK_ENV=test-production`.
+
+## 10. Sandbox test-case run, 2026-09-29 (all 7 behave as expected)
+
+These ran against api-sandbox.worldota.net with key 973, using the 5-step flow: search, prebook, booking form, finish, status poll. They were run with a direct test script, not through the app's UI.
+
+| Test case | Order ID | Result |
+|---|---|---|
+| Multi-room (mixed adults and children) | 100072071 | ok |
+| Children, Monaco residency | 100072075 | ok |
+| Uzbekistan citizenship | 100072083 | ok |
+| Prebook 10% price increase (Rosa Bell Motel) | 100072085 | ok |
+| Unknown error, then success | 100072089 | ok after retries |
+| Unknown error, then soldout | 100072091 | failed with `soldout` (expected) |
+| Unknown error, then book_limit | 100072093 | failed with `book_limit` (expected) |
+
+On 9/28 the Monaco and book_limit cases failed with `rate_not_found`. That was a temporary sandbox problem, and they pass on this rerun.
