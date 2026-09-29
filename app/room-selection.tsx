@@ -6,13 +6,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels, fetchRealRoomTypes } from '../lib/hotels'
+import { searchHotels, fetchRealRoomTypes, formatGuestRating } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType } from '../lib/types'
-import { validateRoomsConfig } from '../lib/rooms-config'
+import { validateRoomsConfig, roomChargeTotal, needsRoomDetailsForLiveRates } from '../lib/rooms-config'
 import { currentCancellationStatus, formatCancellationDate } from '../lib/cancellation'
 
 // Real rooms (book_hash present) carry the actual RateHawk penalty schedule
@@ -74,6 +74,7 @@ export default function RoomSelectionScreen() {
       adults: parseInt(params.adults || '2', 10),
       children: parseInt(params.children || '0', 10),
       rooms: parseInt(params.rooms || '1', 10),
+      roomsConfig,
       currency: params.currency || getCurrency(),
       // Must match the original search's price filter — see hotel-detail.tsx
       maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
@@ -88,7 +89,7 @@ export default function RoomSelectionScreen() {
       // would just be a second, redundant hotelpage call.
       if (h?.hasLiveRates && h.room_types.length === 0) {
         const selectedCurrency = params.currency || getCurrency()
-        const { roomTypes, currency: quotedCurrency } = await fetchRealRoomTypes(h.hotel_id, params.checkin, params.checkout, parseInt(params.adults || '2', 10), selectedCurrency)
+        const { roomTypes, currency: quotedCurrency } = await fetchRealRoomTypes(h.hotel_id, params.checkin, params.checkout, parseInt(params.adults || '2', 10), selectedCurrency, roomsConfig)
         if (cancelled) return
         // Empty means the real fetch failed or this hotel has no bookable
         // rates right now -- fall to the existing "not found" screen rather
@@ -103,7 +104,7 @@ export default function RoomSelectionScreen() {
       setHotelLoading(false)
     })
     return () => { cancelled = true }
-  }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight])
+  }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight, params.roomsConfig])
 
   const nights = useMemo(() => {
     if (!params.checkin || !params.checkout) return 1
@@ -168,7 +169,17 @@ export default function RoomSelectionScreen() {
     // multiplies price by roomCount for hasLiveRates hotels same as any
     // other). Blocked here until real multi-room RateHawk booking (separate
     // prebook/order per room) is built, rather than shipping the overcharge.
-    if (room.book_hash && roomCount > 1) {
+    // 2026-09-28: live multi-room now works when the rate was priced for the
+    // real per-room composition (priced_for_rooms === roomCount; Chat
+    // hotel-rooms/ratehawk-book carry the same rooms to RateHawk, verified
+    // with sandbox order 100070843). Without that composition -- or with
+    // children but no ages -- RateHawk would price and book the wrong thing,
+    // so ask for the details instead.
+    if (room.book_hash && needsRoomDetailsForLiveRates(roomsConfig, roomCount, parseInt(params.children || '0', 10))) {
+      Alert.alert(t.roomSelect.roomDetailsNeededTitle, t.roomSelect.roomDetailsNeededBody)
+      return
+    }
+    if (room.book_hash && roomCount > 1 && room.priced_for_rooms !== roomCount) {
       Alert.alert(t.roomSelect.multiRoomUnavailableTitle, t.roomSelect.multiRoomUnavailableBody)
       return
     }
@@ -234,7 +245,7 @@ export default function RoomSelectionScreen() {
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.hotelLine}>
-          <Text style={styles.hotelLineBold}>{hotel.name}</Text> · {hotel.address.split(',')[0]} · ★ {hotel.guest_rating}
+          <Text style={styles.hotelLineBold}>{hotel.name}</Text> · {hotel.address.split(',')[0]}{hotel.guest_rating != null ? ` · ★ ${formatGuestRating(hotel)}` : ''}
         </Text>
 
         {hotel.room_types.map(room => {
@@ -293,8 +304,8 @@ export default function RoomSelectionScreen() {
                     {formatPrice(room.price_per_night, activeCurrency)}<Text style={styles.rcPriceUnit}> {t.hotel.perNight}</Text>
                   </Text>
                   <Text style={styles.rcTotal}>
-                    {formatPrice(room.total_price * roomCount, activeCurrency)} {t.hotel.total.toLowerCase()}
-                    {roomCount > 1 ? ` (× ${roomCount} rooms)` : ''}
+                    {formatPrice(roomChargeTotal(room, roomCount), activeCurrency)} {t.hotel.total.toLowerCase()}
+                    {roomCount > 1 ? (room.priced_for_rooms ? ` (${roomCount} rooms)` : ` (× ${roomCount} rooms)`) : ''}
                   </Text>
                 </View>
                 <TouchableOpacity

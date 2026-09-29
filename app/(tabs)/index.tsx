@@ -21,8 +21,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getUser, signOut } from '../../lib/auth'
 import { useLang } from '../../lib/i18n'
 import { useCurrency, formatPrice } from '../../lib/currency'
+import { setResidency } from '../../lib/residency'
 import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
+import { formatGuestRating } from '../../lib/hotels'
 
 const BALKANEA_PHONE = '+38923100200'
 
@@ -89,8 +91,8 @@ function InlineHotelCard({
         <Text style={s.hotelName} numberOfLines={1}>{hotel.name}</Text>
         <View style={s.hotelMeta}>
           <Ionicons name="star" size={10} color={Colors.star} />
-          <Text style={s.hotelRating}>{hotel.guest_rating > 0 ? hotel.guest_rating.toFixed(1) : '—'}</Text>
-          {hotel.guest_rating > 0 && (
+          <Text style={s.hotelRating}>{formatGuestRating(hotel)}</Text>
+          {hotel.guest_rating != null && hotel.guest_rating > 0 && (
             <Text style={s.hotelReviews}> · {hotel.stars}★</Text>
           )}
         </View>
@@ -215,6 +217,9 @@ function MessageBubble({
                         children: String(block.searchParams?.children ?? 0),
                         rooms: String(block.searchParams?.rooms ?? 1),
                         currency: block.searchParams?.currency ?? currency,
+                        // Per-room composition (children's ages) so live
+                        // prices on the next screens are for the real stay.
+                        roomsConfig: block.searchParams?.roomsConfig ? JSON.stringify(block.searchParams.roomsConfig) : '',
                       },
                     })}
                   >
@@ -471,6 +476,8 @@ export default function SearchScreen() {
               currency={currency}
               onCountryChange={(c) => {
                 setCountry(c)
+                // An explicit pick is the guest's residency for RateHawk pricing.
+                setResidency(c)
                 setAppLang(c === 'mk' ? 'mk' : 'en')
               }}
               onCurrencyChange={setCurrency}

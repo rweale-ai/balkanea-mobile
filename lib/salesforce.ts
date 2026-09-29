@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
+import { BACKEND_URL } from './backend-url'
 
 interface LeadData {
   first_name?: string

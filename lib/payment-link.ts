@@ -3,7 +3,7 @@
 // server-side (LINK_SECRET never ships in the app); this just asks for one
 // and returns whatever card_url it gets back.
 
-const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
+import { BACKEND_URL } from './backend-url'
 
 export interface PaymentLinkGuest {
   firstName?: string

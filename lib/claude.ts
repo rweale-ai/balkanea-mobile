@@ -1,5 +1,5 @@
 import type { ChatMessage, PlannerResponse, HotelSearchParams } from './types'
-import { searchHotels } from './hotels'
+import { searchHotels, searchHotelsDetailed } from './hotels'
 import { fetchAllKnowledge } from './knowledge'
 import { getTravelProfile, saveTravelProfile } from './travel-profile'
 import { describeBookings } from './bookings-store'
@@ -59,7 +59,10 @@ Include "hotelName" in the ---HOTELS--- JSON whenever they name a hotel outright
 ## If the traveler needs more than one room
 Do NOT silently split a large group across rooms yourself. Ask how they'd like to split up -- how many adults and children (with ages) in each room -- before searching. Once you know the split, include "roomsConfig" in the ---HOTELS--- JSON: an array with one entry per room, e.g. for 2 rooms (one with 2 adults, one with 2 adults and a 7-year-old):
 {"roomsConfig":[{"adults":2,"childAges":[]},{"adults":2,"childAges":[7]}],"rooms":2, ...rest same as above}
-When "roomsConfig" is present you can omit "adults"/"children" (they'll be computed from it), but always still include "rooms" matching its length. This only applies when more than one room is actually needed -- for a single room, use the format above exactly and don't ask this question.
+When "roomsConfig" is present you can omit "adults"/"children" (they'll be computed from it), but always still include "rooms" matching its length. For a single room with only adults, use the format above exactly and don't ask this question.
+
+## If children are travelling
+Whenever the traveler mentions children -- even for a single room -- ask each child's age (0-17) before searching, then include "roomsConfig" with those ages, e.g. one room with 2 adults and children aged 4 and 9: {"roomsConfig":[{"adults":2,"childAges":[4,9]}],"rooms":1, ...}. Hotels price and book children by age, so never search with a children count but no ages.
 
 ## If still gathering info: just write your reply, no marker.
 
@@ -119,7 +122,14 @@ export async function sendMessage(
     ? `\n\n## Bookings this traveler already has confirmed\n${bookings}\nThese are already booked and paid — never say a hotel is "being sorted", "in progress", or ask the traveler to choose it again. If asked what they've booked, state these directly. Only revisit hotel search if the traveler explicitly asks to change or add a booking.`
     : ''
 
-  const system = `${BASE_SYSTEM_PROMPT}${langInstruction}${profileInstruction}${bookingsInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
+  // Nea was never told today's date, so "October 15th" came back as a past
+  // year (2024/2025 seen in testing), search-hotels rejected it as in the
+  // past, and searchHotels() fell back to fabricated hotels. Europe/Skopje
+  // since that's where the customers are.
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Skopje' })
+  const dateInstruction = `\n\n## Today's date\n${today}. Always search for future dates -- if a date the traveler gives has already passed this year, they mean next year.`
+
+  const system = `${BASE_SYSTEM_PROMPT}${dateInstruction}${langInstruction}${profileInstruction}${bookingsInstruction}${knowledge ? `\n\n${knowledge}` : ''}`
 
   const result = await runMessageLoop(apiKey, system, messages, onToken, WEB_SEARCH_TOOLS)
   if (result.type === 'hotels' && result.searchParams) {
@@ -488,7 +498,14 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         amenityPreferences: raw.amenityPreferences,
         hotelName: raw.hotelName,
       }
-      let hotels = await searchHotels(searchParams)
+      const firstSearch = await searchHotelsDetailed(searchParams)
+      // Search itself failed (e.g. a RateHawk sandbox outage) -- say so
+      // instead of showing "no hotels" or relaxing filters that weren't the
+      // problem.
+      if (firstSearch.unavailable) {
+        return { type: 'message', content: `${prose}\n\n${firstSearch.message ?? "I couldn't reach live hotel availability right now. Please try again in a minute."}` }
+      }
+      let hotels = firstSearch.hotels
       let content = prose
 
       // A genuine zero-result answer under an amenity filter -- the backend
@@ -532,6 +549,12 @@ async function parseStreamedResponse(text: string): Promise<PlannerResponse> {
         }
       }
 
+      // Nothing found even after relaxing -- pass on the backend's own
+      // explanation when it gave one (e.g. sandbox "Test mode: only Los
+      // Angeles, Paris and Dubai").
+      if (hotels.length === 0 && firstSearch.message) {
+        content = `${prose}\n\n${firstSearch.message}`
+      }
       return { type: 'hotels', content, hotels, searchParams }
     } catch {
       return { type: 'message', content: prose }

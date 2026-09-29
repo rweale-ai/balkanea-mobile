@@ -1,6 +1,8 @@
-import type { Hotel, HotelSearchParams, RoomType } from './types'
+import type { Hotel, HotelSearchParams, RoomType, RoomGuestConfig } from './types'
+import { ratehawkHeaders, RATEHAWK_ENV } from './ratehawk-env'
+import { getResidency } from './residency'
 
-const BACKEND_URL = 'https://balkanea-lead-webhook.vercel.app'
+import { BACKEND_URL } from './backend-url'
 
 const ROOM_TEMPLATES: RoomType[] = [
   { room_id: 'std', name: 'Standard Double Room', max_guests: 2, price_per_night: 0, total_price: 0, meal_plan: 'Room only', cancellation: 'Free cancellation until 48h before check-in', beds: '1 double bed' },
@@ -103,16 +105,33 @@ function generateHotels(params: HotelSearchParams): Hotel[] {
 // project memory: balkanea-mobile booking flow, call with Jasmina
 // 2026-06-30). The simulated fallback below stands in for that B2C file
 // until real sandbox/production RateHawk credentials are available.
+export interface SearchOutcome {
+  hotels: Hotel[]
+  // true = the search itself failed (backend/RateHawk unreachable, e.g. the
+  // sandbox's HTTP 522 outages) -- NOT the same as a real zero-result search.
+  unavailable: boolean
+  // Backend's own explanation when there are no hotels (e.g. "Test mode:
+  // only Los Angeles, Paris and Dubai") or the failure reason.
+  message?: string
+}
+
 export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> {
+  return (await searchHotelsDetailed(params)).hotels
+}
+
+export async function searchHotelsDetailed(params: HotelSearchParams): Promise<SearchOutcome> {
+  let failMessage: string | undefined
   try {
     const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
       body: JSON.stringify({
         destination: params.destination,
         checkin: params.checkin,
         checkout: params.checkout,
         guests: params.adults + params.children,
+        // Guest's residency (lib/residency.ts) -- same value on every pricing call.
+        residency: getResidency(),
         max_price_per_night: params.maxPricePerNight,
         // Added 2026-08-27 -- minStars existed on this type but was never
         // actually sent to the real backend (only the simulated fallback
@@ -132,6 +151,10 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
         // simulated number -- was never sent at all before 2026-08-26, so
         // results always came back USD-quoted regardless of selection.
         currency: params.currency,
+        // Real per-room composition (children with ages) when known, so
+        // live card prices match the room page and the booking charge
+        // (Chat search-hotels sandbox branch, 2026-09-28).
+        ...(params.roomsConfig ? { rooms: params.roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) } : {}),
       }),
     })
 
@@ -154,7 +177,9 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
 
         const mapped = data.results.map((h: any) => ({
           ...h,
-          guest_rating: h.guest_rating ?? 8.0,
+          // Real rating or null -- no default (was a fabricated 8.0).
+          guest_rating: h.guest_rating ?? null,
+          review_count: h.review_count ?? 0,
           distance_to_center: h.distance_to_center ?? 1.0,
           images: h.images ?? [`https://picsum.photos/seed/${h.hotel_id}/800/600`],
           room_types: h.room_types ?? (isLive ? [] : ROOM_TEMPLATES.map((rt, i) => ({
@@ -187,7 +212,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
           }
         }
 
-        return mapped
+        return { hotels: mapped as Hotel[], unavailable: false }
       }
       // A genuine real search that just found nothing (e.g. the only live
       // RateHawk test hotel doesn't have a room under the requested budget)
@@ -196,14 +221,21 @@ export async function searchHotels(params: HotelSearchParams): Promise<Hotel[]> 
       // Callers that want a fallback (e.g. the chat flow retrying without
       // the price cap) see this as a real, empty result and can react to it.
       if (data.success) {
-        return []
+        return { hotels: [], unavailable: false, message: data.message }
       }
+      failMessage = data.error
     }
   } catch (e) {
-    console.log('Backend search unavailable, using simulated data')
+    console.log('Backend search unavailable')
   }
 
-  return generateHotels(params)
+  // Sandbox testing must never show fabricated hotels: a tester would try to
+  // book one, and an outage would look like real (fake) availability.
+  // Outside sandbox mode the old simulated fallback is unchanged.
+  if (RATEHAWK_ENV === 'sandbox') {
+    return { hotels: [], unavailable: true, message: failMessage }
+  }
+  return { hotels: generateHotels(params), unavailable: false }
 }
 
 export function searchHotelsSync(params: HotelSearchParams): Hotel[] {
@@ -227,19 +259,72 @@ export async function fetchRealRoomTypes(
   checkout: string,
   adults: number,
   currency: string,
+  // Real per-room composition (children with ages). When given, RateHawk
+  // prices ALL rooms in one rate and each returned room is tagged with
+  // priced_for_rooms -- see roomChargeTotal() in lib/rooms-config.ts.
+  roomsConfig?: RoomGuestConfig[],
 ): Promise<{ roomTypes: RoomType[]; currency: string }> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/hotel-rooms`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hotel_id: hotelId, checkin, checkout, adults, children: [], currency }),
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+      body: JSON.stringify(roomsConfig
+        ? { hotel_id: hotelId, checkin, checkout, currency, residency: getResidency(), rooms: roomsConfig.map(r => ({ adults: r.adults, childAges: r.childAges })) }
+        : { hotel_id: hotelId, checkin, checkout, adults, children: [], currency, residency: getResidency() }),
     })
     const data = await res.json()
+    const roomTypes: RoomType[] = data.success && data.room_types ? data.room_types : []
     return {
-      roomTypes: data.success && data.room_types ? data.room_types : [],
+      roomTypes: roomsConfig && data.priced_rooms
+        ? roomTypes.map(rt => ({ ...rt, priced_for_rooms: data.priced_rooms }))
+        : roomTypes,
       currency: data.currency || 'EUR',
     }
   } catch {
     return { roomTypes: [], currency: 'EUR' }
+  }
+}
+
+// Display helper for the real guest rating (null when RateHawk has none).
+// Shows "—" rather than any default -- see Hotel.guest_rating in types.ts.
+export function formatGuestRating(hotel: Pick<Hotel, 'guest_rating'>): string {
+  return hotel.guest_rating != null && hotel.guest_rating > 0 ? hotel.guest_rating.toFixed(1) : '—'
+}
+
+// Real RateHawk guest reviews for one hotel (sandbox: Chat
+// sandbox.hotel_ratings via search-hotels mode 'hotel_reviews'). Empty
+// result = no reviews; errors resolve to null (the page just hides them).
+export interface HotelReview {
+  id?: number
+  review_plus: string | null
+  review_minus: string | null
+  created: string | null
+  rating: number | null
+  trip_type?: string | null
+}
+export interface HotelReviews {
+  rating: number | null
+  detailed_ratings: Record<string, number | string | null> | null
+  reviews: HotelReview[]
+  review_count: number
+}
+
+export async function fetchHotelReviews(hotelId: string): Promise<HotelReviews | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/search-hotels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+      body: JSON.stringify({ mode: 'hotel_reviews', hotel_id: hotelId }),
+    })
+    const data = await res.json()
+    if (!data.success) return null
+    return {
+      rating: typeof data.rating === 'number' ? data.rating : null,
+      detailed_ratings: data.detailed_ratings ?? null,
+      reviews: Array.isArray(data.reviews) ? data.reviews : [],
+      review_count: data.review_count ?? 0,
+    }
+  } catch {
+    return null
   }
 }

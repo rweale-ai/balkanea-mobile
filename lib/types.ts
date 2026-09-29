@@ -68,7 +68,12 @@ export interface Hotel {
   hotel_id: string
   name: string
   stars: number
-  guest_rating: number
+  // Real guest score 0-10 from RateHawk's reviews data (sandbox:
+  // Chat sandbox.hotel_ratings), null when the hotel has none. Never a
+  // default -- the app used to show a made-up 8.0 for every real hotel.
+  guest_rating: number | null
+  // Real number of written reviews behind guest_rating (0 when none).
+  review_count?: number
   address: string
   distance_to_center: number
   price_per_night: number
@@ -120,12 +125,22 @@ export interface RoomType {
   // to run the real prebook/booking flow instead of the simulated stub. Absent
   // for every DB-content/simulated hotel, which keeps their behavior untouched.
   book_hash?: string
+  // Stable identity of a live RateHawk room across re-fetches (book_hash is
+  // single-use) -- how booking.tsx finds the same room again after a stale
+  // rate before payment.
+  match_hash?: string | null
   // Present only alongside book_hash (real rates carry the real schedule;
   // simulated rooms have no real RateHawk terms to show). Persisted onto the
   // Booking at booking time -- see lib/bookings-store.ts -- so the real
   // terms locked in at booking are still known after the room/hotel search
   // result that produced them is gone.
   cancellation_policy?: CancellationPolicy
+  // Live RateHawk rates only: how many rooms this price already covers.
+  // Set when the rate was requested for the real per-room composition
+  // (fetchRealRoomTypes with roomsConfig) -- then total_price is the price
+  // for ALL rooms and must not be multiplied by the room count. See
+  // roomChargeTotal() in lib/rooms-config.ts.
+  priced_for_rooms?: number
 }
 
 export interface Booking {

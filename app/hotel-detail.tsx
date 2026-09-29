@@ -7,7 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels } from '../lib/hotels'
+import { searchHotels, formatGuestRating } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -16,6 +16,7 @@ import type { Hotel, HotelSearchParams } from '../lib/types'
 import { trackViewedHotel } from '../lib/session-store'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
 import { validateRoomsConfig } from '../lib/rooms-config'
+import { HotelReviews } from '../components/hotel/HotelReviews'
 
 export default function HotelDetailScreen() {
   const router = useRouter()
@@ -223,9 +224,11 @@ export default function HotelDetailScreen() {
                 <View key={i} style={styles.starDot} />
               ))}
             </View>
-            <View style={styles.ratingBadge}>
-              <Text style={styles.ratingText}>{hotel.guest_rating}</Text>
-            </View>
+            {hotel.guest_rating != null && (
+              <View style={styles.ratingBadge}>
+                <Text style={styles.ratingText}>{formatGuestRating(hotel)}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.infoRow}>
@@ -265,6 +268,9 @@ export default function HotelDetailScreen() {
             ))}
           </ScrollView>
         </View>
+
+        {/* Real RateHawk guest reviews -- live hotels only; hidden when none */}
+        {hotel.hasLiveRates && <HotelReviews hotelId={hotel.hotel_id} />}
 
         {/* Ask Nea about reviews */}
         <View style={styles.section}>

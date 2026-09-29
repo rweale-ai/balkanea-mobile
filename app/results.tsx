@@ -8,7 +8,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { searchHotels } from '../lib/hotels'
+import { searchHotelsDetailed, formatGuestRating } from '../lib/hotels'
+import { validateRoomsConfig } from '../lib/rooms-config'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice } from '../lib/currency'
 import type { CurrencyCode } from '../lib/locale'
@@ -198,7 +199,7 @@ function HotelCard({
         {/* Rating badge */}
         <View style={hc.ratingBadge}>
           <Ionicons name="star" size={11} color={Colors.star} />
-          <Text style={hc.ratingText}>{hotel.guest_rating.toFixed(1)}</Text>
+          <Text style={hc.ratingText}>{formatGuestRating(hotel)}</Text>
         </View>
       </View>
 
@@ -215,7 +216,7 @@ function HotelCard({
           {hotel.amenities.slice(0, 4).join(' · ')}
         </Text>
         <Text style={hc.reviews}>
-          {hotel.stars}★ · {Math.round(hotel.guest_rating * 100)} {t.results.reviews}
+          {hotel.stars}★{hotel.review_count ? ` · ${hotel.review_count} ${t.results.reviews}` : ''}
         </Text>
       </View>
     </TouchableOpacity>
@@ -472,6 +473,7 @@ export default function ResultsScreen() {
     children?: string
     rooms?: string
     currency?: string
+    roomsConfig?: string
   }>()
 
   // Falls back to the shared preference (lib/currency.ts), not a hardcoded
@@ -490,6 +492,10 @@ export default function ResultsScreen() {
     children: parseInt(params.children ?? '0', 10),
     rooms: parseInt(params.rooms ?? '1', 10),
     currency,
+    roomsConfig: (() => {
+      if (!params.roomsConfig) return undefined
+      try { return validateRoomsConfig(JSON.parse(params.roomsConfig)) } catch { return undefined }
+    })(),
   }
 
   // Load hotels once on mount. searchHotels tries the real hotel-content DB
@@ -498,6 +504,9 @@ export default function ResultsScreen() {
   // re-run the same search later and find the same hotel_id.
   const [allHotels, setAllHotels] = useState<Hotel[]>([])
   const [loading, setLoading] = useState(true)
+  // Why the list is empty, when the backend said: search failed (sandbox
+  // outage) vs. its own explanation (e.g. sandbox test-mode destinations).
+  const [searchNotice, setSearchNotice] = useState<{ unavailable: boolean; message?: string } | null>(null)
   useEffect(() => {
     let cancelled = false
     if (!params.destination) {
@@ -505,8 +514,9 @@ export default function ResultsScreen() {
       return
     }
     setLoading(true)
-    searchHotels(searchParams).then((results) => {
+    searchHotelsDetailed(searchParams).then(({ hotels: results, unavailable, message }) => {
       if (cancelled) return
+      setSearchNotice({ unavailable, message })
       setAllHotels(results)
       setLoading(false)
     })
@@ -543,7 +553,7 @@ export default function ResultsScreen() {
 
     if (sort === 'priceLow') list.sort((a, b) => a.price_per_night - b.price_per_night)
     else if (sort === 'priceHigh') list.sort((a, b) => b.price_per_night - a.price_per_night)
-    else if (sort === 'guestRating') list.sort((a, b) => b.guest_rating - a.guest_rating)
+    else if (sort === 'guestRating') list.sort((a, b) => (b.guest_rating ?? -1) - (a.guest_rating ?? -1)) // unrated last
 
     return list
   }, [allHotels, filters, sort])
@@ -560,6 +570,7 @@ export default function ResultsScreen() {
         rooms: String(searchParams.rooms),
         currency,
         destination: params.destination ?? '',
+        roomsConfig: params.roomsConfig ?? '',
       },
     })
   }, [router, searchParams, currency, params.destination])
@@ -609,8 +620,8 @@ export default function ResultsScreen() {
         ) : filtered.length === 0 ? (
           <View style={s.empty}>
             <Ionicons name="search-outline" size={48} color={Colors.border} />
-            <Text style={s.emptyTitle}>{t.results.noResults}</Text>
-            <Text style={s.emptySub}>{t.results.noResultsSub}</Text>
+            <Text style={s.emptyTitle}>{searchNotice?.unavailable ? t.results.searchUnavailable : t.results.noResults}</Text>
+            <Text style={s.emptySub}>{searchNotice?.unavailable ? t.results.searchUnavailableSub : (allHotels.length === 0 && searchNotice?.message) || t.results.noResultsSub}</Text>
             {activeFilters && (
               <TouchableOpacity style={s.clearBtn} onPress={clearFilters}>
                 <Text style={s.clearBtnText}>{t.results.clearFilters}</Text>
