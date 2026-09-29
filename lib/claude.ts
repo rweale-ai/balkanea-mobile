@@ -6,6 +6,7 @@ import type { ItineraryItemDraft, ItineraryItemType } from './itinerary-store'
 import { BACKEND_URL } from './backend-url'
 import { ratehawkHeaders } from './ratehawk-env'
 import { getCurrency } from './currency'
+import { getResidency } from './residency'
 
 // Nea -- every call goes through the Chat backend (/api/nea-chat), which
 // holds the Anthropic key and owns every prompt (Chat lib/nea.js,
@@ -152,6 +153,8 @@ export async function sendMessage(
     currency: getCurrency(),
     profile: getTravelProfile(),
     bookings: describeBookings(),
+    // Same residency the app's own searches use (lib/residency.ts).
+    residency: getResidency(),
   }, onToken)
   if (!final) return { type: 'error', content: error ?? errorText(language, 'generic') }
   return toPlannerResponse(final, language)
