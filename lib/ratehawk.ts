@@ -125,14 +125,22 @@ async function pollBookingStatus(
   // actually succeeded -- the poll just gave up first. 45 attempts (225s)
   // gives real margin above the documented worst case instead of ~10s.
   for (let attempt = 0; attempt < 45; attempt++) {
-    const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
-      body: JSON.stringify({ partner_order_id: partnerOrderId }),
-    })
-    const data = await res.json()
-    if (typeof data.percent === 'number') onProgress?.(data.percent)
-    if (data.success && data.is_final) return { ok: data.status === 'ok' }
+    // One failed check (network blip, a 5xx from our backend or RateHawk,
+    // an unreadable body) must not end the wait -- the guest has already
+    // paid and the booking may still complete. Keep polling (ETG rule for
+    // 5xx/timeout/unknown on /booking/finish/status/, 2026-09-29).
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/ratehawk-book-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+        body: JSON.stringify({ partner_order_id: partnerOrderId }),
+      })
+      const data = await res.json()
+      if (typeof data.percent === 'number') onProgress?.(data.percent)
+      if (data.success && data.is_final) return { ok: data.status === 'ok' }
+    } catch (e) {
+      console.warn('ratehawk: status check failed, retrying', e)
+    }
     await new Promise<void>(r => setTimeout(r, 5000))
   }
   return { ok: false }
