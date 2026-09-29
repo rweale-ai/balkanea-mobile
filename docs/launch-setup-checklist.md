@@ -39,7 +39,10 @@ The app already shows the native Apple button on iOS. Apple guideline 4.8 requir
 3. **Store listing:** description, screenshots, 512px icon, feature graphic.
 4. **Data safety form:**
    - Data collected: name, email, phone, booking/payment status, chat messages sent to Nea (processed by Anthropic).
-5. **Account deletion:** Play requires *both* the in-app option (done) *and* a **web URL** where users can request deletion without the app. A page or email form on balkanea.com is enough.
+5. **Account deletion:** Play requires *both* the in-app option (done) *and* a **web URL** where users can delete their account without the app.
+   - The web page is built: Chat PR #5, served at `https://balkanea-lead-webhook.vercel.app/delete-account.html` once merged.
+   - Enter that URL in Play Console → Data safety → Data deletion.
+   - Also add it to Supabase Redirect URLs so Google sign-in works on the page.
 6. **Privacy policy URL:** required by both stores.
    - The app's Profile → Terms and Privacy rows are still no-ops. Give me the URLs and I'll wire them in.
 
