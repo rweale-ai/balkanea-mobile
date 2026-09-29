@@ -139,6 +139,10 @@ export default function BookingDetailScreen() {
             const result = await cancelBooking(booking.id)
             if (!result.ok) {
               Alert.alert(t.bookingDetail.cancelBooking, result.reason === 'needs_support' ? t.bookingDetail.cancelNeedsSupport : t.bookingDetail.cancelFailed)
+            } else if (booking.ratehawk_order_id) {
+              // Cancelled at the hotel; the card refund is handled by Balkanea
+              // (ops refund queue) -- no amount promised here.
+              Alert.alert(t.bookingDetail.cancelBooking, t.bookingDetail.cancelledRefundNote)
             }
           },
         },
