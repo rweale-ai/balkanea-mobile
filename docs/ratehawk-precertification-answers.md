@@ -30,7 +30,7 @@ residency (see §4).
 | Payment | Pays by card (Bankart, Balkanea as merchant) | — (Balkanea's gateway) |
 | Confirm | After payment succeeds | `hotel/order/booking/finish/` with one `rooms[]` entry per room, then polls `hotel/order/booking/finish/status/` **[code]** |
 | Documents | Views voucher / invoice | `hotel/order/document/voucher/download/`, `.../info_invoice/download/` **[code]** |
-| Cancel | Taps "Cancel booking" (signed-in guest) | `hotel/order/cancel/` **[code, new 2026-09-28]** — guest refund is a separate manual step **[DECISION]** |
+| Cancel | Taps "Cancel booking" (signed-in guest) | `hotel/order/cancel/` **[code, new 2026-09-28]** — the booking is marked **refund due** (facts: guest paid, RateHawk penalty/refund), ops are emailed and see it in the ops portal, and they refund manually in Bankart **[code; Ray 2026-09-29]** |
 
 ## 3. Payment type
 Form returns `payment_types[0]`; sandbox returns `deposit` and the app uses
@@ -39,20 +39,25 @@ B2B deposit model — confirm with RateHawk **[DECISION]**.
 
 ## 4. Search step
 - **match_hash:** not used; prebook uses the rate's `book_hash` **[code]**.
-- **Prebook / price_increase_percent:** not sent (0%) **[code]**. A price
-  increase makes prebook fail → the guest is told the room is unavailable
-  and is not charged. The app does not read `price_changed` (a price
-  *decrease* after prebook is not passed on). Scenario 4 (Rosa Bell +10%)
-  is only mandatory if we allow increases — we currently don't **[DECISION]**.
+- **Prebook / price_increase_percent:** the app sends **20%** **[code; value
+  is Ray's call, 2026-09-29]**. RateHawk may lock the room up to 20% above the
+  quote; the booking screen then charges exactly the locked `show_amount`
+  and tells the guest the price changed before they pay. A lower locked
+  price is passed on. Above 20% → prebook fails → "room unavailable", no
+  charge. The price is fixed from the hold through payment. So scenario 4
+  (Rosa Bell +10%) applies — verified 2026-09-29: quote EUR 211 → locked
+  231.99, `price_changed: true`. The website sends no percentage (unchanged).
 - **Prebook timeout:** within ETG's 60 s. Sandbox requests allow 55 s
   (measured 8–39 s); production requests 12 s **[code]** — 12 s is tight
   for prebook in production; consider raising **[DECISION]**.
 - **Multiroom:** supported, several rooms in ONE rate/`book_hash` (same
   room type for all rooms) **[code]**.
 - **Children:** supported with ages; the app asks ages before pricing **[code]**.
-- **Residency:** always `gb` today (production region search: `mk`).
-  Should be the guest's real residency (most guests: `mk`) **[DECISION + code
-  follow-up]**.
+- **Residency:** the guest's country from the app's country selector,
+  **default `mk`** **[code; Ray 2026-09-29]**, sent on search, room rates and
+  Nea's searches (the book_hash is bound to it). The Uzbekistan/Monaco
+  certification cases are run by script (the app's country list is the
+  Balkans + a few markets).
 - **Search timeouts:** 12 s per RateHawk call (sandbox order steps 45–55 s) **[code]**.
 - **Final price field:** `payment_options.payment_types[0].show_amount` **[code]**.
 - **Commission:** which side calculates it **[DECISION]**.
@@ -101,3 +106,14 @@ the failures with ~17 min of status polling).
 other scenarios, during a day of sandbox instability (HTTP 522s, 20–40 s
 responses). **Ask RateHawk** whether the sandbox rates for scenarios 3 and 7
 changed, or submit the 2026-08-24 order ids for those two.
+
+## 9. Before production (deploy checklist)
+1. Merge + deploy Chat PRs (#2, then #3) **before** any app build — an app
+   build against the old backend loses Nea and sandbox routing.
+2. Chat Vercel env: `ANTHROPIC_API_KEY` set for Preview **and** Production.
+3. Ship the app build (Mobile PRs #1, #2).
+4. **Rotate the Anthropic key after testers have the new build** (Ray,
+   2026-09-29) — every earlier build contains it. Then remove
+   `EXPO_PUBLIC_CLAUDE_API_KEY` from Mobile `.env` and EAS.
+5. Add a real per-IP rate limit on `/api/nea-chat` before production traffic.
+6. Switching the app to test production later: `EXPO_PUBLIC_RATEHAWK_ENV=test-production`.
