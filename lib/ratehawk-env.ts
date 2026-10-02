@@ -16,6 +16,11 @@ export const RATEHAWK_ENV: 'sandbox' | 'test-production' =
 // Spread into every fetch to a RateHawk-backed Chat endpoint
 // (search-hotels, hotel-rooms, ratehawk-book, ratehawk-prebook,
 // ratehawk-book-status).
+// X-Balkanea-Channel: mobile tells the backend this is the app, which gets
+// Balkanea's markup on RateHawk net prices (Chat lib/pricing.js, 3%, Ray
+// 2026-10-02) in every environment -- not only while on the sandbox.
 export function ratehawkHeaders(): Record<string, string> {
-  return RATEHAWK_ENV === 'sandbox' ? { 'X-Ratehawk-Env': 'sandbox' } : {}
+  return RATEHAWK_ENV === 'sandbox'
+    ? { 'X-Ratehawk-Env': 'sandbox', 'X-Balkanea-Channel': 'mobile' }
+    : { 'X-Balkanea-Channel': 'mobile' }
 }
