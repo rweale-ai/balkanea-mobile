@@ -1,0 +1,10 @@
+Requesting fresh reviews-dump URL for language=en...
+Got dump URL (last_update: 2026-10-05T05:01:11Z). Downloading...
+Downloaded 11.2 MB gz. Dump entries: 54,395, with rating/reviews: 54,395
+processed 50,100/54,395 | matched 50,045 | no-match 55 | 89s
+
+Done in 98s
+Dump entries: 54,395 (with rating/reviews: 54,395)
+Matched + written: 54,334 (128,077 reviews)
+Skipped, hid not in hotels: 61
+hotel_ratings now: 54,334 hotels, 54,334 with reviews, 128,077 reviews

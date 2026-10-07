@@ -1,58 +1,32 @@
-// Import RateHawk's hotel guest-review dump into balkanea_hotels_poc_v2's
-// new `hotel_ratings` table (20260921000000_hotel_ratings_schema.sql).
+// Import RateHawk's production hotel guest-review dump into
+// balkanea_hotels_poc_v2's `hotel_ratings` table
+// (20260921000000_hotel_ratings_schema.sql + 20261006000000_hotel_ratings_rating_column.sql).
 //
-// *** UNTESTED AGAINST A REAL DUMP FILE ***
-// The RateHawk static-IP relay has been down since at least 2026-09-15
-// (re-confirmed 2026-09-21, same day this was written) -- authenticated
-// relay calls hang for 20s+ regardless of endpoint. This script is
-// written entirely from RateHawk's own docs
-// (docs.emergingtravel.com/docs/b2b-api/static-content/
-// retrieve-hotel-reviews-dump/, fetched 2026-09-21) and has never seen one
-// real byte of the actual file. Do not treat a clean run as proof the
-// parsing logic is correct -- treat the FIRST real run's scanned/matched/
-// skipped counts (logged below) as the actual verification step. If
-// `matched` stays near 0 while `scanned` climbs, the file is probably not
-// JSONL (see the format note below) and the parse loop needs rethinking,
-// not just a retry.
+// Source: POST /api/b2b/v3/hotel/reviews/dump/ via the VPN relay
+// (production key, whitelisted IP) -> {status, data: {url, last_update}}.
+// The url is a presigned S3 link to feed_v3_<lang>.json.gz.
 //
-// Source endpoint: POST /api/b2b/v3/hotel/reviews/dump/ -- same envelope
-// shape as hotel/info/dump/ ({status, data: {url, last_update}}), per
-// RateHawk's static-content docs being one consistent family -- this
-// specific envelope shape is INFERRED from that pattern, not shown
-// verbatim on the reviews-dump doc page itself.
+// Real file format (checked against production 2026-10-06, and the
+// sandbox file 2026-09-28) -- NOT what RateHawk's docs page implies:
+//   - gzip, ~11 MB compressed for `en` -- small enough to download and
+//     JSON.parse whole, so no streaming parser.
+//   - ONE JSON object for the whole file, not JSONL:
+//       { "<slug>": { "hid": 6291619, "rating": 8.9,
+//                     "detailed_ratings": {...}, "reviews": [...] } | null, ... }
+//   - Each entry carries `hid`, so matching is by hid (idx_hotels_hid),
+//     which avoids the non-unique-slug problem entirely.
+//   - Reviews DO have an `id`; per-review `detailed` values can be strings
+//     ("perfect", "unspecified"), not only numbers -- kept as-is in JSONB.
 //
-// Format note: RateHawk's own docs page states the reviews dump file is
-// "a GZIP archive" -- NOT the .jsonl.zst zstd format import_hotels_poc.js
-// uses for the hotel-content dump. That's why this script uses Node's
-// built-in zlib.createGunzip() instead of the zstd-napi dependency. (The
-// *incremental* reviews dump's doc page shows a .jsonl.zst example
-// filename instead -- a real inconsistency between the two review
-// endpoints' docs, or a docs error; irrelevant here since this script
-// only calls the full dump, but don't copy this gunzip assumption over to
-// an incremental-reviews importer without checking that page's claim
-// again.) Assumed still JSONL (one JSON object per line) once
-// decompressed, same as every other RateHawk dump in this codebase --
-// each line's JSON is a single-key object keyed by hotel slug:
-//   { "<slug>": { "detailed_ratings": {...}, "reviews": [...] } }
+// A hid can exist under two country_code partitions in `hotels` (a region
+// reassigned between hotel-content imports leaves a stale row). The most
+// recently updated row wins, so the FK to hotels(country_code, hid) holds.
 //
-// Slug resolution: the dump has no hid/country_code, only slug -- and
-// slug is NOT globally unique in `hotels` (confirmed 2026-09-21: 98
-// duplicate slugs across 3,489,439 rows). Rather than loading a ~3.5M-row
-// slug map into memory, this resolves slugs in the same batches it
-// buffers reviews in, via one `WHERE slug = ANY($1)` query per batch
-// (uses the existing idx_hotels_slug index, confirmed present in this
-// project 2026-09-21 -- no new index needed).
+// Re-runnable: upserts on (country_code, hid). Each run requests a fresh
+// dump URL (presigned links expire; dump calls count toward RateHawk's
+// 100/day limit).
 //
-// A duplicate slug is handled two different ways, confirmed by real
-// testing against this DB (2026-09-21): if every matching row shares the
-// SAME hid (just a different country_code), it's one real hotel whose
-// region got reassigned between two hotel-content import runs, leaving a
-// stale row in its old partition -- resolved by taking the most recently
-// updated_at row, counted separately as resolvedSameHid. Only a slug
-// matching genuinely DIFFERENT hids is skipped as truly ambiguous -- no
-// signal exists there for which hotel the review actually belongs to.
-//
-// Requires in Mobile/supabase-hotels/.env (same as import_hotels_poc.js):
+// Requires in Mobile/supabase-hotels/.env:
 //   SUPABASE_HOTELS_POC_DB_URL, RATEHAWK_PROXY_URL, RATEHAWK_PROXY_SECRET,
 //   RATEHAWK_PRODUCTION_KEY_ID / RATEHAWK_PRODUCTION_API_KEY
 //
@@ -65,16 +39,14 @@ const path = require('path');
 const https = require('https');
 const zlib = require('zlib');
 const crypto = require('crypto');
-const readline = require('readline');
 const { Client } = require('pg');
 
 const LANGUAGE = process.argv[2] || 'en';
 const BATCH_SIZE = 300; // same conservative cap as import_hotels_poc.js -- see that file for why
 const PROGRESS_EVERY = 50_000;
-// If we've scanned this many lines and matched none at all, the file is
-// almost certainly not JSONL-per-line (e.g. one giant JSON object for the
-// whole file) -- abort loudly instead of grinding through millions of
-// parse errors and reporting a misleading "0 matched" success.
+// If this many entries resolve to no hotel at all, something is wrong with
+// matching (wrong DB, wrong id field) -- stop instead of reporting a
+// misleading "0 matched" success.
 const ABORT_IF_ZERO_MATCHES_AFTER = 5_000;
 
 function loadEnv() {
@@ -123,8 +95,30 @@ function relayPost(proxyUrl, proxySecret, keyId, apiKey, urlPath, body) {
   });
 }
 
+function download(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) { res.resume(); reject(new Error(`S3 GET failed: ${res.statusCode}`)); return; }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+// Entries are null for hotels RateHawk lists but has no feedback for.
+function hasData(v) {
+  return v && v.hid != null && (
+    typeof v.rating === 'number' ||
+    (v.detailed_ratings && Object.values(v.detailed_ratings).some((x) => x != null)) ||
+    (Array.isArray(v.reviews) && v.reviews.length > 0)
+  );
+}
+
 const RATINGS_COLS = [
-  'country_code', 'hid', 'slug', 'detailed_ratings', 'reviews', 'review_count', 'source_language',
+  'country_code', 'hid', 'slug', 'rating', 'detailed_ratings', 'reviews', 'review_count',
+  'source_language', 'source_last_update',
 ];
 const RATINGS_UPDATE_COLS = RATINGS_COLS.filter((c) => c !== 'country_code' && c !== 'hid');
 
@@ -158,102 +152,67 @@ async function main() {
   if (dumpRes.status !== 200 || dumpRes.body.status !== 'ok') {
     throw new Error(`Dump request failed: ${JSON.stringify(dumpRes.body)}`);
   }
-  const dumpUrl = dumpRes.body.data.url;
-  console.log(`Got dump URL (last_update: ${dumpRes.body.data.last_update}). Streaming...`);
+  const lastUpdate = dumpRes.body.data.last_update || null;
+  console.log(`Got dump URL (last_update: ${lastUpdate}). Downloading...`);
+
+  const start = Date.now();
+  const gz = await download(dumpRes.body.data.url);
+  const dump = JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
+  const allKeys = Object.keys(dump).length;
+  const entries = Object.entries(dump).filter(([, v]) => hasData(v));
+  console.log(`Downloaded ${(gz.length / 1e6).toFixed(1)} MB gz. Dump entries: ${allKeys.toLocaleString()}, with rating/reviews: ${entries.length.toLocaleString()}`);
 
   let client = new Client({ connectionString: dbUrl });
   await client.connect();
-
-  let pending = []; // [{ slug, detailedRatings, reviews }]
-  let scanned = 0, parseErrors = 0, matched = 0, skippedNoMatch = 0, skippedAmbiguous = 0;
-  let resolvedSameHid = 0, nonArrayReviews = 0;
-  let abortChecked = false;
-  const start = Date.now();
-
   async function reconnect() {
     try { await client.end(); } catch (_) {}
     client = new Client({ connectionString: dbUrl });
     await client.connect();
   }
 
-  // Two DB round trips per batch: resolve slugs -> (country_code, hid),
-  // then upsert only the unambiguous matches. Not wrapped in BEGIN/COMMIT
-  // since the select doesn't need to be transactional with the write, and
-  // there's only ever one write statement per flush (unlike
-  // import_hotels_poc.js's hotels+rooms pair, which needed a transaction
-  // to keep both writes atomic).
-  async function flush() {
-    if (pending.length === 0) return;
+  let matched = 0, skippedNoMatch = 0, reviewsWritten = 0;
+
+  // Two DB round trips per batch: resolve hid -> country_code (most
+  // recently updated row if a hid sits in two partitions), then upsert.
+  async function flush(batch) {
     const MAX_ATTEMPTS = 20;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        const slugs = pending.map((p) => p.slug);
         const lookup = await client.query(
-          'select country_code, hid, slug, updated_at from hotels where slug = any($1)',
-          [slugs],
+          `select distinct on (hid) country_code, hid
+             from hotels where hid = any($1::bigint[])
+            order by hid, updated_at desc`,
+          [batch.map(([, v]) => v.hid)],
         );
-        const matchesBySlug = new Map();
-        for (const row of lookup.rows) {
-          if (!matchesBySlug.has(row.slug)) matchesBySlug.set(row.slug, []);
-          matchesBySlug.get(row.slug).push(row);
-        }
-
+        const countryByHid = new Map(lookup.rows.map((r) => [String(r.hid), r.country_code]));
         const rows = [];
-        for (const item of pending) {
-          const matches = matchesBySlug.get(item.slug) || [];
-          let chosen;
-          if (matches.length === 0) {
-            skippedNoMatch += 1;
-            continue;
-          } else if (matches.length === 1) {
-            chosen = matches[0];
-          } else {
-            // Real case, confirmed 2026-09-21 testing: a slug can match
-            // multiple rows that all share the same hid, just under
-            // different country_code partitions -- one hotel whose region
-            // was reassigned between two hotel-content import runs,
-            // leaving a stale row behind in its old partition (the
-            // importer upserts by (country_code, hid), so a changed
-            // country_code creates a new row rather than moving the old
-            // one). That's ONE hotel, not a real collision -- resolve it
-            // by taking the most recently updated_at row. Only count as
-            // genuinely ambiguous when the matches are different hids
-            // entirely (a true multi-hotel slug collision, where there's
-            // no signal for which one the review actually belongs to).
-            const uniqueHids = new Set(matches.map((m) => m.hid));
-            if (uniqueHids.size === 1) {
-              resolvedSameHid += 1;
-              chosen = matches.reduce((a, b) => (new Date(b.updated_at) > new Date(a.updated_at) ? b : a));
-            } else {
-              skippedAmbiguous += 1;
-              continue;
-            }
-          }
-          const { country_code, hid } = chosen;
-          matched += 1;
-          const reviews = Array.isArray(item.reviews) ? item.reviews : [];
-          if (item.reviews != null && !Array.isArray(item.reviews)) nonArrayReviews += 1;
+        let batchReviews = 0;
+        for (const [slug, v] of batch) {
+          const cc = countryByHid.get(String(v.hid));
+          if (!cc) continue;
+          const reviews = Array.isArray(v.reviews) ? v.reviews : [];
+          batchReviews += reviews.length;
           rows.push([
-            country_code, hid, item.slug,
-            JSON.stringify(item.detailedRatings ?? null),
+            cc, v.hid, slug,
+            typeof v.rating === 'number' ? v.rating : null,
+            JSON.stringify(v.detailed_ratings ?? null),
             JSON.stringify(reviews),
             reviews.length,
             LANGUAGE,
+            lastUpdate,
           ]);
         }
-
         if (rows.length > 0) {
           const { sql, params } = buildUpsert(rows);
           await client.query(sql, params);
         }
-        pending = [];
+        matched += rows.length;
+        skippedNoMatch += batch.length - rows.length;
+        reviewsWritten += batchReviews;
         return;
       } catch (err) {
         console.error(`flush failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}): ${err.message}`);
-        // Same disk-auto-resize read-only window import_hotels_poc.js
-        // hit -- see that file's comment. Expected to be far less likely
-        // here (this table should stay small relative to hotels/rooms),
-        // but the retry/backoff shape is kept identical for consistency.
+        // Same disk-auto-resize read-only window import_hotels_poc.js hit.
         const isReadOnly = /read-only transaction/i.test(err.message);
         await new Promise((r) => setTimeout(r, isReadOnly ? 30_000 : 10_000));
         await reconnect();
@@ -262,70 +221,30 @@ async function main() {
     throw new Error(`flush failed after ${MAX_ATTEMPTS} retries`);
   }
 
-  const res = await new Promise((resolve, reject) => {
-    https.get(dumpUrl, resolve).on('error', reject);
-  });
-  if (res.statusCode !== 200) {
-    throw new Error(`S3 GET failed: ${res.statusCode}`);
-  }
-  const decompressed = res.pipe(zlib.createGunzip());
-  const rl = readline.createInterface({ input: decompressed, crlfDelay: Infinity });
-
-  // for-await over readline, not rl.on('line', ...) -- see
-  // import_hotels_poc.js's comment on the real overlapping-flush() bug
-  // that pattern caused; same fix applies here.
-  for await (const rawLine of rl) {
-    scanned += 1;
-    const line = rawLine.trim();
-    if (!line) continue;
-
-    let obj;
-    try { obj = JSON.parse(line); }
-    catch (_) { parseErrors += 1; continue; }
-
-    const entries = Object.entries(obj);
-    if (entries.length !== 1) { parseErrors += 1; continue; }
-    const [slug, data] = entries[0];
-    if (!slug || !data) { parseErrors += 1; continue; }
-
-    pending.push({
-      slug,
-      detailedRatings: data.detailed_ratings,
-      reviews: data.reviews,
-    });
-
-    if (pending.length >= BATCH_SIZE) {
-      await flush();
+  let nextProgress = PROGRESS_EVERY;
+  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+    await flush(entries.slice(i, i + BATCH_SIZE));
+    const processed = Math.min(i + BATCH_SIZE, entries.length);
+    if (processed >= ABORT_IF_ZERO_MATCHES_AFTER && matched === 0) {
+      throw new Error(`${processed} entries resolved to 0 hotels -- check SUPABASE_HOTELS_POC_DB_URL and the dump's hid field before re-running.`);
     }
-
-    if (scanned % PROGRESS_EVERY === 0) {
-      const elapsed = (Date.now() - start) / 1000;
-      console.log(`scanned ${scanned.toLocaleString()} | matched ${matched.toLocaleString()} (same-hid-resolved ${resolvedSameHid}) | no-match ${skippedNoMatch.toLocaleString()} | ambiguous ${skippedAmbiguous} | non-array reviews ${nonArrayReviews} | parse errors ${parseErrors} | ${elapsed.toFixed(0)}s elapsed`);
-    }
-
-    if (!abortChecked && scanned >= ABORT_IF_ZERO_MATCHES_AFTER) {
-      abortChecked = true;
-      if (matched === 0 && resolvedSameHid === 0) {
-        throw new Error(
-          `Scanned ${scanned} lines with 0 matches -- the file is likely not ` +
-          `one-JSON-object-per-line as assumed. Inspect the raw decompressed file directly ` +
-          `(don't keep running this) before deciding how to re-parse it.`
-        );
-      }
+    if (processed >= nextProgress) {
+      nextProgress += PROGRESS_EVERY;
+      console.log(`processed ${processed.toLocaleString()}/${entries.length.toLocaleString()} | matched ${matched.toLocaleString()} | no-match ${skippedNoMatch.toLocaleString()} | ${((Date.now() - start) / 1000).toFixed(0)}s`);
     }
   }
-  await flush();
 
+  const { rows: [t] } = await client.query(
+    `select count(*)::int n, count(*) filter (where review_count > 0)::int with_reviews,
+            coalesce(sum(review_count), 0)::bigint reviews from hotel_ratings`,
+  );
   await client.end();
 
-  const elapsed = (Date.now() - start) / 1000;
-  console.log(`\nDone in ${elapsed.toFixed(0)}s`);
-  console.log(`Lines scanned: ${scanned.toLocaleString()}`);
-  console.log(`Hotels matched + written: ${matched.toLocaleString()} (of which same-hid-across-partitions resolved: ${resolvedSameHid.toLocaleString()})`);
-  console.log(`Skipped, no matching hotel: ${skippedNoMatch.toLocaleString()}`);
-  console.log(`Skipped, ambiguous slug (matched >1 distinct hid): ${skippedAmbiguous.toLocaleString()}`);
-  console.log(`Reviews field wasn't an array (coerced to []): ${nonArrayReviews.toLocaleString()}`);
-  console.log(`Parse errors: ${parseErrors}`);
+  console.log(`\nDone in ${((Date.now() - start) / 1000).toFixed(0)}s`);
+  console.log(`Dump entries: ${allKeys.toLocaleString()} (with rating/reviews: ${entries.length.toLocaleString()})`);
+  console.log(`Matched + written: ${matched.toLocaleString()} (${reviewsWritten.toLocaleString()} reviews)`);
+  console.log(`Skipped, hid not in hotels: ${skippedNoMatch.toLocaleString()}`);
+  console.log(`hotel_ratings now: ${t.n.toLocaleString()} hotels, ${t.with_reviews.toLocaleString()} with reviews, ${Number(t.reviews).toLocaleString()} reviews`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

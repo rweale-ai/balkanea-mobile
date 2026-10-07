@@ -105,3 +105,17 @@ in `zstd-napi`'s `DecompressStream` (already a dependency, see
   (full) vs `import_hotels_incremental.js` (daily delta) for hotel
   content. A daily incremental ratings importer would be a separate
   follow-up, once the full import has actually run once.
+
+## Status 2026-10-06: full production load DONE
+
+The relay is back up (new VPN profile `balkanea1`), and the importer was rewritten for the real file format:
+- The file is **one gzipped JSON object** `{slug: {hid, rating, detailed_ratings, reviews}}`, not JSONL. It's about 11 MB compressed, so it's parsed whole.
+- Matching is now by **hid**, not slug.
+- The new columns `rating` and `source_last_update` come from migration `20261006000000_hotel_ratings_rating_column.sql`, which has been applied.
+
+Result of `node scripts/import_hotel_ratings.js en` (dump last_update 2026-10-05, 98 s):
+- 54,395 dump entries; 54,334 written; 61 skipped because their hid isn't in `hotels`.
+- 128,077 reviews; average rating 8.60.
+- Coverage is skewed toward Russia (RU 25,877 hotels). Balkans: TR 2,306, GR 688, BG 116, HR 96, RS 92, ME 54, AL 22, MK 5.
+
+Re-run the same command for a refresh. It upserts, so a re-run is safe.
