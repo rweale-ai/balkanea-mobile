@@ -1,0 +1,107 @@
+[en] dump last_update 2026-10-05T05:01:11Z, streaming...
+[en] 50,000 entries | matched 49,746 | reviews 121,261 | 99s
+[en] done in 108s: 54,395 entries, 54,334 matched, 61 hid not in hotels, 128,077 reviews, 0 parse errors
+[ru] dump last_update 2026-10-05T05:05:52Z, streaming...
+[ru] 50,000 entries | matched 49,747 | reviews 658,937 | 320s
+[ru] 100,000 entries | matched 99,710 | reviews 1,413,407 | 1024s
+[ru] 150,000 entries | matched 149,732 | reviews 1,735,826 | 1399s
+[ru] done in 1458s: 167,288 entries, 167,009 matched, 279 hid not in hotels, 1,806,288 reviews, 0 parse errors
+[de] dump last_update 2026-10-05T05:02:40Z, streaming...
+[de] done in 36s: 7,405 entries, 7,401 matched, 4 hid not in hotels, 11,630 reviews, 0 parse errors
+[fr] dump last_update 2026-10-05T04:58:11Z, streaming...
+[fr] done in 23s: 5,373 entries, 5,371 matched, 2 hid not in hotels, 7,749 reviews, 0 parse errors
+[es] dump last_update 2026-10-05T05:02:02Z, streaming...
+[es] done in 24s: 5,478 entries, 5,473 matched, 5 hid not in hotels, 7,639 reviews, 0 parse errors
+[it] dump last_update 2026-10-05T05:00:03Z, streaming...
+[it] done in 17s: 3,913 entries, 3,911 matched, 2 hid not in hotels, 5,583 reviews, 0 parse errors
+[pt] dump last_update 2026-10-05T05:02:54Z, streaming...
+[pt] done in 1s: 0 entries, 0 matched, 0 hid not in hotels, 0 reviews, 0 parse errors
+[pt_PT] dump last_update 2026-10-05T04:58:27Z, streaming...
+[pt_PT] done in 6s: 1,736 entries, 1,736 matched, 0 hid not in hotels, 2,518 reviews, 0 parse errors
+[nl] dump last_update 2026-10-05T05:00:24Z, streaming...
+[nl] done in 2s: 207 entries, 207 matched, 0 hid not in hotels, 218 reviews, 0 parse errors
+[pl] dump last_update 2026-10-05T04:57:11Z, streaming...
+[pl] done in 4s: 799 entries, 799 matched, 0 hid not in hotels, 986 reviews, 0 parse errors
+[cs] dump last_update 2026-10-05T04:58:39Z, streaming...
+[cs] done in 1s: 145 entries, 145 matched, 0 hid not in hotels, 151 reviews, 0 parse errors
+[sk] skipped -- dump request returned {"data":null,"debug":{"api_endpoint":{"endpoint":"api/b2b/v3/hotel/reviews/dump","is_active":true,"is_limited":true,"remaining":87,"requests_number":100,"reset":"2026-10-08T00:00:00","seconds_number":
+[hu] dump last_update 2026-10-05T05:01:24Z, streaming...
+[hu] done in 1s: 255 entries, 255 matched, 0 hid not in hotels, 299 reviews, 0 parse errors
+[ro] dump last_update 2026-10-05T05:00:52Z, streaming...
+[ro] done in 1s: 138 entries, 138 matched, 0 hid not in hotels, 145 reviews, 0 parse errors
+[bg] dump last_update 2026-10-05T04:59:58Z, streaming...
+[bg] done in 2s: 224 entries, 224 matched, 0 hid not in hotels, 250 reviews, 0 parse errors
+[el] dump last_update 2026-10-05T05:00:39Z, streaming...
+[el] done in 2s: 520 entries, 519 matched, 1 hid not in hotels, 671 reviews, 0 parse errors
+[sr] dump last_update 2026-10-05T04:59:32Z, streaming...
+[sr] done in 1s: 47 entries, 47 matched, 0 hid not in hotels, 48 reviews, 0 parse errors
+[hr] skipped -- dump request returned {"data":null,"debug":{"api_endpoint":{"endpoint":"api/b2b/v3/hotel/reviews/dump","is_active":true,"is_limited":true,"remaining":81,"requests_number":100,"reset":"2026-10-08T00:00:00","seconds_number":
+[sl] skipped -- dump request returned {"data":null,"debug":{"api_endpoint":{"endpoint":"api/b2b/v3/hotel/reviews/dump","is_active":true,"is_limited":true,"remaining":80,"requests_number":100,"reset":"2026-10-08T00:00:00","seconds_number":
+[sq] dump last_update 2026-10-05T05:01:37Z, streaming...
+[sq] done in 1s: 15 entries, 15 matched, 0 hid not in hotels, 15 reviews, 0 parse errors
+[mk] skipped -- dump request returned {"data":null,"debug":{"api_endpoint":{"endpoint":"api/b2b/v3/hotel/reviews/dump","is_active":true,"is_limited":true,"remaining":78,"requests_number":100,"reset":"2026-10-08T00:00:00","seconds_number":
+[tr] dump last_update 2026-10-05T05:01:53Z, streaming...
+[tr] done in 18s: 2,655 entries, 2,651 matched, 4 hid not in hotels, 4,224 reviews, 0 parse errors
+[uk] dump last_update 2026-10-05T04:59:19Z, streaming...
+[uk] done in 2s: 69 entries, 69 matched, 0 hid not in hotels, 70 reviews, 0 parse errors
+[kk] dump last_update 2026-10-05T04:57:25Z, streaming...
+[kk] done in 1s: 19 entries, 19 matched, 0 hid not in hotels, 19 reviews, 0 parse errors
+[ar] dump last_update 2026-10-05T05:02:06Z, streaming...
+[ar] done in 11s: 1,386 entries, 1,385 matched, 1 hid not in hotels, 3,786 reviews, 0 parse errors
+[he] dump last_update 2026-10-05T04:59:06Z, streaming...
+[he] done in 2s: 89 entries, 89 matched, 0 hid not in hotels, 98 reviews, 0 parse errors
+[fi] dump last_update 2026-10-05T04:57:51Z, streaming...
+[fi] done in 1s: 55 entries, 55 matched, 0 hid not in hotels, 59 reviews, 0 parse errors
+[sv] dump last_update 2026-10-05T05:01:42Z, streaming...
+[sv] done in 1s: 35 entries, 35 matched, 0 hid not in hotels, 36 reviews, 0 parse errors
+[da] dump last_update 2026-10-05T05:01:18Z, streaming...
+[da] done in 1s: 22 entries, 22 matched, 0 hid not in hotels, 22 reviews, 0 parse errors
+[no] dump last_update 2026-10-05T05:01:30Z, streaming...
+[no] done in 1s: 11 entries, 11 matched, 0 hid not in hotels, 11 reviews, 0 parse errors
+[ja] dump last_update 2026-10-05T04:57:38Z, streaming...
+[ja] done in 1s: 62 entries, 62 matched, 0 hid not in hotels, 78 reviews, 0 parse errors
+[ko] dump last_update 2026-10-05T05:01:06Z, streaming...
+[ko] done in 2s: 134 entries, 134 matched, 0 hid not in hotels, 151 reviews, 0 parse errors
+[th] dump last_update 2026-10-05T05:02:16Z, streaming...
+[th] done in 1s: 69 entries, 69 matched, 0 hid not in hotels, 88 reviews, 0 parse errors
+[vi] dump last_update 2026-10-05T04:59:44Z, streaming...
+[vi] done in 1s: 62 entries, 62 matched, 0 hid not in hotels, 64 reviews, 0 parse errors
+[zh_CN] dump last_update 2026-10-05T04:58:54Z, streaming...
+[zh_CN] done in 17s: 2,403 entries, 2,402 matched, 1 hid not in hotels, 4,674 reviews, 0 parse errors
+[zh_TW] dump last_update 2026-10-05T05:00:10Z, streaming...
+[zh_TW] done in 1s: 21 entries, 21 matched, 0 hid not in hotels, 22 reviews, 0 parse errors
+
+All done in 29.5 min
+  en         54334 hotels      128077 reviews  (61 hid not in hotels)
+  ru        167009 hotels     1806288 reviews  (279 hid not in hotels)
+  de          7401 hotels       11630 reviews  (4 hid not in hotels)
+  fr          5371 hotels        7749 reviews  (2 hid not in hotels)
+  es          5473 hotels        7639 reviews  (5 hid not in hotels)
+  it          3911 hotels        5583 reviews  (2 hid not in hotels)
+  pt             0 hotels           0 reviews  (0 hid not in hotels)
+  pt_PT       1736 hotels        2518 reviews  (0 hid not in hotels)
+  nl           207 hotels         218 reviews  (0 hid not in hotels)
+  pl           799 hotels         986 reviews  (0 hid not in hotels)
+  cs           145 hotels         151 reviews  (0 hid not in hotels)
+  hu           255 hotels         299 reviews  (0 hid not in hotels)
+  ro           138 hotels         145 reviews  (0 hid not in hotels)
+  bg           224 hotels         250 reviews  (0 hid not in hotels)
+  el           519 hotels         671 reviews  (1 hid not in hotels)
+  sr            47 hotels          48 reviews  (0 hid not in hotels)
+  sq            15 hotels          15 reviews  (0 hid not in hotels)
+  tr          2651 hotels        4224 reviews  (4 hid not in hotels)
+  uk            69 hotels          70 reviews  (0 hid not in hotels)
+  kk            19 hotels          19 reviews  (0 hid not in hotels)
+  ar          1385 hotels        3786 reviews  (1 hid not in hotels)
+  he            89 hotels          98 reviews  (0 hid not in hotels)
+  fi            55 hotels          59 reviews  (0 hid not in hotels)
+  sv            35 hotels          36 reviews  (0 hid not in hotels)
+  da            22 hotels          22 reviews  (0 hid not in hotels)
+  no            11 hotels          11 reviews  (0 hid not in hotels)
+  ja            62 hotels          78 reviews  (0 hid not in hotels)
+  ko           134 hotels         151 reviews  (0 hid not in hotels)
+  th            69 hotels          88 reviews  (0 hid not in hotels)
+  vi            62 hotels          64 reviews  (0 hid not in hotels)
+  zh_CN       2402 hotels        4674 reviews  (1 hid not in hotels)
+  zh_TW         21 hotels          22 reviews  (0 hid not in hotels)
+hotel_ratings now: 191,282 hotels, 191,282 with reviews, 1,985,669 reviews

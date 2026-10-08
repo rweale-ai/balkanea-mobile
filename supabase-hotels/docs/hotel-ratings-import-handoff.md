@@ -119,3 +119,18 @@ Result of `node scripts/import_hotel_ratings.js en` (dump last_update 2026-10-05
 - Coverage is skewed toward Russia (RU 25,877 hotels). Balkans: TR 2,306, GR 688, BG 116, HR 96, RS 92, ME 54, AL 22, MK 5.
 
 Re-run the same command for a refresh. It upserts, so a re-run is safe.
+
+## Update 2026-10-07: all languages loaded
+
+RateHawk publishes one reviews file per review language. Hotel-level `rating` and `detailed_ratings` are identical across the files; only the reviews differ. The importer now:
+- loads every language and merges them into one row per hotel;
+- tags each review with a `lang` field;
+- lists the merged languages in `source_language` (e.g. `en,ru,de`).
+
+Re-running a single language (`node scripts/import_hotel_ratings.js ru`) replaces only that language's reviews.
+
+Full run (29.5 min, dumps dated 2026-10-05): **191,282 hotels, 1,985,669 reviews**, average rating 8.54.
+- **Integrity checks:** `review_count` matches the array length on every row, there are no duplicate review ids, and only 361 hids were not found in `hotels`.
+- **Biggest languages:** ru 167,009 hotels / 1,806,288 reviews; en 54,334 / 128,077; de 7,401; es 5,473; fr 5,371; it 3,911; tr 2,651; zh_CN 2,402.
+- **No file returned** for `sk`, `hr`, `sl` or `mk`. `pt` is empty; Portuguese reviews come under `pt_PT`.
+- **Balkans (hotels / reviews):** TR 7,320 / 49,922; GR 1,987 / 3,964; BG 381 / 993; HR 300 / 501; ME 276 / 693; RS 258 / 1,385; SI 99 / 260; BA 67 / 150; AL 55 / 73; MK 14 / 17.
