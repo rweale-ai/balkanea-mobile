@@ -44,7 +44,19 @@ const readline = require('readline');
 const { Client } = require('pg');
 const { DecompressStream } = require('zstd-napi');
 
-const LANGUAGE = process.argv[2] || 'en';
+const LANGUAGE = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'en';
+const FORCE = process.argv.includes('--force');
+
+// Which incremental file (by RateHawk's last_update) was last fully applied,
+// per language. In logs/ (gitignored); delete it or pass --force to reload.
+const STATE_PATH = path.join(__dirname, '..', 'logs', 'incremental-state.json');
+function readState() {
+  try { return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')); } catch (_) { return {}; }
+}
+function writeState(state) {
+  fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
+  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + '\n');
+}
 const BATCH_SIZE = 300; // same conservative cap as import_hotels_poc.js -- see that file for why 300
 const PROGRESS_EVERY = 50_000; // incremental file is much smaller than the full dump
 
@@ -186,7 +198,17 @@ async function main() {
     throw new Error(`Incremental dump request failed: ${JSON.stringify(dumpRes.body)}`);
   }
   const dumpUrl = dumpRes.body.data.url;
-  console.log(`Got incremental dump URL (last_update: ${dumpRes.body.data.last_update}). Streaming...`);
+  const lastUpdate = dumpRes.body.data.last_update;
+  // RateHawk serves "whatever file is currently staged" (no date param), so
+  // a nightly run can get the same file twice -- the 2026-09-06 and 09-07
+  // test runs both reloaded the identical 2026-09-01 file for 2.6h each.
+  // Skip when this file's last_update was already applied; --force overrides.
+  const applied = readState()[LANGUAGE];
+  if (applied === lastUpdate && !FORCE) {
+    console.log(`SKIPPED: incremental file last_update ${lastUpdate} already applied. Nothing to do.`);
+    return;
+  }
+  console.log(`Got incremental dump URL (last_update: ${lastUpdate}, previously applied: ${applied || 'none'}). Streaming...`);
 
   let client = new Client({ connectionString: dbUrl });
   await client.connect();
@@ -292,6 +314,9 @@ async function main() {
   console.log(`Hotels upserted: ${upserted.toLocaleString()}`);
   console.log(`Hotels soft-deleted: ${softDeleted.toLocaleString()}`);
   console.log(`Parse errors: ${parseErrors}`);
+
+  writeState({ ...readState(), [LANGUAGE]: lastUpdate });
+  console.log(`Recorded last_update ${lastUpdate} as applied.`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

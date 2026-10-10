@@ -66,6 +66,8 @@ function handleLine(line) {
     return;
   }
 
+  if (line.startsWith('SKIPPED:')) finalSummary.skipped = true;
+
   const done = line.match(DONE_RE);
   if (done) {
     finalSummary.doneElapsed = parseInt(done[1], 10);
@@ -114,7 +116,7 @@ child.on('close', (code) => {
     runStamp, new Date().toISOString(), finalSummary.doneElapsed ?? '',
     finalSummary.scanned ?? '', finalSummary.upserted ?? '', finalSummary.softDeleted ?? '',
     finalSummary.errors ?? '', '', '', overallRate,
-    code === 0 ? 'FINAL' : `FAILED exit_code=${code}`,
+    code !== 0 ? `FAILED exit_code=${code}` : finalSummary.skipped ? 'SKIPPED_ALREADY_APPLIED' : 'FINAL',
   ]);
   logRaw(`Wrapper exiting, child exit code ${code}`);
   fs.closeSync(rawLogFd);
