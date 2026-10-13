@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { Colors, Radius, Shadows, Spacing, Typography } from '../constants/theme'
 import { useLang } from '../lib/i18n'
+import { getUser } from '../lib/auth'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 const PANEL_WIDTH = Math.min(300, SCREEN_WIDTH * 0.8)
@@ -13,6 +14,7 @@ const PANEL_WIDTH = Math.min(300, SCREEN_WIDTH * 0.8)
 interface SideMenuProps {
   visible: boolean
   onClose: () => void
+  onProfile: () => void
   onMyBookings: () => void
   onExploreDestinations: () => void
   onSignOut: () => void
@@ -21,11 +23,23 @@ interface SideMenuProps {
 // Slide-out navigation drawer — replaces the old Alert.alert action sheet,
 // which read as a decision prompt rather than navigation. Dismisses on
 // backdrop tap, the close button, or Android back, not just by picking an item.
-export function SideMenu({ visible, onClose, onMyBookings, onExploreDestinations, onSignOut }: SideMenuProps) {
+export function SideMenu({ visible, onClose, onProfile, onMyBookings, onExploreDestinations, onSignOut }: SideMenuProps) {
   const { t } = useLang()
   const [mounted, setMounted] = useState(visible)
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current
   const backdropOpacity = useRef(new Animated.Value(0)).current
+  const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+
+  // Same name fallback as the Profile screen; re-read on each open so a
+  // sign-in or name change since the last open shows up.
+  useEffect(() => {
+    if (!visible) return
+    getUser().then(u => {
+      setUserName(u ? (u.user_metadata?.full_name ?? u.email?.split('@')[0] ?? '') : '')
+      setUserEmail(u?.email ?? '')
+    }).catch(() => {})
+  }, [visible])
 
   useEffect(() => {
     if (visible) {
@@ -64,6 +78,24 @@ export function SideMenu({ visible, onClose, onMyBookings, onExploreDestinations
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
+
+            {userEmail ? (
+              <TouchableOpacity style={styles.account} activeOpacity={0.7} onPress={() => go(onProfile)}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{(userName || userEmail).charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={styles.accountText}>
+                  <Text style={styles.accountName} numberOfLines={1}>{userName}</Text>
+                  <Text style={styles.accountEmail} numberOfLines={1}>{userEmail}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity style={styles.item} activeOpacity={0.7} onPress={() => go(onProfile)}>
+              <Ionicons name="person-outline" size={20} color={Colors.text} />
+              <Text style={styles.itemText}>{t.menu.profile}</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.item} activeOpacity={0.7} onPress={() => go(onMyBookings)}>
               <Ionicons name="briefcase-outline" size={20} color={Colors.text} />
@@ -123,6 +155,38 @@ const styles = StyleSheet.create({
   brand: {
     ...Typography.h2,
     color: Colors.text,
+  },
+  account: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+  },
+  avatarText: {
+    ...Typography.bodyMedium,
+    color: Colors.surface,
+  },
+  accountText: {
+    flex: 1,
+  },
+  accountName: {
+    ...Typography.bodyMedium,
+    color: Colors.text,
+  },
+  accountEmail: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
   item: {
     flexDirection: 'row',

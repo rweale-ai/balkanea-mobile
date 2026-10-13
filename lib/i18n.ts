@@ -281,6 +281,7 @@ const en = {
   },
   menu: {
     title: 'Menu',
+    profile: 'Profile',
     myBookings: 'My bookings',
     exploreDestinations: 'Explore destinations',
     signOut: 'Sign out',
@@ -671,6 +672,7 @@ const mk: typeof en = {
   },
   menu: {
     title: 'Мени',
+    profile: 'Профил',
     myBookings: 'Мои резервации',
     exploreDestinations: 'Истражи дестинации',
     signOut: 'Одјави се',
