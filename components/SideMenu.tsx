@@ -72,6 +72,7 @@ export function SideMenu({ visible, onClose, onProfile, onMyBookings, onExploreD
 
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]}>
           <SafeAreaView style={styles.safe}>
+          <View style={styles.inner}>
             <View style={styles.header}>
               <Text style={styles.brand}>Balkanea</Text>
               <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -113,6 +114,7 @@ export function SideMenu({ visible, onClose, onProfile, onMyBookings, onExploreD
               <Ionicons name="log-out-outline" size={20} color={Colors.error} />
               <Text style={[styles.itemText, styles.signOutText]}>{t.menu.signOut}</Text>
             </TouchableOpacity>
+          </View>
           </SafeAreaView>
         </Animated.View>
       </View>
@@ -138,10 +140,16 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: Radius.lg,
     ...Shadows.lg,
   },
+  // iOS SafeAreaView replaces any padding on itself with the safe-area
+  // insets, so the side margins live on an inner View instead.
   safe: {
     flex: 1,
-    paddingHorizontal: Spacing.xl,
+  },
+  inner: {
+    flex: 1,
+    paddingHorizontal: 20,
     paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
   },
   header: {
     flexDirection: 'row',
@@ -191,7 +199,7 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 14,
     paddingVertical: Spacing.md,
   },
   itemText: {
