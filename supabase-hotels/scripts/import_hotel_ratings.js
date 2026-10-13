@@ -60,7 +60,33 @@ const ALL_LANGUAGES = [
   'sr', 'hr', 'sl', 'sq', 'mk', 'tr', 'uk', 'kk', 'ar', 'he', 'fi', 'sv', 'da', 'no', 'ja', 'ko',
   'th', 'vi', 'zh_CN', 'zh_TW',
 ];
-const LANGUAGES = process.argv.slice(2).length ? process.argv.slice(2) : ALL_LANGUAGES;
+const ARGS = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const LANGUAGES = ARGS.length ? ARGS : ALL_LANGUAGES;
+const FORCE = process.argv.includes('--force');
+
+// RateHawk regenerates the reviews files together and only about weekly
+// (every language still had last_update 2026-10-05 on 10-12), so nightly
+// runs probe `en` once and skip everything if that file was already
+// applied -- 1 dump request instead of 36. --force overrides. In logs/
+// (gitignored); delete it to force a full reload.
+const STATE_PATH = path.join(__dirname, '..', 'logs', 'ratings-state.json');
+function readState() {
+  try { return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')); } catch (_) { return {}; }
+}
+function recordApplied(lang, lastUpdate) {
+  const state = readState();
+  state[lang] = lastUpdate;
+  fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
+  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + '\n');
+}
+
+function requestDump(env, lang) {
+  return relayPost(
+    env.RATEHAWK_PROXY_URL, env.RATEHAWK_PROXY_SECRET,
+    env.RATEHAWK_PRODUCTION_KEY_ID, env.RATEHAWK_PRODUCTION_API_KEY,
+    '/api/b2b/v3/hotel/reviews/dump/', { language: lang },
+  );
+}
 const BATCH_SIZE = 300; // same conservative cap as import_hotels_poc.js -- see that file for why
 const PROGRESS_EVERY = 50_000;
 // If this many entries resolve to no hotel at all, something is wrong with
@@ -176,12 +202,8 @@ function buildUpsert(rows) {
   return { sql, params };
 }
 
-async function importLanguage(env, getClient, reconnect, lang) {
-  const dumpRes = await relayPost(
-    env.RATEHAWK_PROXY_URL, env.RATEHAWK_PROXY_SECRET,
-    env.RATEHAWK_PRODUCTION_KEY_ID, env.RATEHAWK_PRODUCTION_API_KEY,
-    '/api/b2b/v3/hotel/reviews/dump/', { language: lang },
-  );
+async function importLanguage(env, getClient, reconnect, lang, prefetched) {
+  const dumpRes = prefetched || await requestDump(env, lang);
   if (dumpRes.status !== 200 || dumpRes.body.status !== 'ok' || !dumpRes.body.data?.url) {
     console.log(`[${lang}] skipped -- dump request returned ${JSON.stringify(dumpRes.body).slice(0, 200)}`);
     return null;
@@ -271,6 +293,7 @@ async function importLanguage(env, getClient, reconnect, lang) {
   await flush();
 
   console.log(`[${lang}] done in ${((Date.now() - start) / 1000).toFixed(0)}s: ${stats.entries.toLocaleString()} entries, ${stats.matched.toLocaleString()} matched, ${stats.noMatch.toLocaleString()} hid not in hotels, ${stats.reviews.toLocaleString()} reviews, ${stats.parseErrors} parse errors`);
+  recordApplied(lang, lastUpdate);
   return stats;
 }
 
@@ -298,10 +321,23 @@ async function main() {
        and exists (select 1 from jsonb_array_elements(reviews) e where not e ? 'lang')`);
   if (tagged.rowCount) console.log(`Tagged reviews on ${tagged.rowCount.toLocaleString()} earlier en-only rows`);
 
+  let probe = null;
+  if (LANGUAGES === ALL_LANGUAGES && !FORCE) {
+    probe = await requestDump(env, 'en');
+    const probeUpdate = probe.body?.data?.last_update;
+    const applied = readState().en;
+    if (probeUpdate && probeUpdate === applied) {
+      await client.end();
+      console.log(`SKIPPED: reviews files unchanged (en last_update ${probeUpdate} already applied). Nothing to do.`);
+      return;
+    }
+    console.log(`Reviews files changed (en last_update ${probeUpdate}, previously applied: ${applied || 'none'}). Loading all languages.`);
+  }
+
   const start = Date.now();
   const results = [];
   for (const lang of LANGUAGES) {
-    const s = await importLanguage(env, getClient, reconnect, lang);
+    const s = await importLanguage(env, getClient, reconnect, lang, lang === 'en' ? probe : null);
     if (s) results.push(s);
   }
 
