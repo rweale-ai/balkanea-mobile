@@ -563,6 +563,7 @@ export default function SearchScreen() {
       <SideMenu
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
+        onProfile={() => router.push('/profile')}
         onMyBookings={() => router.navigate('/trips')}
         onExploreDestinations={() => router.navigate('/explore')}
         onSignOut={async () => { await setGuestMode(false); await signOut() }}
