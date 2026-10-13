@@ -266,12 +266,12 @@ const styles = StyleSheet.create({
   socialRow: { flexDirection: 'row', gap: 10, marginBottom: Spacing.md },
   socialBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: Radius.md, backgroundColor: Colors.background,
+    height: 48, borderRadius: Radius.md, backgroundColor: Colors.background,
     borderWidth: 1, borderColor: Colors.border,
   },
   // AppleAuthenticationButton renders its own native chrome — backgroundColor/borderRadius
   // on its style prop are ignored, so only layout properties belong here.
-  socialBtnApple: { flex: 1, height: 44 },
+  socialBtnApple: { flex: 1, height: 48 },
   googleIcon: { fontSize: 18, fontWeight: '700', color: '#4285F4' },
   socialText: { ...Typography.button, color: Colors.text, fontSize: 14 },
 
