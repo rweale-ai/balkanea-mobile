@@ -50,7 +50,7 @@ function runStep(name, script, args) {
           const line = buf.slice(0, idx).replace(/\r$/, '');
           buf = buf.slice(idx + 1);
           log(prefix + line);
-          if (/SKIPPED_ALREADY_APPLIED|SKIPPED:/.test(line)) note = 'skipped: incremental file already applied';
+          if (/SKIPPED_ALREADY_APPLIED|SKIPPED:/.test(line)) note = 'skipped: RateHawk file already applied';
         }
       });
       stream.on('end', () => { if (buf) log(prefix + buf); });
