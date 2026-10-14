@@ -575,15 +575,21 @@ export default function BookingScreen() {
   // Bankart) -- the simulated demo gateway never calls create-payment-link
   // at all, so don't block that path on fields it has no use for.
   const billingAddressFilled = isSimulated || (!!address1.trim() && !!city.trim() && !!postcode.trim() && !!country)
-  // Must be at least two tokens (first + last) -- this becomes Bankart's
-  // actual cardholder first_name/last_name once Hristijan's form stops
-  // asking for it, and a fabricated last name would mean sending made-up
-  // identity data to a real payment processor. Same reasoning existing
-  // splitName()/buildRoomGuests() in lib/ratehawk.ts don't apply here:
-  // those synthesize placeholder CO-TRAVELER names for RateHawk's guest
-  // list, not the actual person being charged.
-  const cardholderNameValid = isSimulated || cardholderName.trim().split(/\s+/).filter(Boolean).length >= 2
+  // Any non-empty name -- this becomes Bankart's cardholder name (Hristijan's
+  // card page no longer asks for it). One word is allowed: Bankart's test
+  // card uses the single name "test", and some people have one name. The
+  // first word goes out as first_name and the rest (possibly empty) as
+  // last_name -- nothing is fabricated for the real payment processor.
+  const cardholderNameValid = isSimulated || cardholderName.trim().length > 0
   const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && billingAddressFilled && cardholderNameValid && payState === 'idle' && lockState === 'held'
+  // What's still blocking Pay, shown above the button so a disabled button
+  // never leaves the guest guessing (same order as handlePay's checks).
+  const payBlocker = payState !== 'idle' || lockState !== 'held' ? null
+    : !allGuestNamesFilled ? t.booking.enterName
+    : !email.trim() ? t.booking.enterEmail
+    : !billingAddressFilled ? t.booking.enterAddress
+    : !cardholderNameValid ? t.booking.enterCardholderName
+    : null
   const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, bookingCurrency)
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
@@ -828,7 +834,7 @@ export default function BookingScreen() {
     // own name field once it's stripped down to card/exp/CVV only, so
     // whatever we send here as first_name/last_name becomes the actual
     // Bankart cardholder name (see cardholderNameValid above, which already
-    // guarantees at least two tokens for the real gateway).
+    // guarantees it's non-empty; a one-word name leaves last_name empty).
     const [cardFirstName, ...cardLastParts] = cardholderName.trim().split(/\s+/)
 
     const result = await activeGateway.createCheckoutSession({
@@ -1361,11 +1367,12 @@ export default function BookingScreen() {
           </TouchableOpacity>
         )}
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 140 }} />
       </ScrollView>
 
       {/* ── Fixed pay bar ────────────────────────────────────── */}
       <View style={s.payBar}>
+        {payBlocker && <Text style={s.payBlocker}>{payBlocker}</Text>}
         <TouchableOpacity
           style={[s.payBtn, !canPay && s.payBtnDisabled]}
           onPress={handlePay}
@@ -1793,6 +1800,7 @@ const s = StyleSheet.create({
     borderTopColor: Colors.borderLight,
     ...Shadows.lg,
   },
+  payBlocker: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', marginBottom: 8 },
   payBtn: { borderRadius: Radius.full, overflow: 'hidden' },
   payBtnDisabled: { opacity: 0.7 },
   payBtnGradient: {
