@@ -34,7 +34,9 @@ async function fetchPaymentState(bookingId: string): Promise<Booking['payment_st
   return data.payment_state
 }
 
-// Polls until payment_state is 'captured' or 'failed'. onUpdate fires on
+// Polls until the gateway has answered: 'preauth_done' (card held --
+// Preauthorize mode, plugin v5.7.0), 'captured' (Debit mode), 'failed', or
+// 'voided' (the hold was released before we got to it). onUpdate fires on
 // every tick (including non-terminal ones). Returns a handle so the caller
 // can cancel early (e.g. guest closes the WebView manually).
 export function pollBookingPaymentState(
@@ -59,7 +61,7 @@ export function pollBookingPaymentState(
       }
 
       onUpdate(state)
-      if (state === 'captured' || state === 'failed') return
+      if (state === 'preauth_done' || state === 'captured' || state === 'failed' || state === 'voided') return
 
       if (tries >= MAX_TRIES) {
         onError('Timed out waiting for payment confirmation')
