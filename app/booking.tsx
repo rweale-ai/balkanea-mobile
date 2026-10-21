@@ -959,7 +959,7 @@ export default function BookingScreen() {
             // on from here (capture/void), so it isn't written from the app.
             pollHandleRef.current = null
             await updateIntent(intent.reference, { state: 'preauth_done' })
-            await finalizeConfirmedBooking({ ...pendingBookingRef.current!, payment_state: 'preauth_done' }, true)
+            await finalizeConfirmedBooking({ ...pendingBookingRef.current!, payment_state: 'preauth_done', payment_reference: intent.reference }, true)
           } else if (state === 'captured') {
             pollHandleRef.current = null
             await updateIntent(intent.reference, { state: 'captured' })
