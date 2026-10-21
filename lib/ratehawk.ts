@@ -116,7 +116,7 @@ function buildRoomGuests(leadGuestName: string, adultsCount: number) {
 async function pollBookingStatus(
   partnerOrderId: string,
   onProgress?: (percent: number) => void,
-): Promise<{ ok: boolean }> {
+): Promise<FinishOutcome> {
   // 30 attempts (150s) was cutting it too close against the 90-140s range
   // documented above -- reproduced live 2026-08-26 (Hotel Bachaumont,
   // Paris): a real finish took ~90s end to end, and a guest's real attempt
@@ -137,13 +137,45 @@ async function pollBookingStatus(
       })
       const data = await res.json()
       if (typeof data.percent === 'number') onProgress?.(data.percent)
-      if (data.success && data.is_final) return { ok: data.status === 'ok' }
+      if (data.success && data.is_final) {
+        // The backend settles a held payment (capture/void) the moment it
+        // sees this final answer -- data.payment reports what it did.
+        return { ok: data.status === 'ok', final: true, paymentState: data.payment?.payment_state }
+      }
     } catch (e) {
       console.warn('ratehawk: status check failed, retrying', e)
     }
     await new Promise<void>(r => setTimeout(r, 5000))
   }
-  return { ok: false }
+  return { ok: false, final: false }
+}
+
+// final: RateHawk gave a definitive answer (false = our poll gave up first,
+// the order may still complete). paymentState: the booking's payment_state
+// after the backend's settle, when it reported one.
+export interface FinishOutcome {
+  ok: boolean
+  final: boolean
+  paymentState?: 'preauth_pending' | 'preauth_done' | 'captured' | 'voided' | 'failed'
+}
+
+// Captures (or, if RateHawk didn't confirm, voids) a held card payment.
+// The backend verifies RateHawk's status itself -- this only asks it to
+// settle. Idempotent; the status poll above usually settles first. Also
+// the only trigger for simulated hotels, which have no RateHawk order.
+export async function settleHeldPayment(paymentReference: string): Promise<FinishOutcome['paymentState'] | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
+      body: JSON.stringify({ step: 'settle_payment', partner_order_id: paymentReference }),
+    })
+    const data = await res.json()
+    return data.payment?.payment_state ?? null
+  } catch (e) {
+    console.warn('ratehawk: settle_payment failed', e)
+    return null
+  }
 }
 
 export interface RealBookingPaymentType {
@@ -210,7 +242,7 @@ function buildFinishRooms(roomsConfig: RoomGuestConfig[], roomGuestNames: string
 }
 
 // Commits the order opened by createRealBookingForm. Only call this after
-// the guest's payment has been confirmed captured.
+// the guest's payment is held (preauth_done) or captured.
 export async function finishRealBooking(params: {
   partnerOrderId: string
   paymentType: RealBookingPaymentType
@@ -224,7 +256,7 @@ export async function finishRealBooking(params: {
   roomsConfig?: RoomGuestConfig[]
   roomGuestNames?: string[]
   onProgress?: (percent: number) => void
-}): Promise<{ ok: boolean }> {
+}): Promise<FinishOutcome> {
   const res = await fetch(`${BACKEND_URL}/api/ratehawk-book`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...ratehawkHeaders() },
@@ -240,7 +272,9 @@ export async function finishRealBooking(params: {
     }),
   })
   const data = await res.json()
-  if (!data.success) return { ok: false }
+  // Our backend's own "Could not confirm" -- not RateHawk's final word, so
+  // not final: the status poll/settle decides what happens to the payment.
+  if (!data.success) return { ok: false, final: false }
 
   return pollBookingStatus(params.partnerOrderId, params.onProgress)
 }

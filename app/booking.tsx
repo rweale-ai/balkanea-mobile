@@ -18,7 +18,7 @@ import { activeGateway } from '../lib/payment-gateway'
 import { supabase } from '../lib/supabase'
 import { getOrCreateIntent, updateIntent, referenceForLock } from '../lib/payment-intent'
 import { pollBookingPaymentState } from '../lib/payment-status'
-import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking, sendBookingConfirmationEmails } from '../lib/ratehawk'
+import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking, settleHeldPayment, sendBookingConfirmationEmails } from '../lib/ratehawk'
 import type { RoomLock, RealBookingForm } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
@@ -28,7 +28,7 @@ import { validateRoomsConfig, roomChargeTotal } from '../lib/rooms-config'
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network' | 'unavailable' | 'bookingFailedAfterPayment'
+type PayState = 'idle' | 'processing' | 'confirming' | 'declined' | 'network' | 'unavailable' | 'bookingFailedAfterPayment' | 'bookingFailedNotCharged' | 'bookingPendingHeld'
 type LockState = 'locking' | 'held' | 'renewing' | 'unavailable'
 type CardBrand = 'visa' | 'mc' | null
 
@@ -604,7 +604,13 @@ export default function BookingScreen() {
   // rather than silently treated as a normal confirmation, and the Supabase
   // row (already optimistically marked 'confirmed' by the caller) is walked
   // back to 'pending' so support can find it.
-  const finalizeConfirmedBooking = async (booking: Booking) => {
+  //
+  // held: the card is only HELD (preauth_done -- the payment plugin's
+  // Preauthorize mode, v5.7.0), not charged. Then the backend captures once
+  // RateHawk confirms and voids if it doesn't (Chat lib/payment-settle.js),
+  // so a failed commit means the guest was NOT charged, and the row's
+  // status is the backend's to set.
+  const finalizeConfirmedBooking = async (booking: Booking, held = false) => {
     setPayState('confirming')
     setConfirmProgress(0)
 
@@ -635,12 +641,30 @@ export default function BookingScreen() {
         })
         if (!isMountedRef.current) return
         if (!finish.ok) {
+          if (held) {
+            // RateHawk's final "no" -> the backend has released the hold
+            // (settle again in case the poll's own settle didn't land). No
+            // final answer yet -> the hold stays; RateHawk may still confirm.
+            if (finish.final) {
+              await settleHeldPayment(booking.payment_reference!)
+              if (!isMountedRef.current) return
+              setPayState('bookingFailedNotCharged')
+            } else {
+              setPayState('bookingPendingHeld')
+            }
+            return
+          }
           await updateBookingStatus(booking.id, { status: 'pending' })
           setPayState('bookingFailedAfterPayment')
           return
         }
         ratehawkOrderRef.current = ratehawkFormRef.current.orderId
         await updateBookingStatus(booking.id, { ratehawk_order_id: ratehawkOrderRef.current })
+        if (held) {
+          // Usually already captured by the status poll that saw 'ok'.
+          if (finish.paymentState !== 'captured') await settleHeldPayment(booking.payment_reference!)
+          await updateBookingStatus(booking.id, { status: 'confirmed' })
+        }
 
         // Fire-and-forget -- the backend itself retries fetching the
         // voucher/invoice for up to ~35s, no reason to make the guest wait
@@ -664,6 +688,11 @@ export default function BookingScreen() {
         }).catch(() => { /* fire-and-forget */ })
       } else {
         await reconfirmBooking(lock!.lockId)
+        // Simulated hotel: no RateHawk order to wait on, capture right away.
+        if (held) {
+          await settleHeldPayment(booking.payment_reference!)
+          await updateBookingStatus(booking.id, { status: 'confirmed' })
+        }
       }
 
       syncBookingToSalesforce({
@@ -688,6 +717,12 @@ export default function BookingScreen() {
       // Best-effort -- if this also throws (e.g. the same failure that
       // got us here), still surface bookingFailedAfterPayment rather than
       // leaving the guest stuck a second time.
+      if (held) {
+        // Nothing was charged by us; the backend settles (or the plugin
+        // auto-voids) the hold either way.
+        setPayState('bookingPendingHeld')
+        return
+      }
       await updateBookingStatus(booking.id, { status: 'pending' }).catch(() => {})
       setPayState('bookingFailedAfterPayment')
     }
@@ -919,11 +954,23 @@ export default function BookingScreen() {
       pollHandleRef.current = pollBookingPaymentState(
         bookingId,
         async (state) => {
-          if (state === 'captured') {
+          if (state === 'preauth_done') {
+            // Card held, not charged. payment_state is the backend's to move
+            // on from here (capture/void), so it isn't written from the app.
+            pollHandleRef.current = null
+            await updateIntent(intent.reference, { state: 'preauth_done' })
+            await finalizeConfirmedBooking({ ...pendingBookingRef.current!, payment_state: 'preauth_done', payment_reference: intent.reference }, true)
+          } else if (state === 'captured') {
             pollHandleRef.current = null
             await updateIntent(intent.reference, { state: 'captured' })
             await updateBookingStatus(bookingId, { status: 'confirmed', payment_state: 'captured' })
             await finalizeConfirmedBooking({ ...pendingBookingRef.current!, status: 'confirmed', payment_state: 'captured' })
+          } else if (state === 'voided') {
+            // Released before we got to it -- nothing charged.
+            pollHandleRef.current = null
+            await updateIntent(intent.reference, { state: 'voided' })
+            setPaymentWebViewVisible(false)
+            setPayState('declined')
           } else if (state === 'failed') {
             pollHandleRef.current = null
             await updateIntent(intent.reference, { state: 'failed' })
@@ -1322,6 +1369,31 @@ export default function BookingScreen() {
           <View style={s.errorBanner}>
             <Ionicons name="alert-circle" size={16} color={Colors.error} />
             <Text style={s.errorBannerText}>{t.booking.bookingFailedAfterPayment}</Text>
+            <TouchableOpacity onPress={() => router.replace('/(tabs)/trips')} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.booking.viewBookings}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Card was only held (Preauthorize mode) and the hotel said no --
+            the hold is released, nothing charged, so choosing another room
+            is safe. */}
+        {payState === 'bookingFailedNotCharged' && (
+          <View style={s.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={Colors.error} />
+            <Text style={s.errorBannerText}>{t.booking.bookingFailedNotCharged}</Text>
+            <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
+              <Text style={s.retryText}>{t.booking.chooseAnotherRoom}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Card held, hotel hasn't answered yet -- no retry (the order may
+            still complete); send them to their bookings. */}
+        {payState === 'bookingPendingHeld' && (
+          <View style={[s.errorBanner, s.networkBanner]}>
+            <Ionicons name="time-outline" size={16} color="#92400E" />
+            <Text style={[s.errorBannerText, s.networkBannerText]}>{t.booking.bookingPendingHeld}</Text>
             <TouchableOpacity onPress={() => router.replace('/(tabs)/trips')} style={s.retryBtn}>
               <Text style={s.retryText}>{t.booking.viewBookings}</Text>
             </TouchableOpacity>
