@@ -267,14 +267,6 @@ export default function BookingScreen() {
   const [city, setCity] = useState('')
   const [postcode, setPostcode] = useState('')
   const [country, setCountry] = useState<CountryCode | ''>('')
-  // Name as it appears on the card -- deliberately separate from fullName
-  // (the staying guest, per Ray 2026-08-27: Hristijan's plugin is dropping
-  // its own name/address form fields once his page is stripped down to
-  // card/exp/CVV only, so whatever we send as first_name/last_name in the
-  // payment payload becomes the actual Bankart cardholder name. Guest and
-  // payer are often the same person but not always (e.g. a parent booking
-  // for family), so this must be its own field, not derived from fullName.
-  const [cardholderName, setCardholderName] = useState('')
   const [payState, setPayState] = useState<PayState>('idle')
   // Real progress (0-100) from RateHawk's own booking/finish/status poll --
   // see finishRealBooking's onProgress. Only real-hotel bookings report
@@ -575,20 +567,13 @@ export default function BookingScreen() {
   // Bankart) -- the simulated demo gateway never calls create-payment-link
   // at all, so don't block that path on fields it has no use for.
   const billingAddressFilled = isSimulated || (!!address1.trim() && !!city.trim() && !!postcode.trim() && !!country)
-  // Any non-empty name -- this becomes Bankart's cardholder name (Hristijan's
-  // card page no longer asks for it). One word is allowed: Bankart's test
-  // card uses the single name "test", and some people have one name. The
-  // first word goes out as first_name and the rest (possibly empty) as
-  // last_name -- nothing is fabricated for the real payment processor.
-  const cardholderNameValid = isSimulated || cardholderName.trim().length > 0
-  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && billingAddressFilled && cardholderNameValid && payState === 'idle' && lockState === 'held'
+  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && billingAddressFilled && payState === 'idle' && lockState === 'held'
   // What's still blocking Pay, shown above the button so a disabled button
   // never leaves the guest guessing (same order as handlePay's checks).
   const payBlocker = payState !== 'idle' || lockState !== 'held' ? null
     : !allGuestNamesFilled ? t.booking.enterName
     : !email.trim() ? t.booking.enterEmail
     : !billingAddressFilled ? t.booking.enterAddress
-    : !cardholderNameValid ? t.booking.enterCardholderName
     : null
   const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, bookingCurrency)
   const busy = payState === 'processing' || payState === 'confirming'
@@ -743,7 +728,6 @@ export default function BookingScreen() {
     if (!allGuestNamesFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
     if (!billingAddressFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterAddress); return }
-    if (!cardholderNameValid) { Alert.alert(t.booking.missingInfo, t.booking.enterCardholderName); return }
 
     // The real gateway needs a Supabase row payment-notify.js can find and
     // update — a guest's pending booking only ever lives in on-device
@@ -865,12 +849,11 @@ export default function BookingScreen() {
     // RateHawk order above was actually confirmed against.
     const intent = await getOrCreateIntent(bookHashForPay, amount, payCurrency)
 
-    // Cardholder name, not fullName -- Hristijan's plugin is dropping its
-    // own name field once it's stripped down to card/exp/CVV only, so
-    // whatever we send here as first_name/last_name becomes the actual
-    // Bankart cardholder name (see cardholderNameValid above, which already
-    // guarantees it's non-empty; a one-word name leaves last_name empty).
-    const [cardFirstName, ...cardLastParts] = cardholderName.trim().split(/\s+/)
+    // The lead guest's name, as the customer record. The cardholder name is
+    // entered on Hristijan's card page itself (per Ray 2026-10-27 -- asking
+    // for it here too meant guests typed it twice). A one-word name leaves
+    // last_name empty.
+    const [cardFirstName, ...cardLastParts] = fullName.trim().split(/\s+/)
 
     const result = await activeGateway.createCheckoutSession({
       reference: intent.reference,
@@ -1146,18 +1129,6 @@ export default function BookingScreen() {
           <>
             <Text style={s.sectionTitle}>{t.booking.billingAddress}</Text>
             <View style={s.fields}>
-              <Field label={t.booking.nameOnCard} icon="card-outline">
-                <TextInput
-                  style={s.fieldInput}
-                  value={cardholderName}
-                  onChangeText={setCardholderName}
-                  placeholder={t.booking.nameOnCardPlaceholder}
-                  placeholderTextColor={Colors.textLight}
-                  autoCapitalize="words"
-                  editable={!busy}
-                  textContentType="name"
-                />
-              </Field>
               <Field label={t.booking.addressLine1} icon="location-outline">
                 <TextInput
                   style={s.fieldInput}
