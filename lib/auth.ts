@@ -155,14 +155,36 @@ export async function setNewPassword(password: string) {
 // requirement). The backend (Chat /api/delete-account) takes the user id
 // ONLY from this access token; confirmed bookings are kept (detached from
 // the account) for refunds and upcoming stays. Signs out on success.
-export async function deleteAccount(): Promise<{ ok: boolean }> {
+// True when this account signs in with Apple (native iOS or web OAuth).
+function usesAppleSignIn(user: User): boolean {
+  return user.app_metadata?.provider === 'apple'
+    || (user.identities ?? []).some(i => i.provider === 'apple')
+}
+
+// Apple requires apps to revoke Sign in with Apple tokens when the account
+// is deleted (App Store Review Guideline 5.1.1(v)). On iOS we ask Apple for a
+// fresh one-time authorization code; the backend exchanges it and calls
+// Apple's /auth/revoke (Chat lib/apple-revoke.js). Nothing is stored.
+// `cancelled` = the user dismissed the Apple sheet, so nothing was deleted.
+export async function deleteAccount(): Promise<{ ok: boolean; cancelled?: boolean }> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return { ok: false }
+  let appleAuthorizationCode: string | undefined
+  if (Platform.OS === 'ios' && usesAppleSignIn(session.user) && await isAppleNativeSignInAvailable()) {
+    try {
+      const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] })
+      appleAuthorizationCode = credential.authorizationCode ?? undefined
+    } catch (e: any) {
+      if (e?.code === 'ERR_REQUEST_CANCELED') return { ok: false, cancelled: true }
+      // Any other Apple error: still delete the account (the user asked for
+      // it); the backend logs that no revocation happened.
+    }
+  }
   try {
     const res = await fetch(`${BACKEND_URL}/api/delete-account`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({}),
+      body: JSON.stringify(appleAuthorizationCode ? { apple_authorization_code: appleAuthorizationCode } : {}),
     })
     const data = await res.json()
     if (!data.success) return { ok: false }
