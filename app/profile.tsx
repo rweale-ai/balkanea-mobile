@@ -265,9 +265,10 @@ ${t.profile.deleteAccountBookings.replace('{{count}}', String(upcoming))}`
       : t.profile.deleteAccountConfirm
     const run = async () => {
       setDeleting(true)
-      const { ok } = await deleteAccount()
+      const { ok, cancelled } = await deleteAccount()
       if (!ok) {
         setDeleting(false)
+        if (cancelled) return // closed the Apple confirmation: nothing deleted
         if (Platform.OS === 'web') window.alert(t.profile.deleteAccountFailed)
         else Alert.alert(t.profile.deleteAccount, t.profile.deleteAccountFailed)
         return
