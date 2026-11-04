@@ -203,6 +203,8 @@ export function ItineraryTopicSheet({ booking, topic, onClose }: Props) {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* EU AI Act Art. 50: say it's an AI wherever Nea talks (same line as the main chat) */}
+            <Text style={styles.aiNotice}>{t.chat.disclaimer}</Text>
             <View style={[styles.inputRow, Platform.OS === 'android' && styles.inputRowAndroid]}>
               <TextInput
                 style={styles.input}
@@ -239,6 +241,7 @@ export function ItineraryTopicSheet({ booking, topic, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
+  aiNotice: { ...Typography.caption, color: Colors.textLight, textAlign: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, lineHeight: 16 },
   container: {
     flex: 1,
     justifyContent: 'flex-end',
