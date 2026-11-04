@@ -576,6 +576,16 @@ export default function BookingScreen() {
     : !billingAddressFilled ? t.booking.enterAddress
     : null
   const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, bookingCurrency)
+  // Taxes the guest pays at the hotel on top of grandTotal (EU price
+  // transparency + RateHawk integration rules: show before payment). Shown
+  // in the hotel's own currency, exactly as RateHawk reports them.
+  const hotelTaxes = room?.taxes_at_hotel ?? []
+  const hotelTaxesList = hotelTaxes
+    .map(tx => {
+      const label = t.booking.taxNames[tx.name] ?? tx.name.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+      return `${label} ${tx.amount.toFixed(2)} ${tx.currency}`.trim()
+    })
+    .join(', ')
   const busy = payState === 'processing' || payState === 'confirming'
   const holdLabel = `${Math.floor(holdSeconds / 60)}:${String(holdSeconds % 60).padStart(2, '0')}`
   const roomGuestNames = [fullName.trim(), ...additionalGuestNames.map(n => n.trim())]
@@ -1057,9 +1067,15 @@ export default function BookingScreen() {
           </View>
           <View style={s.summaryPriceCol}>
             <Text style={s.summaryPrice}>{formatPrice(grandTotal, bookingCurrency)}</Text>
-            <Text style={s.summaryTaxes}>{t.booking.taxesIncl}</Text>
+            <Text style={s.summaryTaxes}>{hotelTaxes.length > 0 ? t.booking.taxesAtHotelShort : t.booking.taxesIncl}</Text>
           </View>
         </View>
+        {hotelTaxes.length > 0 && (
+          <View style={s.hotelTaxesNote}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.textLight} />
+            <Text style={s.hotelTaxesText}>{t.booking.taxesAtHotelNote.replace('{{list}}', hotelTaxesList)}</Text>
+          </View>
+        )}
 
         {/* ── Guest details ────────────────────────────────────── */}
         <Text style={s.sectionTitle}>{t.booking.guestDetails}</Text>
@@ -1561,6 +1577,8 @@ const s = StyleSheet.create({
   summaryPriceCol: { alignItems: 'flex-end', flexShrink: 0 },
   summaryPrice: { ...Typography.h2, color: Colors.primary },
   summaryTaxes: { ...Typography.caption, color: Colors.textLight, fontSize: 10, marginTop: 2 },
+  hotelTaxesNote: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, marginHorizontal: Spacing.md, marginTop: -Spacing.xs, marginBottom: Spacing.sm },
+  hotelTaxesText: { ...Typography.caption, color: Colors.textLight, flex: 1 },
 
   // Section title
   sectionTitle: { ...Typography.h3, color: Colors.text, marginHorizontal: Spacing.md, marginTop: Spacing.md, marginBottom: Spacing.sm },

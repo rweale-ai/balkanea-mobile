@@ -141,6 +141,9 @@ export interface RoomType {
   // for ALL rooms and must not be multiplied by the room count. See
   // roomChargeTotal() in lib/rooms-config.ts.
   priced_for_rooms?: number
+  // Taxes paid at the hotel, NOT in the price we charge (live RateHawk
+  // rates only; Chat api/hotel-rooms.js). Whole stay, hotel's own currency.
+  taxes_at_hotel?: { name: string; amount: number; currency: string }[]
 }
 
 export interface Booking {
