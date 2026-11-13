@@ -42,8 +42,10 @@ function parseSegments(text: string): Segment[] {
 export function FormattedText({ text, style, linkStyle, trailing }: Props) {
   const segments = parseSegments(text)
 
+  // selectable: guests can long-press to select and copy Nea's replies
+  // (Ray, 2026-11-13). Nested link/bold Texts inherit it.
   return (
-    <Text style={style}>
+    <Text style={style} selectable>
       {segments.map((seg, i) => {
         if (seg.kind === 'link') {
           return (

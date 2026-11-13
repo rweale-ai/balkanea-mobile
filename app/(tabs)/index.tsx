@@ -161,7 +161,7 @@ function MessageBubble({
           end={{ x: 1, y: 1 }}
           style={s.bubbleUser}
         >
-          <Text style={s.textUser}>{message.content}</Text>
+          <Text style={s.textUser} selectable>{message.content}</Text>
         </LinearGradient>
       </View>
     )

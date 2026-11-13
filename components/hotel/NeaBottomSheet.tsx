@@ -306,7 +306,7 @@ export function NeaBottomSheet({ hotel, searchParams, visible, onClose }: Props)
                       item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
                     ]}>
                       {item.role === 'user' ? (
-                        <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
+                        <Text style={[styles.bubbleText, styles.bubbleTextUser]} selectable>
                           {item.content}
                         </Text>
                       ) : (
