@@ -237,7 +237,7 @@ export default function RoomSelectionScreen() {
           <View style={styles.ctxPill}>
             <Ionicons name="people-outline" size={12} color={Colors.primary} />
             <Text style={styles.ctxPillText}>
-              {params.adults || '2'} adults{roomCount > 1 ? ` · ${roomCount} rooms` : ''}
+              {params.adults || '2'} adults{parseInt(params.children || '0', 10) > 0 ? ` · ${params.children} children` : ''}{roomCount > 1 ? ` · ${roomCount} rooms` : ''}
             </Text>
           </View>
         </View>
@@ -247,6 +247,17 @@ export default function RoomSelectionScreen() {
         <Text style={styles.hotelLine}>
           <Text style={styles.hotelLineBold}>{hotel.name}</Text> · {hotel.address.split(',')[0]}{hotel.guest_rating != null ? ` · ★ ${formatGuestRating(hotel)}` : ''}
         </Text>
+        {/* RateHawk books several rooms on ONE rate, so every room is the same
+            type (mixed room types = separate bookings, not supported yet --
+            Ray 2026-11-13: certify same-type, add mixed after launch). */}
+        {roomCount > 1 && (
+          <View style={styles.multiRoomNote}>
+            <Ionicons name="information-circle-outline" size={15} color={Colors.primary} />
+            <Text style={styles.multiRoomNoteText}>
+              {t.roomSelect.multiRoomSameType.replace(/\{\{count\}\}/g, String(roomCount))}
+            </Text>
+          </View>
+        )}
 
         {hotel.room_types.map(room => {
           const isRecommended = room.room_id === recommendedRoomId
@@ -304,8 +315,8 @@ export default function RoomSelectionScreen() {
                     {formatPrice(room.price_per_night, activeCurrency)}<Text style={styles.rcPriceUnit}> {t.hotel.perNight}</Text>
                   </Text>
                   <Text style={styles.rcTotal}>
-                    {formatPrice(roomChargeTotal(room, roomCount), activeCurrency)} {t.hotel.total.toLowerCase()}
-                    {roomCount > 1 ? (room.priced_for_rooms ? ` (${roomCount} rooms)` : ` (× ${roomCount} rooms)`) : ''}
+                    {formatPrice(roomChargeTotal(room, roomCount), activeCurrency)}{' '}
+                    {roomCount > 1 ? t.roomSelect.totalForRooms.replace('{{count}}', String(roomCount)) : t.hotel.total.toLowerCase()}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -315,10 +326,10 @@ export default function RoomSelectionScreen() {
                 >
                   {isRecommended ? (
                     <LinearGradient colors={Gradients.primaryFade} style={styles.rcBookGradient}>
-                      <Text style={styles.rcBookText}>{t.roomSelect.bookThisRoom}</Text>
+                      <Text style={styles.rcBookText}>{roomCount > 1 ? t.roomSelect.bookRooms.replace('{{count}}', String(roomCount)) : t.roomSelect.bookThisRoom}</Text>
                     </LinearGradient>
                   ) : (
-                    <Text style={[styles.rcBookText, styles.rcBookTextOutline]}>{t.roomSelect.bookThisRoom}</Text>
+                    <Text style={[styles.rcBookText, styles.rcBookTextOutline]}>{roomCount > 1 ? t.roomSelect.bookRooms.replace('{{count}}', String(roomCount)) : t.roomSelect.bookThisRoom}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -430,6 +441,21 @@ const styles = StyleSheet.create({
   roomCardRecommended: {
     borderWidth: 1.5,
     borderColor: Colors.primary,
+  },
+  multiRoomNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: Colors.primary + '12',
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  multiRoomNoteText: {
+    ...Typography.caption,
+    color: Colors.text,
+    flex: 1,
+    lineHeight: 17,
   },
   recBanner: {
     flexDirection: 'row',
