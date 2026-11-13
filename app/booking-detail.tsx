@@ -476,7 +476,7 @@ export default function BookingDetailScreen() {
                   <View style={s.cancelPenaltyBanner}>
                     <Ionicons name="alert-circle" size={18} color={Colors.star} />
                     <Text style={s.cancelPenaltyText}>
-                      {t.bookingDetail.cancellationPenalty.replace('{{amount}}', `${cxStatus.penaltyAmount?.toFixed(2)} ${booking?.currency ?? ''}`.trim())}
+                      {t.bookingDetail.cancellationPenalty.replace('{{amount}}', `${cxStatus.penaltyAmount != null ? Math.ceil(cxStatus.penaltyAmount) : ''} ${booking?.currency ?? ''}`.trim())}
                     </Text>
                   </View>
                 )

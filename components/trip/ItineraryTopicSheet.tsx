@@ -178,7 +178,7 @@ export function ItineraryTopicSheet({ booking, topic, onClose }: Props) {
                 renderItem={({ item }) => (
                   <View style={[styles.bubble, item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}>
                     {item.role === 'user' ? (
-                      <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{item.content}</Text>
+                      <Text style={[styles.bubbleText, styles.bubbleTextUser]} selectable>{item.content}</Text>
                     ) : (
                       <FormattedText text={item.content} style={[styles.bubbleText, styles.bubbleTextAssistant]} />
                     )}

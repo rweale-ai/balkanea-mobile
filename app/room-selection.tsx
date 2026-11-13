@@ -260,7 +260,7 @@ export default function RoomSelectionScreen() {
               ? t.roomSelect.nonRefundable
               : cxStatus.isFreeRightNow
                 ? t.roomSelect.freeCancelUntil.replace('{{date}}', cxStatus.freeCancellationBefore ? formatCancellationDate(cxStatus.freeCancellationBefore) : '')
-                : t.roomSelect.cancellationPenalty.replace('{{amount}}', `${cxStatus.penaltyAmount?.toFixed(2)}`)
+                : t.roomSelect.cancellationPenalty.replace('{{amount}}', `${cxStatus.penaltyAmount != null ? Math.ceil(cxStatus.penaltyAmount) : ''}`)
             : isFree
               ? t.roomSelect.freeCancelUntil.replace('{{date}}', room.cancellation.replace(/^Free cancellation until\s*/i, ''))
               : t.roomSelect.nonRefundable
