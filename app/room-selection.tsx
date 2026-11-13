@@ -310,7 +310,7 @@ export default function RoomSelectionScreen() {
               </View>
 
               <View style={styles.rcFooter}>
-                <View>
+                <View style={styles.rcPriceCol}>
                   <Text style={styles.rcPrice}>
                     {formatPrice(room.price_per_night, activeCurrency)}<Text style={styles.rcPriceUnit}> {t.hotel.perNight}</Text>
                   </Text>
@@ -551,9 +551,18 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 1,
   },
+  // Price column shrinks and wraps; the button keeps its full width. MKD
+  // amounts ("39,237 ден total for 2 rooms") are long enough to push
+  // "Book 2 rooms" off the card otherwise (2026-11-13).
+  rcPriceCol: {
+    flex: 1,
+    flexShrink: 1,
+    marginRight: Spacing.sm,
+  },
   rcBookBtn: {
     borderRadius: Radius.md,
     overflow: 'hidden',
+    flexShrink: 0,
   },
   rcBookBtnOutline: {
     borderWidth: 1.5,

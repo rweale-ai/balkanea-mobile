@@ -10,6 +10,7 @@ import { getBooking } from '../lib/bookings-store'
 import { useLang } from '../lib/i18n'
 import { useVoucher } from '../lib/use-voucher'
 import { VoucherWebView } from '../components/VoucherWebView'
+import { formatChargedAmount } from '../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 
 export default function BookingConfirmedScreen() {
@@ -129,7 +130,7 @@ export default function BookingConfirmedScreen() {
           <View style={styles.summaryRow}>
             <Ionicons name="people-outline" size={16} color={Colors.primary} />
             <Text style={styles.summaryText}>
-              {booking.guests.adults} {t.bookingDetail.adults}{booking.guests.children > 0 ? `, ${booking.guests.children} ${t.bookingDetail.children}` : ''}
+              {(booking.rooms ?? 1) > 1 ? `${booking.rooms} ${t.bookingDetail.rooms} · ` : ''}{booking.guests.adults} {t.bookingDetail.adults}{booking.guests.children > 0 ? `, ${booking.guests.children} ${t.bookingDetail.children}` : ''}
             </Text>
           </View>
 
@@ -137,7 +138,12 @@ export default function BookingConfirmedScreen() {
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>{t.bookingDetail.totalPaid}</Text>
-            <Text style={styles.totalPrice}>{currencySymbol}{booking.total_price}</Text>
+            <Text style={styles.totalPrice}>
+              {/* total_price is the amount actually charged, already in
+                  booking.currency -- format it, never convert it. Same
+                  "39,422 ден" style as every other screen (was "MKD39422"). */}
+              {formatChargedAmount(booking.total_price, booking.currency)}
+            </Text>
           </View>
         </View>
 
