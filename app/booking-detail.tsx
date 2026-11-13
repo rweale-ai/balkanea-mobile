@@ -12,6 +12,7 @@ import { getItinerary, removeItineraryItem, type ItineraryItemType } from '../li
 import { setReviewIntent } from '../lib/explore-intent'
 import { useLang } from '../lib/i18n'
 import { useVoucher } from '../lib/use-voucher'
+import { formatChargedAmount } from '../lib/currency'
 import { VoucherWebView } from '../components/VoucherWebView'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Booking, HotelSearchParams } from '../lib/types'
@@ -85,12 +86,12 @@ export default function BookingDetailScreen() {
     [booking],
   )
 
-  const formatPrice = useCallback((eur: number) => {
+  // booking.total_price is the amount actually charged, already in
+  // booking.currency -- this used to multiply it by 61.5 again, showing a
+  // 39,422 ден stay as ~2.4M ден (2026-11-13). Format only.
+  const formatPrice = useCallback((amount: number) => {
     if (!booking) return ''
-    if (booking.currency === 'MKD') return `${Math.round(eur * 61.5).toLocaleString('en-US')} ден`
-    if (booking.currency === 'GBP') return `£${eur}`
-    if (booking.currency === 'USD') return `$${eur}`
-    return `€${eur}`
+    return formatChargedAmount(amount, booking.currency)
   }, [booking])
 
   const today = new Date().toISOString().split('T')[0]
@@ -296,7 +297,7 @@ export default function BookingDetailScreen() {
             <DetailRow label={t.bookingDetail.roomType} value={booking.room.name} />
             <DetailRow
               label={t.bookingDetail.guests}
-              value={`${booking.guests.adults} ${t.bookingDetail.adults}${booking.guests.children > 0 ? `, ${booking.guests.children} ${t.bookingDetail.children}` : ''}`}
+              value={`${(booking.rooms ?? 1) > 1 ? `${booking.rooms} ${t.bookingDetail.rooms} · ` : ''}${booking.guests.adults} ${t.bookingDetail.adults}${booking.guests.children > 0 ? `, ${booking.guests.children} ${t.bookingDetail.children}` : ''}`}
             />
             <DetailRow
               label={t.bookingDetail.mealPlan}
@@ -608,10 +609,14 @@ const s = StyleSheet.create({
     paddingVertical: Spacing.sm + 4,
     marginBottom: Spacing.lg,
   },
+  // Label shrinks/wraps so a long code or RateHawk reference never runs
+  // past the badge's right edge (2026-11-13 screenshot).
   codeLabel: {
     ...Typography.overline,
     color: Colors.primary,
     fontSize: 10,
+    flexShrink: 1,
+    marginRight: Spacing.sm,
   },
   codeValue: {
     ...Typography.h2,
@@ -830,7 +835,8 @@ const s = StyleSheet.create({
     borderBottomColor: Colors.borderLight,
   },
   detailLabel: { ...Typography.body, color: Colors.textSecondary, fontSize: 14 },
-  detailValue: { ...Typography.bodyMedium, color: Colors.text, fontSize: 14, fontWeight: '600' },
+  // Long values (e.g. room names) wrap right-aligned instead of running off the card.
+  detailValue: { ...Typography.bodyMedium, color: Colors.text, fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right', marginLeft: Spacing.md },
 
   // Cancelled banner
   cancelledBanner: {

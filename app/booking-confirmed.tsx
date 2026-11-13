@@ -10,6 +10,7 @@ import { getBooking } from '../lib/bookings-store'
 import { useLang } from '../lib/i18n'
 import { useVoucher } from '../lib/use-voucher'
 import { VoucherWebView } from '../components/VoucherWebView'
+import { formatChargedAmount } from '../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 
 export default function BookingConfirmedScreen() {
@@ -141,9 +142,7 @@ export default function BookingConfirmedScreen() {
               {/* total_price is the amount actually charged, already in
                   booking.currency -- format it, never convert it. Same
                   "39,422 ден" style as every other screen (was "MKD39422"). */}
-              {booking.currency === 'MKD'
-                ? `${Math.ceil(booking.total_price).toLocaleString('en-US')} ден`
-                : `${currencySymbol}${Math.ceil(booking.total_price).toLocaleString('en-US')}`}
+              {formatChargedAmount(booking.total_price, booking.currency)}
             </Text>
           </View>
         </View>
