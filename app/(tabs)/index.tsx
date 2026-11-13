@@ -89,11 +89,19 @@ function InlineHotelCard({
           </View>
         )}
         <Text style={s.hotelName} numberOfLines={1}>{hotel.name}</Text>
+        {/* Hotel class (stars) always shows; the guest rating only when
+            RateHawk has one. Before 2026-11-13 the stars were hidden for
+            any hotel without a guest rating (e.g. Conrad LA in sandbox). */}
         <View style={s.hotelMeta}>
-          <Ionicons name="star" size={10} color={Colors.star} />
-          <Text style={s.hotelRating}>{formatGuestRating(hotel)}</Text>
+          {hotel.stars > 0 && (
+            <Text style={s.hotelStars}>{'★'.repeat(Math.min(5, Math.round(hotel.stars)))}</Text>
+          )}
           {hotel.guest_rating != null && hotel.guest_rating > 0 && (
-            <Text style={s.hotelReviews}> · {hotel.stars}★</Text>
+            <>
+              {hotel.stars > 0 && <Text style={s.hotelReviews}> · </Text>}
+              <Text style={s.hotelRating}>{formatGuestRating(hotel)}</Text>
+              <Text style={s.hotelReviews}>/10</Text>
+            </>
           )}
         </View>
         <Text style={s.hotelBlurb} numberOfLines={2}>
@@ -772,6 +780,11 @@ const s = StyleSheet.create({
     color: Colors.text,
     fontWeight: '700',
     fontSize: 12,
+  },
+  hotelStars: {
+    color: Colors.star,
+    fontSize: 11,
+    letterSpacing: 1,
   },
   hotelReviews: {
     ...Typography.caption,

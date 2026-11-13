@@ -40,6 +40,15 @@ export default function HotelDetailScreen() {
 
   const [hotel, setHotel] = useState<Hotel | null>(null)
   const [hotelLoading, setHotelLoading] = useState(true)
+  const roomsConfig = useMemo(() => {
+    if (!params.roomsConfig) return undefined
+    try {
+      return validateRoomsConfig(JSON.parse(params.roomsConfig))
+    } catch {
+      return undefined
+    }
+  }, [params.roomsConfig])
+
   useEffect(() => {
     let cancelled = false
     if (!params.hotelId || !params.checkin || !params.checkout) {
@@ -61,13 +70,18 @@ export default function HotelDetailScreen() {
       // maxPricePerNight here can miss the hotel entirely. See project
       // memory: caused a real "Hotel not found" on a budget Ohrid search.
       maxPricePerNight: params.maxPricePerNight ? parseFloat(params.maxPricePerNight) : undefined,
+      // Per-room guests, same as Nea's original search. Without it a
+      // multi-room stay (e.g. 2 rooms, 8 guests) is re-searched as ONE room
+      // for everyone, nothing comes back, and the page says "Hotel not
+      // found" (2026-11-13, RateHawk certification multiroom case).
+      roomsConfig,
     }).then((results) => {
       if (cancelled) return
       setHotel(results.find(h => h.hotel_id === params.hotelId) || null)
       setHotelLoading(false)
     })
     return () => { cancelled = true }
-  }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight])
+  }, [params.hotelId, params.checkin, params.checkout, params.destination, params.adults, params.children, params.rooms, params.currency, params.maxPricePerNight, roomsConfig])
 
   const nights = useMemo(() => {
     if (!params.checkin || !params.checkout) return 1
@@ -80,14 +94,6 @@ export default function HotelDetailScreen() {
 
   // Guarded parse -- a malformed route param must never throw on this
   // screen, just fall back to the flat adults/children/rooms fields.
-  const roomsConfig = useMemo(() => {
-    if (!params.roomsConfig) return undefined
-    try {
-      return validateRoomsConfig(JSON.parse(params.roomsConfig))
-    } catch {
-      return undefined
-    }
-  }, [params.roomsConfig])
 
   const searchParams = useMemo<HotelSearchParams>(() => ({
     destination: params.destination || '',
