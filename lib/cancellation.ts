@@ -68,7 +68,7 @@ export function describeCancellationPolicy(
       ? `Free cancellation until ${formatCancellationDate(status.freeCancellationBefore)}`
       : 'Free cancellation'
   }
-  return `Cancelling now charges ${status.penaltyAmount!.toFixed(2)} ${currency ?? ''}`.trim()
+  return `Cancelling now charges ${Math.ceil(status.penaltyAmount!)} ${currency ?? ''}`.trim()
 }
 
 // One line describing what cancelling right now costs, in the app's own
@@ -88,5 +88,5 @@ export function cancellationTermsText(
       ? s.freeCancelUntil.replace('{{date}}', formatCancellationDate(status.freeCancellationBefore))
       : s.freeCancel
   }
-  return s.cancellationPenalty.replace('{{amount}}', `${status.penaltyAmount?.toFixed(2)} ${currency ?? ''}`.trim())
+  return s.cancellationPenalty.replace('{{amount}}', `${status.penaltyAmount != null ? Math.ceil(status.penaltyAmount) : ''} ${currency ?? ''}`.trim())
 }

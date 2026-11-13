@@ -433,10 +433,10 @@ export default function BookingScreen() {
   const applyLockedPrice = (l: RoomLock, h: Hotel, r: RoomType): boolean => {
     if (!r.book_hash || l.lockedTotal == null) return true
     if (l.lockedCurrency && l.lockedCurrency !== quoteCurrency) return false
-    const locked = Math.round(l.lockedTotal)
+    const locked = Math.ceil(l.lockedTotal)
     if (locked === r.total_price) return true // rounding only -- unchanged
     const perRoomNights = Math.max(1, nights) * Math.max(1, r.priced_for_rooms || 1)
-    const lockedRoom: RoomType = { ...r, total_price: locked, price_per_night: Math.round(l.lockedTotal / perRoomNights) }
+    const lockedRoom: RoomType = { ...r, total_price: locked, price_per_night: Math.ceil(l.lockedTotal / perRoomNights) }
     setLockedPriceNote({ from: roomChargeTotal(r, roomCount), to: roomChargeTotal(lockedRoom, roomCount) })
     setHotelRoom({ hotel: h, room: lockedRoom })
     return true

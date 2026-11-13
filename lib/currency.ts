@@ -85,7 +85,7 @@ const SYMBOLS: Partial<Record<CurrencyCode, string>> = {
 export function formatPrice(eurAmount: number, currency: CurrencyCode): string {
   const rate = RATES[currency]
   if (rate) {
-    const converted = Math.round(eurAmount * rate)
+    const converted = Math.ceil(eurAmount * rate)
     return currency === 'MKD' ? `${converted.toLocaleString('en-US')} ден` : `${converted.toLocaleString('en-US')} ${currency}`
   }
   const symbol = SYMBOLS[currency]
@@ -95,7 +95,7 @@ export function formatPrice(eurAmount: number, currency: CurrencyCode): string {
 /** The actual numeric amount to charge in the given currency (not a display string) — same EUR base, same rate table as formatPrice. */
 export function convertPrice(eurAmount: number, currency: CurrencyCode): number {
   const rate = RATES[currency]
-  return rate ? Math.round(eurAmount * rate) : eurAmount
+  return rate ? Math.ceil(eurAmount * rate) : eurAmount
 }
 
 // Bankart/NLB (the real payment gateway) only has an MKD merchant account —
@@ -116,5 +116,7 @@ const MKD_RATE_FROM_QUOTE: Record<'EUR' | 'USD', number> = {
 
 /** Converts a REAL quoted amount (already EUR or USD from RateHawk, not the app's simulated-EUR convention) to the MKD amount actually charged via Bankart. */
 export function convertQuoteToMKD(amount: number, quoteCurrency: 'EUR' | 'USD'): number {
-  return Math.round(amount * MKD_RATE_FROM_QUOTE[quoteCurrency])
+  // Rounded UP to a whole denar (Ray, 2026-11-13) -- same rule as the
+  // backend's guest prices (Chat lib/pricing.js), so display == charge.
+  return Math.ceil(amount * MKD_RATE_FROM_QUOTE[quoteCurrency])
 }
