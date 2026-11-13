@@ -10,8 +10,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { searchHotels, fetchRealRoomTypes } from '../lib/hotels'
 import { useLang } from '../lib/i18n'
 import { getCurrency, formatPrice, convertPrice, convertQuoteToMKD } from '../lib/currency'
-import type { CurrencyCode, CountryCode } from '../lib/locale'
-import { CountryPickerField } from '../components/CountryPickerField'
+import type { CurrencyCode } from '../lib/locale'
 import { addBooking, createPendingBooking, updateBookingStatus } from '../lib/bookings-store'
 import { syncBookingToSalesforce } from '../lib/salesforce'
 import { activeGateway } from '../lib/payment-gateway'
@@ -259,14 +258,9 @@ export default function BookingScreen() {
   })
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  // Real billing address for the Bankart charge -- added 2026-08-27. Until
-  // this existed, api/create-payment-link.js silently fell back to a
-  // hardcoded Skopje/MK placeholder for every real payment (confirmed by
-  // reading the code; nothing ever populated these fields client-side).
-  const [address1, setAddress1] = useState('')
-  const [city, setCity] = useState('')
-  const [postcode, setPostcode] = useState('')
-  const [country, setCountry] = useState<CountryCode | ''>('')
+  // Billing address is collected on Hristijan's Bankart card page (it has
+  // address/city/postcode/country fields and validates them), so the app no
+  // longer asks for it -- removed 2026-11-13 (Ray).
   const [payState, setPayState] = useState<PayState>('idle')
   // Real progress (0-100) from RateHawk's own booking/finish/status poll --
   // see finishRealBooking's onProgress. Only real-hotel bookings report
@@ -563,17 +557,12 @@ export default function BookingScreen() {
   // there's nothing here for the guest to fill in or for canPay to gate on.
   const isSimulated = activeGateway.id === 'simulated'
   const allGuestNamesFilled = fullName.trim().length > 0 && additionalGuestNames.every(n => n.trim().length > 0)
-  // Address is only meaningful for the real gateway (it's what gets sent to
-  // Bankart) -- the simulated demo gateway never calls create-payment-link
-  // at all, so don't block that path on fields it has no use for.
-  const billingAddressFilled = isSimulated || (!!address1.trim() && !!city.trim() && !!postcode.trim() && !!country)
-  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && billingAddressFilled && payState === 'idle' && lockState === 'held'
+  const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && payState === 'idle' && lockState === 'held'
   // What's still blocking Pay, shown above the button so a disabled button
   // never leaves the guest guessing (same order as handlePay's checks).
   const payBlocker = payState !== 'idle' || lockState !== 'held' ? null
     : !allGuestNamesFilled ? t.booking.enterName
     : !email.trim() ? t.booking.enterEmail
-    : !billingAddressFilled ? t.booking.enterAddress
     : null
   const payLabel = t.booking.payNow + ' ' + formatPrice(grandTotal, bookingCurrency)
   // Taxes the guest pays at the hotel on top of grandTotal (EU price
@@ -737,7 +726,6 @@ export default function BookingScreen() {
 
     if (!allGuestNamesFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterName); return }
     if (!email.trim() || !email.includes('@')) { Alert.alert(t.booking.missingInfo, t.booking.enterEmail); return }
-    if (!billingAddressFilled) { Alert.alert(t.booking.missingInfo, t.booking.enterAddress); return }
 
     // The real gateway needs a Supabase row payment-notify.js can find and
     // update — a guest's pending booking only ever lives in on-device
@@ -870,14 +858,8 @@ export default function BookingScreen() {
       amount,
       currency: payCurrency,
       guest: {
+        // No billing address: the guest enters it on the card page.
         firstName: cardFirstName, lastName: cardLastParts.join(' '), email: email.trim(), phone: phone.trim(),
-        // Real values now (see billingAddressFilled above) -- country must
-        // be uppercase ISO 3166-1 alpha-2, matching the backend's 'MK'
-        // fallback (lib/locale.ts's CountryCode is lowercase).
-        address1: address1.trim(),
-        city: city.trim(),
-        postcode: postcode.trim(),
-        country: country ? country.toUpperCase() : undefined,
       },
       simulateDecline: cardRef.current?.isDeclineDemo() ?? false,
     })
@@ -1139,60 +1121,6 @@ export default function BookingScreen() {
             />
           </Field>
         </View>
-
-        {/* ── Billing address (Bankart requires it -- see PaymentLinkGuest) ── */}
-        {!isSimulated && (
-          <>
-            <Text style={s.sectionTitle}>{t.booking.billingAddress}</Text>
-            <View style={s.fields}>
-              <Field label={t.booking.addressLine1} icon="location-outline">
-                <TextInput
-                  style={s.fieldInput}
-                  value={address1}
-                  onChangeText={setAddress1}
-                  placeholder="Makedonska 1"
-                  placeholderTextColor={Colors.textLight}
-                  autoCapitalize="words"
-                  editable={!busy}
-                  textContentType="streetAddressLine1"
-                  autoComplete="street-address"
-                />
-              </Field>
-              <Field label={t.booking.city} icon="business-outline">
-                <TextInput
-                  style={s.fieldInput}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="Skopje"
-                  placeholderTextColor={Colors.textLight}
-                  autoCapitalize="words"
-                  editable={!busy}
-                  textContentType="addressCity"
-                />
-              </Field>
-              <Field label={t.booking.postcode} icon="mail-open-outline">
-                <TextInput
-                  style={s.fieldInput}
-                  value={postcode}
-                  onChangeText={setPostcode}
-                  placeholder="1000"
-                  placeholderTextColor={Colors.textLight}
-                  editable={!busy}
-                  textContentType="postalCode"
-                />
-              </Field>
-              <Field label={t.booking.country} icon="flag-outline">
-                <CountryPickerField
-                  value={country}
-                  onChange={setCountry}
-                  placeholder={t.booking.selectCountry}
-                  title={t.booking.selectCountry}
-                  disabled={busy}
-                />
-              </Field>
-            </View>
-          </>
-        )}
 
         {/* ── Payment ─────────────────────────────────────────── */}
         <View style={s.payHeader}>
