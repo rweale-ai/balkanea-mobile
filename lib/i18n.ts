@@ -214,6 +214,10 @@ const en = {
     multiRoomUnavailableBody: 'Booking multiple rooms together isn\'t available yet for this hotel\'s live rates. Please book one room now, and a Balkanea agent can help add more rooms to your stay.',
     roomDetailsNeededTitle: 'Who is staying in each room?',
     roomDetailsNeededBody: 'For live prices we need each room’s guests, including children’s ages. Please tell Nea how you’d like to split the rooms and the children’s ages, then choose a room again.',
+
+    multiRoomSameType: 'You are booking {{count}} rooms. Choose one room type and it will be booked for all {{count}} rooms.',
+    bookRooms: 'Book {{count}} rooms',
+    totalForRooms: 'total for {{count}} rooms',
   },
   explore: {
     title: 'Explore',
@@ -607,6 +611,9 @@ const mk: typeof en = {
     multiRoomUnavailableBody: 'Резервација на повеќе соби заедно сè уште не е достапна за живите цени на овој хотел. Резервирајте една соба сега, а агент на Balkanea може да помогне да додадете уште соби.',
     roomDetailsNeededTitle: 'Кој ќе престојува во секоја соба?',
     roomDetailsNeededBody: 'За живи цени ни требаат гостите во секоја соба, вклучително и возраста на децата. Кажете ѝ на Неа како сакате да ги поделите собите и колку години имаат децата, потоа повторно изберете соба.',
+    multiRoomSameType: 'Резервирате {{count}} соби. Изберете еден тип соба и тој ќе биде резервиран за сите {{count}} соби.',
+    bookRooms: 'Резервирај {{count}} соби',
+    totalForRooms: 'вкупно за {{count}} соби',
   },
   explore: {
     title: 'Истражи',
