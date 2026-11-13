@@ -20,7 +20,7 @@ import type { CountryCode, CurrencyCode } from '../../lib/locale'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getUser, signOut } from '../../lib/auth'
 import { useLang } from '../../lib/i18n'
-import { useCurrency, formatPrice } from '../../lib/currency'
+import { useCurrency, formatPrice, getCurrency } from '../../lib/currency'
 import { setResidency } from '../../lib/residency'
 import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
@@ -391,8 +391,13 @@ export default function SearchScreen() {
       // hotel DB's price_per_night) are always EUR-denominated internally
       // regardless of display currency, so overriding just the label
       // here is safe -- it doesn't change what got searched or filtered.
-      const hotelsWithRealCurrency = response.hotels.map(h => ({ ...h, currency }))
-      const searchParamsWithRealCurrency = { ...response.searchParams, currency }
+      // getCurrency(), not the `currency` state: handleSend is memoized
+      // without it, so on a fresh launch the closure still held the
+      // pre-load default 'EUR' and the first Nea search after reopening
+      // the app showed euros everywhere to an MKD guest (2026-11-13).
+      const selectedCurrency = getCurrency()
+      const hotelsWithRealCurrency = response.hotels.map(h => ({ ...h, currency: selectedCurrency }))
+      const searchParamsWithRealCurrency = { ...response.searchParams, currency: selectedCurrency }
       blocks.push({ type: 'text', content: response.content })
       blocks.push({
         type: 'hotel-list',
