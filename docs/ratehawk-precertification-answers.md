@@ -48,9 +48,8 @@ keep enough prepaid balance with RateHawk for production bookings.
   charge. The price is fixed from the hold through payment. So scenario 4
   (Rosa Bell +10%) applies — verified 2026-09-29: quote EUR 211 → locked
   231.99, `price_changed: true`. The website sends no percentage (unchanged).
-- **Prebook timeout:** within ETG's 60 s. Sandbox requests allow 55 s
-  (measured 8–39 s); production requests 12 s **[code]** — 12 s is tight
-  for prebook in production; consider raising **[DECISION]**.
+- **Prebook timeout:** within ETG's 60 s. We allow **55 s** in every
+  environment (sandbox measured 8–39 s) **[code]**.
 - **Multiroom:** supported, several rooms in ONE rate/`book_hash` (same
   room type for all rooms) **[code]**.
 - **Children:** supported with ages; the app asks ages before pricing **[code]**.
@@ -165,9 +164,9 @@ settles the hold within 20 minutes, the Bankart plugin voids it automatically.
   `/booking/finish/` only starts the status polling.
 - **Webhook:** none registered. We rely on status polling **[code]**.
 - **Booking timeouts:**
-  - Each RateHawk request: 45 s in the sandbox, 12 s in production **[code]**.
-    12 s is tight for `finish` in production, and we suggest raising it to
-    45 s **[DECISION]**.
+  - Booking requests (`form`, `finish`, `cancel`, `order/info`): **45 s** in
+    every environment; each status poll: 12 s **[code]** (balkanea-lead-webhook
+    #25, 2026-11-16).
   - Status polling: every 5 s for up to 45 attempts, so **expected 90–140 s
     and maximum 225 s** in the app **[code]**. After that, the guest sees
     "still waiting for the hotel; your card has a hold, not a charge", and
