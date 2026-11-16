@@ -133,3 +133,113 @@ These ran against api-sandbox.worldota.net with key 973, using the 5-step flow: 
 | Unknown error, then book_limit | 100072093 | failed with `book_limit` (expected) |
 
 On 9/28 the Monaco and book_limit cases failed with `rate_not_found`. That was a temporary sandbox problem, and they pass on this rerun.
+
+## 11. Booking step (drafted 2026-11-16 from the code on main)
+
+Order of calls in the app: `prebook` (when the booking screen opens) →
+`order/booking/form/` (when the guest taps Pay, before any charge) → guest
+pays on Balkanea's Bankart card page, which places a **hold** on the card
+(preauthorize; nothing is captured yet) → `order/booking/finish/` → poll
+`order/booking/finish/status/` → when RateHawk's answer is final, the backend
+**captures** the hold (`ok`) or **voids** it (any final error). If nothing
+settles the hold within 20 minutes, the Bankart plugin voids it automatically.
+
+- **Single success signal:** `status: "ok"` from
+  `/order/booking/finish/status/`, and nothing else **[code]**
+  (`Chat/lib/ratehawk.js` `getBookingStatus`; capture happens in
+  `api/ratehawk-book-status` → `settleForOrder`). An `ok` from
+  `/booking/finish/` only starts the status polling.
+- **Webhook:** none registered. We rely on status polling **[code]**.
+- **Booking timeouts:**
+  - Each RateHawk request: 45 s in the sandbox, 12 s in production **[code]**.
+    12 s is tight for `finish` in production, and we suggest raising it to
+    45 s **[DECISION]**.
+  - Status polling: every 5 s for up to 45 attempts, so **expected 90–140 s
+    and maximum 225 s** in the app **[code]**. After that, the guest sees
+    "still waiting for the hotel; your card has a hold, not a charge".
+- **`user.email` on `/booking/finish/`:** a Balkanea business address, not
+  the guest's (`BUSINESS_TEAM_EMAIL` in `Chat/api/ratehawk-book.js`, currently
+  rweale@marraglobal.com) **[code]**. Before production this should change to
+  a Balkanea operations inbox **[DECISION]**. The guest receives Balkanea's
+  own confirmation email with the RateHawk voucher attached.
+
+### Error-handling matrix
+
+"Hold" = the guest's card authorization. The guest is never charged unless
+RateHawk returns `ok`.
+
+**`/order/booking/finish/`**
+
+| Response | Backend logic | Guest sees |
+|---|---|---|
+| `ok` | Start polling `/finish/status/` | "Confirming with the hotel…" progress bar |
+| 5xx | Treated as "outcome not known": continue to status polling, no failure reported | Progress bar |
+| `timeout` | Same as 5xx: continue to status polling | Progress bar |
+| `unknown` | Same as 5xx: continue to status polling | Progress bar |
+| `booking_form_expired` | Final: the order was not created | ⚠️ GAP: "still waiting for the hotel… hold released automatically" until the 20-minute auto-void. See note A |
+| `rate_not_found` | Final: the order was not created | ⚠️ Same GAP as above |
+| `return_path_required` | Final: the order was not created (we never use 3-D Secure at RateHawk, so this is not expected) | ⚠️ Same GAP as above |
+
+**`/order/booking/finish/status/`**
+
+| Response | Backend logic | Guest sees |
+|---|---|---|
+| `ok` | **Final success.** Capture the hold, save the RateHawk order id, send the voucher email | "Booking confirmed!" with the confirmation code and hotel reference |
+| `processing` | Keep polling every 5 s (progress percent is shown) | Progress bar |
+| `timeout` | Not final: keep polling | Progress bar |
+| `unknown` | Not final: keep polling | Progress bar |
+| 5xx | Not final: keep polling (one failed check never ends the wait) | Progress bar |
+| `block` | Final failure: void the hold | "The hotel could not confirm this room, so your card was not charged. The temporary hold has been released." |
+| `charge` | Final failure: void the hold | Same as `block` |
+| `3ds` | Final failure: void the hold | Same as `block` |
+| `soldout` | Final failure: void the hold | Same as `block` (verified with test case 6) |
+| `provider` | Final failure: void the hold | Same as `block` |
+| `book_limit` | Final failure: void the hold | Same as `block`. ⚠️ See note B: in the sandbox this arrives after about 15 minutes, past the app's 225 s poll |
+| `not_allowed` | Final failure: void the hold | Same as `block` |
+| `booking_finish_did_not_succeed` | Final failure: void the hold | Same as `block` |
+
+**Note A (gap, fix proposed):** when `/booking/finish/` returns a final error,
+the app currently stops without polling, so nothing voids the hold. The guest
+sees "still waiting" and the hold is released only by the 20-minute auto-void.
+Proposed fix: on a final finish error, the backend voids the hold at once and
+the app shows the "not charged" message. Any other 4xx from finish (for
+example `invalid_params`, seen 2026-11-13 because of digits in a child's name,
+which is now prevented) should be handled the same way.
+
+**Note B (gap, fix proposed):** the hold is captured or voided only when
+someone polls `/finish/status/`. If the app stops after 225 s (`book_limit`
+takes about 15 minutes in the sandbox) or the guest closes the app, nobody
+polls. The 20-minute auto-void then releases the hold even if RateHawk
+confirms later, which would leave a confirmed hotel booking with no payment.
+Proposed fix: a backend job (Vercel cron, every minute) polls
+`/finish/status/` for every booking whose hold is still open and settles it,
+so the result no longer depends on the app staying open.
+
+## 12. Post-booking
+
+- **`/order/info/`:** integrated, but **not** used in the booking flow
+  **[code]**. It is used only by the ops dashboard's on-demand "RateHawk
+  sync" (`Chat/api/admin-bookings.js`, action `ratehawk_sync`) to compare
+  our bookings with RateHawk's records (status, cancellation, amount).
+  It runs on demand, after booking, and no minimum delay is enforced because
+  it is only run by hand.
+- **Documents:** voucher and invoice from
+  `order/document/voucher/download/` and `order/document/info_invoice/download/`,
+  retried for about 35 s after confirmation (they generate asynchronously),
+  then emailed to the guest. The voucher can also be opened from the booking
+  in the app **[code]**.
+- **Cancellation:** `/order/cancel/` from the app's booking screen (signed-in
+  owner only). The booking is marked **refund due** and ops refund the card in
+  Bankart by hand, using the penalty RateHawk returns **[code]**.
+
+## 12a. 2026-11-13 app bookings (iPhone, TestFlight, sandbox)
+
+| Test | partner_order_id | RateHawk order | Result |
+|---|---|---|---|
+| 1 room, 2 adults (Conrad LA) | pay_pbef2583a701d46379bba93c | 100106609 | completed; hold captured |
+| 2 rooms, same type, children 3 / 1, 2, 17 (Conrad LA) | pay_pc7faf43acced41eda810a03 | 100107135 | completed; hold captured |
+
+Note on the partner_order_id: in the app it is `pay_` followed by 24
+characters, and it is also the Bankart payment reference. Test cases 5–7 use
+special suffixes the app cannot produce, so they were run by script (see the
+11/13 run in the memory and §10).
