@@ -13,6 +13,7 @@ import {
 import type { Booking } from '../../lib/types'
 import { useLang } from '../../lib/i18n'
 import { cancellationTermsText } from '../../lib/cancellation'
+import { formatChargedAmount } from '../../lib/currency'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 
 function formatDate(iso: string): string {
@@ -97,7 +98,7 @@ function TripCard({
           <View style={tripStyles.infoLeft}>
             <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
             <Text style={tripStyles.infoText}>
-              {formatDate(booking.checkin)} – {formatDate(booking.checkout)} · {nights}{nights === 1 ? ' night' : ' nights'}
+              {formatDate(booking.checkin)} – {formatDate(booking.checkout)} · {nights}{nights === 1 ? ' night' : ' nights'}{(booking.rooms ?? 1) > 1 ? ` · ${booking.rooms} ${t.bookingDetail.rooms}` : ''}
             </Text>
           </View>
           <View style={tripStyles.confirmPill}>
@@ -105,7 +106,7 @@ function TripCard({
           </View>
         </View>
         <View style={tripStyles.priceRow}>
-          <Text style={tripStyles.price}>{currencySymbol}{booking.total_price.toLocaleString()}</Text>
+          <Text style={tripStyles.price}>{formatChargedAmount(booking.total_price, booking.currency)}</Text>
           {booking.status === 'confirmed' && (
             <TouchableOpacity
               style={tripStyles.cancelBtn}
@@ -324,7 +325,7 @@ function BookingCard({
             <Text style={styles.confirmText}>{booking.confirmation_code}</Text>
           </View>
           <Text style={styles.price}>
-            {booking.currency === 'EUR' ? '€' : booking.currency} {booking.total_price.toLocaleString()}
+            {formatChargedAmount(booking.total_price, booking.currency)}
           </Text>
         </View>
 

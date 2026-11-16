@@ -92,6 +92,19 @@ export function formatPrice(eurAmount: number, currency: CurrencyCode): string {
   return symbol ? `${symbol}${eurAmount}` : `${eurAmount} ${currency}`
 }
 
+/**
+ * Formats an amount that is ALREADY in `currency` -- a saved booking's
+ * total_price is the amount actually charged, in booking.currency (MKD for
+ * every real Bankart payment). Never converts. Rounds up to a whole unit
+ * like every other guest price. Use formatPrice only for EUR-base prices.
+ */
+export function formatChargedAmount(amount: number, currency: string): string {
+  const whole = Math.ceil(amount).toLocaleString('en-US')
+  if (currency === 'MKD') return `${whole} ден`
+  const symbol = SYMBOLS[currency as CurrencyCode]
+  return symbol ? `${symbol}${whole}` : `${whole} ${currency}`
+}
+
 /** The actual numeric amount to charge in the given currency (not a display string) — same EUR base, same rate table as formatPrice. */
 export function convertPrice(eurAmount: number, currency: CurrencyCode): number {
   const rate = RATES[currency]
