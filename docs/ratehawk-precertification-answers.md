@@ -241,5 +241,18 @@ so the result no longer depends on the app staying open.
 
 Note on the partner_order_id: in the app it is `pay_` followed by 24
 characters, and it is also the Bankart payment reference. Test cases 5–7 use
-special suffixes the app cannot produce, so they were run by script (see the
-11/13 run in the memory and §10).
+special suffixes the app cannot produce, so they were run by script.
+
+## 12b. Latest script run of all 7 test cases (2026-11-13, sandbox key 973)
+
+These are the partner_order_ids to submit.
+
+| Test case | partner_order_id | Order | Result |
+|---|---|---|---|
+| Multi-room | balkanea-cert-1794579189397-multiroom | 100106561 | ok |
+| Children, Monaco residency | balkanea-cert-1794579344443-children | 100106563 | ok |
+| Uzbekistan residency | balkanea-cert-1794579437544-uzbekistan | 100106565 | ok |
+| Prebook +10% (Rosa Bell) | balkanea-cert-1794579531349-priceincrease | 100106567 | ok |
+| unknown, then success | balkanea-cert-1794579624156-unknown_success | 100106569 | ok |
+| unknown, then soldout | balkanea-cert-1794579675727-unknown_soldout | 100106573 | soldout (expected) |
+| unknown ×2, then book_limit | balkanea-cert-1794579727083-unknown_book_limit | 100106575 | book_limit (expected; confirmed by a later status check) |
