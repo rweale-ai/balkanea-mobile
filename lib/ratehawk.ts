@@ -272,6 +272,9 @@ export async function finishRealBooking(params: {
     }),
   })
   const data = await res.json()
+  // RateHawk never created the order (final finish error): the backend has
+  // already released the hold, so this is final -> "not charged" (2026-11-16).
+  if (!data.success && data.final) return { ok: false, final: true, paymentState: data.payment?.payment_state }
   // Our backend's own "Could not confirm" -- not RateHawk's final word, so
   // not final: the status poll/settle decides what happens to the payment.
   if (!data.success) return { ok: false, final: false }
