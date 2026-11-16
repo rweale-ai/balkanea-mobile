@@ -156,7 +156,9 @@ settles the hold within 20 minutes, the Bankart plugin voids it automatically.
     45 s **[DECISION]**.
   - Status polling: every 5 s for up to 45 attempts, so **expected 90–140 s
     and maximum 225 s** in the app **[code]**. After that, the guest sees
-    "still waiting for the hotel; your card has a hold, not a charge".
+    "still waiting for the hotel; your card has a hold, not a charge", and
+    the backend job keeps checking every minute until 20 minutes after payment
+    (note B).
 - **`user.email` on `/booking/finish/`:** a Balkanea business address, not
   the guest's (`BUSINESS_TEAM_EMAIL` in `Chat/api/ratehawk-book.js`, currently
   rweale@marraglobal.com) **[code]**. Before production this should change to
@@ -176,9 +178,9 @@ RateHawk returns `ok`.
 | 5xx | Treated as "outcome not known": continue to status polling, no failure reported | Progress bar |
 | `timeout` | Same as 5xx: continue to status polling | Progress bar |
 | `unknown` | Same as 5xx: continue to status polling | Progress bar |
-| `booking_form_expired` | Final: the order was not created | ⚠️ GAP: "still waiting for the hotel… hold released automatically" until the 20-minute auto-void. See note A |
-| `rate_not_found` | Final: the order was not created | ⚠️ Same GAP as above |
-| `return_path_required` | Final: the order was not created (we never use 3-D Secure at RateHawk, so this is not expected) | ⚠️ Same GAP as above |
+| `booking_form_expired` | Final: the order was not created. Void the hold at once | "The hotel could not confirm this room, so your card was not charged. The temporary hold has been released." |
+| `rate_not_found` | Final: the order was not created. Void the hold at once | Same as `booking_form_expired` |
+| `return_path_required` | Final: the order was not created (we never use 3-D Secure at RateHawk, so this is not expected). Void the hold at once | Same as `booking_form_expired` |
 
 **`/order/booking/finish/status/`**
 
@@ -194,26 +196,33 @@ RateHawk returns `ok`.
 | `3ds` | Final failure: void the hold | Same as `block` |
 | `soldout` | Final failure: void the hold | Same as `block` (verified with test case 6) |
 | `provider` | Final failure: void the hold | Same as `block` |
-| `book_limit` | Final failure: void the hold | Same as `block`. ⚠️ See note B: in the sandbox this arrives after about 15 minutes, past the app's 225 s poll |
+| `book_limit` | Final failure: void the hold | Same as `block`. In the sandbox this arrives after about 15 minutes, past the app's 225 s poll; the background job (note B) voids the hold then |
 | `not_allowed` | Final failure: void the hold | Same as `block` |
 | `booking_finish_did_not_succeed` | Final failure: void the hold | Same as `block` |
 
-**Note A (gap, fix proposed):** when `/booking/finish/` returns a final error,
-the app currently stops without polling, so nothing voids the hold. The guest
-sees "still waiting" and the hold is released only by the 20-minute auto-void.
-Proposed fix: on a final finish error, the backend voids the hold at once and
-the app shows the "not charged" message. Any other 4xx from finish (for
-example `invalid_params`, seen 2026-11-13 because of digits in a child's name,
-which is now prevented) should be handled the same way.
+**Note A (fixed 2026-11-16):** a final `/booking/finish/` error
+(`booking_form_expired`, `rate_not_found`, `return_path_required`, and
+`invalid_params`, which means the order was not created) voids the hold at
+once, and the app shows "not charged" (balkanea-lead-webhook #24, Mobile #22).
 
-**Note B (gap, fix proposed):** the hold is captured or voided only when
-someone polls `/finish/status/`. If the app stops after 225 s (`book_limit`
-takes about 15 minutes in the sandbox) or the guest closes the app, nobody
-polls. The 20-minute auto-void then releases the hold even if RateHawk
-confirms later, which would leave a confirmed hotel booking with no payment.
-Proposed fix: a backend job (Vercel cron, every minute) polls
-`/finish/status/` for every booking whose hold is still open and settles it,
-so the result no longer depends on the app staying open.
+**Note B (fixed 2026-11-16):** the hold no longer depends on the app staying
+open. A backend job (`api/settle-holds.js`, Vercel cron every minute) checks
+every hold that is still open 6 minutes after authorization, using
+`/finish/status/`:
+- `ok`: capture the hold, save the order id (`/order/info/`), and email the
+  voucher.
+- Final error: void the hold.
+- No order after 12 minutes (the app closed before finish): void the hold.
+- Still processing at 17 minutes: alert ops, because the hold auto-voids at
+  20 minutes.
+
+Verified 2026-11-16: the guest paid and closed the app on "Confirming". The
+job saw `ok` 6 minutes later and captured the hold (pay_pf66282af4e54474a8c1cad9,
+order 100108703).
+
+Remaining edge case: if RateHawk confirms after the 20-minute auto-void, the
+payment cannot be captured. Ops get the 17-minute alert and either send a new
+payment link or cancel the order.
 
 ## 12. Post-booking
 
