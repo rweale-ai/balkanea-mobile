@@ -35,7 +35,8 @@ residency (see §4).
 ## 3. Payment type
 Form returns `payment_types[0]`; sandbox returns `deposit` and the app uses
 it **[code]**. Balkanea charges the guest itself via Bankart, so this is the
-B2B deposit model — confirm with RateHawk **[DECISION]**.
+B2B deposit model. **Answer: `deposit`** (Ray, 2026-11-16). Balkanea must
+keep enough prepaid balance with RateHawk for production bookings.
 
 ## 4. Search step
 - **match_hash:** not used; prebook uses the rate's `book_hash` **[code]**.
@@ -60,20 +61,33 @@ B2B deposit model — confirm with RateHawk **[DECISION]**.
   Balkans + a few markets).
 - **Search timeouts:** 12 s per RateHawk call (sandbox order steps 45–55 s) **[code]**.
 - **Final price field:** `payment_options.payment_types[0].show_amount` **[code]**.
-- **Commission:** which side calculates it **[DECISION]**.
+- **Commission:** **Balkanea's side** (Ray, 2026-11-16). We take RateHawk's
+  price and add Balkanea's own markup (5%, `Chat/lib/pricing.js`) **[code]**.
 - **Rate name field:** `room_name` from the search step **[code]**
   (`room_data_trans.main_name` used only as a grouping fallback).
 
 ## 5. RPM (expected requests per minute)
 `/serp/hotels`, `/serp/region`, `/serp/geo`, `/search/hp`, `/hotel/prebook`,
-`/serp/prebook` — **[DECISION]**. For reference, sandbox limits seen on the
+`/serp/prebook`. **Answer (Ray, 2026-11-16), expected at launch:**
+
+| Endpoint | Expected RPM |
+|---|---|
+| `/search/serp/hotels/` | 30 |
+| `/search/serp/region/` | 30 |
+| `/search/serp/geo/` | not used |
+| `/search/hp/` | 60 |
+| `/hotel/prebook/` | 10 |
+| `/search/serp/prebook/` | not used |
+
+For reference, sandbox limits seen on the
 key: order endpoints 30 per 60 s; dumps 100 per day; content 30 per 60 s.
 
 ## 6. Static data
 - **Sync method:** `hotel/info/dump/` for the initial load plus
   `hotel/info/incremental_dump/` for updates
   (`Mobile/supabase-hotels/scripts/import_hotels_incremental.js`) **[code]**;
-  update frequency (daily?) **[DECISION]**. Production DB: ~3.48M hotels / 18.5M
+  update frequency **daily** (incremental dump; full dump when needed) (Ray,
+  2026-11-16). Production DB: ~3.48M hotels / 18.5M
   rooms (balkanea_hotels_poc_v2); sandbox: 742 hotels.
 - **Regions:** resolved live with `search/multicomplete/` (production); a
   `region_names` lookup table serves typeahead **[code]**.
