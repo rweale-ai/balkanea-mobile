@@ -172,11 +172,10 @@ settles the hold within 20 minutes, the Bankart plugin voids it automatically.
     "still waiting for the hotel; your card has a hold, not a charge", and
     the backend job keeps checking every minute until 20 minutes after payment
     (note B).
-- **`user.email` on `/booking/finish/`:** a Balkanea business address, not
-  the guest's (`BUSINESS_TEAM_EMAIL` in `Chat/api/ratehawk-book.js`, currently
-  rweale@marraglobal.com) **[code]**. Before production this should change to
-  a Balkanea operations inbox **[DECISION]**. The guest receives Balkanea's
-  own confirmation email with the RateHawk voucher attached.
+- **`user.email` on `/booking/finish/`:** admin@balkanea.com, Balkanea's
+  shared business inbox, never the guest's (`RATEHAWK_USER_EMAIL` in
+  `Chat/api/ratehawk-book.js`, decided 2026-11-17) **[code]**. The guest
+  receives Balkanea's own confirmation email with the RateHawk voucher attached.
 
 ### Error-handling matrix
 
