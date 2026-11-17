@@ -20,6 +20,9 @@ import { pollBookingPaymentState } from '../lib/payment-status'
 import { lockRoom, reconfirmBooking, realLockRoom, createRealBookingForm, finishRealBooking, settleHeldPayment, sendBookingConfirmationEmails } from '../lib/ratehawk'
 import type { RoomLock, RealBookingForm } from '../lib/ratehawk'
 import { PaymentWebView } from '../components/PaymentWebView'
+import { PhoneNumberField } from '../components/PhoneNumberField'
+import { toInternational, PHONE_COUNTRIES } from '../lib/phone-countries'
+import { getResidency } from '../lib/residency'
 import { PLACEHOLDER_CHECKOUT_URL } from '../lib/payment-link'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../constants/theme'
 import type { Hotel, RoomType, Booking } from '../lib/types'
@@ -257,7 +260,14 @@ export default function BookingScreen() {
     }
   })
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  // Phone = country code picker + local number; `phone` is the joined
+  // international form ("+389 70123456") everything downstream receives.
+  const [phoneIso, setPhoneIso] = useState(() => {
+    const r = getResidency()
+    return PHONE_COUNTRIES.some(c => c.iso === r) ? r : 'mk'
+  })
+  const [phoneLocal, setPhoneLocal] = useState('')
+  const phone = useMemo(() => toInternational(phoneIso, phoneLocal), [phoneIso, phoneLocal])
   // Billing address is collected on Hristijan's Bankart card page (it has
   // address/city/postcode/country fields and validates them), so the app no
   // longer asks for it -- removed 2026-11-13 (Ray).
@@ -1106,18 +1116,15 @@ export default function BookingScreen() {
             />
           </Field>
           <Field label={t.booking.phoneNumber} icon="call-outline">
-            <TextInput
-              style={s.fieldInput}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+389 70 123 456"
-              placeholderTextColor={Colors.textLight}
-              keyboardType="phone-pad"
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
+            <PhoneNumberField
+              iso={phoneIso}
+              local={phoneLocal}
+              onChangeIso={setPhoneIso}
+              onChangeLocal={setPhoneLocal}
+              placeholder="70 123 456"
+              title={t.booking.phoneCountryTitle}
+              searchPlaceholder={t.booking.phoneCountrySearch}
               editable={!busy}
-              textContentType="telephoneNumber"
-              autoComplete="tel"
             />
           </Field>
         </View>
