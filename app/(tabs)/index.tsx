@@ -26,7 +26,7 @@ import { setGuestMode } from '../../lib/guest'
 import { Colors, Spacing, Radius, Typography, Shadows, Gradients } from '../../constants/theme'
 import { formatGuestRating } from '../../lib/hotels'
 
-const BALKANEA_PHONE = '+38923100200'
+const BALKANEA_PHONE = '+38970383767'
 
 // ── Nea avatar icon ────────────────────────────────────────────────
 function NeaIcon({ size = 17 }: { size?: number }) {
