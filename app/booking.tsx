@@ -566,7 +566,11 @@ export default function BookingScreen() {
   // real gateway collects the card on Bankart's own WebView page, so
   // there's nothing here for the guest to fill in or for canPay to gate on.
   const isSimulated = activeGateway.id === 'simulated'
-  const allGuestNamesFilled = fullName.trim().length > 0 && additionalGuestNames.every(n => n.trim().length > 0)
+  // RateHawk passes first and last name to the hotel; a single word would
+  // reach the hotel as "<name> Guest" (lib/ratehawk.ts splitName), so every
+  // room's lead guest needs at least two words.
+  const hasFirstAndLast = (n: string) => /\S+\s+\S+/.test(n.trim())
+  const allGuestNamesFilled = hasFirstAndLast(fullName) && additionalGuestNames.every(hasFirstAndLast)
   const canPay = (!isSimulated || cardReady) && allGuestNamesFilled && !!email.trim() && payState === 'idle' && lockState === 'held'
   // What's still blocking Pay, shown above the button so a disabled button
   // never leaves the guest guessing (same order as handlePay's checks).
