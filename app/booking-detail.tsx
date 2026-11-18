@@ -19,7 +19,7 @@ import type { Booking, HotelSearchParams } from '../lib/types'
 import { NeaBottomSheet } from '../components/hotel/NeaBottomSheet'
 import { ItineraryTopicSheet, type ItineraryTopic } from '../components/trip/ItineraryTopicSheet'
 
-const BALKANEA_PHONE = '+38923100200'
+const BALKANEA_PHONE = '+38970383767'
 
 // ── Helpers ────────────────────────────────────────────────────────
 
